@@ -1,0 +1,25 @@
+SECL (SUPREME ETERNITY CRAFT LAUNCHER), development preview 0.1.0
+Copyright (C) 2026 ppm203.
+
+Derived from Mercury MC Launcher (M²CL), original author ppm203.
+The core has been ported from Qt APIs to C++17, libcurl, zlib, platform security
+APIs, nlohmann/json and TinyXML2; the shell uses Flutter 3.19.6.
+Modified on 2026-10-31. Offline accounts and offline skin injection are excluded.
+This is a distinct experimental project, not a continuation of the M²CL release.
+Covered original and new code: GPL-3.0-only, with ADDITIONAL_TERMS.md applying to
+covered material. No warranty; see LICENSE sections 15 and 16.
+
+Third-party material retains its own license:
+- nlohmann/json 3.11.3: MIT, core/third_party/JSON-LICENSE.MIT
+- TinyXML2 10.0.0: zlib, core/third_party/TINYXML2-LICENSE.txt
+- QuiltMC incompatibility data: core/src/quilt-compatibility.inc, from the
+  QuiltMC/quiltmc.org incompatible-mods data; factual advisory data with source
+  attribution. An ID match does not prove a particular file is incompatible.
+- Flutter/Dart and file_selector/ffi: their respective upstream license notices
+  are available through Flutter's license registry and pubspec.lock.
+- libcurl, zlib, and Linux OpenSSL/libsecret are external native dependencies;
+  keep their notices with distributions that bundle them.
+- Original AI-generated cover: docs/artwork.md. No Minecraft artwork bundled.
+
+Unofficial project. Not approved by or associated with Mojang or Microsoft.
+Minecraft is a trademark of Mojang Synergies AB. No game files are included.
