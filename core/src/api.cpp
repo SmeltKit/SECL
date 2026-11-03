@@ -4,6 +4,8 @@
 #include "solar/api.h"
 #include "solar/core.hpp"
 #include "solar/engine.hpp"
+#include "solar/accounts.hpp"
+#include <map>
 #include <cstring>
 #include <fstream>
 #include <mutex>
@@ -30,11 +32,15 @@ class Core {
     std::thread login_thread_;
     std::atomic_bool cancelled_{false};
     Identity identity_;
+    std::map<std::string,Identity> sessions_;
+    Json accounts_=Json::array();
+    std::string selected_account_;
+    bool accounts_readable_=true;
     Json state_ = {{"busy", false},        {"stage", "idle"},           {"error", nullptr},
                    {"account", nullptr},   {"versions", Json::array()}, {"javas", Json::array()},
                    {"game_running", false}};
     std::int64_t game_ = 0;
-    std::string root_ = default_game_root(), client_, java_, language_ = "system", source_ = "auto";
+    std::string root_ = default_game_root(), client_, java_, language_ = "system", source_ = "auto", appearance_="system", tone_="blue";
     void stage(const std::string &s) {
         std::lock_guard<std::mutex> g(state_mutex_);
         state_["stage"] = s;
@@ -46,7 +52,21 @@ class Core {
         state_["stage"] = "error";
     }
     Json installed_javas(const std::string &extra = "", const fs::path &game_root = {}) {
-        auto result = detect_javas(extra.empty() ? java_ : extra);
+        auto result = engine::java_catalog(Json::object(), {});
+        auto extra_runtime=engine::probe_java(fs::u8path(extra.empty()?java_:extra));
+        if(!extra_runtime.is_null() && std::none_of(result.begin(),result.end(),[&](const Json &j){return j.at("path")==extra_runtime.at("path");}))result.push_back(extra_runtime);
+        auto version_dir=(game_root.empty()?fs::u8path(root_):game_root)/"versions";
+        if(fs::is_directory(version_dir))for(auto &entry:fs::directory_iterator(version_dir)) {
+            if(!entry.is_directory()||entry.is_symlink())continue;
+            try {
+                auto choice=engine::load_instance_settings(entry.path()).value("java",Json::object());
+                if(choice.value("mode","auto")!="fixed")continue;
+                auto path=choice.value("path","");
+                if(path.empty()||std::any_of(result.begin(),result.end(),[&](const Json &j){return j.value("path","")==path;}))continue;
+                auto runtime=engine::probe_java(fs::u8path(path));
+                if(!runtime.is_null()&&std::none_of(result.begin(),result.end(),[&](const Json &j){return j.at("path")==runtime.at("path");}))result.push_back(runtime);
+            }catch(const Error&){}
+        }
         auto managed = engine::scan_java(
             {fs::u8path(user_data_root()) / "java-managed",
              (game_root.empty() ? fs::u8path(root_) : game_root) / "runtime"},
@@ -60,7 +80,7 @@ class Core {
         return result;
     }
     void save() {
-        Json config{{"client_id", client_}, {"game_root", root_}, {"java", java_}, {"language", language_}, {"download_source", source_}};
+        Json config{{"client_id", client_}, {"game_root", root_}, {"java", java_}, {"language", language_}, {"download_source", source_},{"appearance",appearance_},{"tone",tone_}};
         auto dir = fs::u8path(user_data_root());
         fs::create_directories(dir);
         auto file = dir / "settings.json";
@@ -88,7 +108,96 @@ class Core {
         if (state_["stage"] != "error")
             state_["stage"] = "idle";
     }
-    void login(const std::string &locale) {
+    Json account_view(const Identity &session) const {
+        return {{"id","microsoft:"+session.uuid},{"name",session.name},{"uuid",session.uuid},
+                {"owned",true},{"skin_url",session.skin_url}};
+    }
+    void publish_accounts() {
+        Json visible=Json::array();
+        for(auto record:accounts_) if(record.value("client_id","")==client_) {
+            auto it=sessions_.find(record.value("id",""));
+            record["needs_login"]=it==sessions_.end() || it->second.expires<=now()+90;
+            visible.push_back(record);
+        }
+        state_["accounts"]=visible; state_["selected_account"]=selected_account_;
+    }
+    CredentialVault vault(const std::string &client) const {
+        return CredentialVault(credential_namespace(fs::u8path(user_data_root()))+"."+client);
+    }
+    void commit_account(Identity session,bool remember) {
+        const auto key="microsoft:"+session.uuid;
+        Json previous;
+        for(auto &record:accounts_)if(record.value("id","")==key)previous=record;
+        Json warning=nullptr;
+        bool remembered=false;
+        try {
+            if(remember) {
+                if(!accounts_readable_)throw Error("accounts","invalid_store","账号文件无法读取，本次仅使用当前会话。");
+                if(session.refresh_token.empty())throw Error("accounts","refresh_missing","未收到刷新凭据，本次仅使用当前会话。请重新登录并授权记住登录。");
+                vault(session.client_id).write(key,session.refresh_token);remembered=true;
+            } else if(!previous.is_null()&&previous.value("remembered",false))vault(previous.value("client_id",session.client_id)).remove(key);
+        } catch(const Error &error){warning=error.json();}
+        Json record={{"id",key},{"type","microsoft"},{"uuid",session.uuid},{"name",session.name},
+                     {"client_id",session.client_id},{"skin_url",session.skin_url},{"remembered",remembered},{"needs_login",false}};
+        auto next=accounts_;bool found=false;
+        for(auto &entry:next)if(entry.value("id","")==key){entry=record;found=true;}
+        if(!found)next.push_back(record);
+        try {
+            if(!accounts_readable_)throw Error("accounts","invalid_store","账号文件无法读取，未覆盖原文件；当前会话仍可使用。");
+            save_accounts(fs::u8path(user_data_root()),next,key);
+        } catch(const Error &error){warning=error.json();if(remembered){try{vault(session.client_id).remove(key);}catch(...){}for(auto &entry:next)if(entry.value("id","")==key)entry["remembered"]=false;}}
+        std::lock_guard<std::mutex> g(state_mutex_);
+        accounts_=next;selected_account_=key;sessions_[key]=session;identity_=session;
+        state_["account"]=account_view(session);state_["account_warning"]=warning;
+        state_["stage"]="ready";state_["busy"]=false;state_["error"]=nullptr;publish_accounts();
+    }
+    Identity refresh_account(const Json &record) {
+        auto client=record.value("client_id","");
+        if(client!=client_)throw Error("accounts","wrong_client","此账号属于其他应用身份，请重新登录。");
+        auto secret=vault(client).read(record.at("id"));
+        auto session=authenticate_refresh(client,secret,[this](const std::string &url,const std::string &body,const std::string &token,const std::string &type){
+            if(cancelled_)throw Error("login","cancelled","登录已取消。");
+            return https_request(url,body,token,type);
+        },[this](std::string step){stage(step);});
+        if(session.uuid!=record.at("uuid"))throw Error("accounts","identity_changed","刷新结果与所选账号不一致，请重新登录。");
+        return session;
+    }
+    void select_account(const std::string &id,bool restore=false) {
+        cancel();Json record;
+        for(auto &entry:accounts_)if(entry.value("id","")==id&&entry.value("client_id","")==client_)record=entry;
+        if(record.is_null()){if(restore)return;throw Error("accounts","missing_account","未找到此微软账号。");}
+        if(!restore){save_accounts(fs::u8path(user_data_root()),accounts_,id);selected_account_=id;}
+        auto existing=sessions_.find(id);
+        if(existing!=sessions_.end()&&existing->second.expires>now()+90){
+            std::lock_guard<std::mutex> g(state_mutex_);identity_=existing->second;state_["account"]=account_view(identity_);state_["error"]=nullptr;publish_accounts();
+            return;
+        }
+        {std::lock_guard<std::mutex> g(state_mutex_);identity_={};state_["account"]=nullptr;publish_accounts();}
+        if(!record.value("remembered",false)) {
+            if(!restore)throw Error("accounts","login_required","此账号需要重新登录。");
+            return;
+        }
+        cancelled_=false;{std::lock_guard<std::mutex> g(state_mutex_);state_["busy"]=true;state_["stage"]="microsoft";state_["error"]=nullptr;}
+        login_thread_=std::thread([this,record]{try {auto session=refresh_account(record);if(!cancelled_)commit_account(session,true);}catch(const Error &e){if(!cancelled_)failure(e);}catch(...){if(!cancelled_)failure(Error("accounts","refresh_failed","账号刷新失败，请重新登录。"));}});
+    }
+    void forget_account(const std::string &id,bool erase) {
+        cancel();auto next=Json::array();
+        for(auto record:accounts_) {
+            if(record.value("id","")==id){
+                if(record.value("remembered",false))vault(record.at("client_id")).remove(id);
+                if(erase)continue;record["remembered"]=false;record["needs_login"]=true;
+            }
+            next.push_back(record);
+        }
+        auto chosen=selected_account_==id?std::string():selected_account_;
+        if(!accounts_readable_)throw Error("accounts","invalid_store","账号文件无法读取，原文件未修改。");
+        save_accounts(fs::u8path(user_data_root()),next,chosen);
+        std::lock_guard<std::mutex> g(state_mutex_);accounts_=next;selected_account_=chosen;sessions_.erase(id);
+        if(identity_.uuid.empty()||"microsoft:"+identity_.uuid==id){identity_={};state_["account"]=nullptr;}
+        state_["error"]=nullptr;publish_accounts();
+    }
+
+    void login(const std::string &locale,bool remember=false,const std::string &expected="") {
         if (!std::regex_match(client_,
                               std::regex("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")))
             throw Error("configuration", "client_id_missing",
@@ -104,7 +213,7 @@ class Core {
             state_["stage"] = "browser";
         }
         const auto client = client_;
-        login_thread_ = std::thread([this, client, locale] {
+        login_thread_ = std::thread([this, client, locale, remember, expected] {
             Socket listener = bad_socket;
             try {
 #ifdef _WIN32
@@ -140,7 +249,7 @@ class Core {
                     "authorize?client_id=" +
                     url_encode(client) +
                     "&response_type=code&redirect_uri=" + url_encode(redirect) +
-                    "&scope=" + url_encode("XboxLive.signin") +
+                    "&scope=" + url_encode(remember?"XboxLive.signin offline_access":"XboxLive.signin") +
                     "&response_mode=query&prompt=select_account&state=" + url_encode(state) +
                     "&code_challenge_method=S256&code_challenge=" + sha256_base64url(verifier);
                 open_browser(url);
@@ -218,16 +327,12 @@ class Core {
                             throw Error("login", "cancelled", "登录已取消。");
                         return https_request(url, b, t, ct);
                     },
-                    [this](std::string s) { stage(s); });
+                    [this](std::string s) { stage(s); },remember);
                 if (cancelled_)
                     return;
-                std::lock_guard<std::mutex> g(state_mutex_);
-                identity_ = session;
-                state_["account"] = {
-                    {"name", session.name}, {"uuid", session.uuid}, {"owned", true}};
-                state_["stage"] = "ready";
-                state_["busy"] = false;
-                state_["error"] = nullptr;
+                if(!expected.empty() && expected!="microsoft:"+session.uuid)
+                    throw Error("accounts","identity_changed","登录结果与所选账号不一致，请确认微软浏览器账号。");
+                commit_account(session,remember);
             } catch (const Error &e) {
                 if (listener != bad_socket)
                     close_socket(listener);
@@ -252,6 +357,7 @@ class Core {
                 client_ = j.value("client_id", "");
                 root_ = j.value("game_root", root_);
                 java_ = j.value("java", "");
+                appearance_=j.value("appearance","system");tone_=j.value("tone","blue");
                 auto source = j.value("download_source", "auto");
                 if (source == "auto" || source == "official" || source == "bmclapi") source_ = source;
                 auto language = j.value("language", "system");
@@ -262,11 +368,14 @@ class Core {
             state_["error"] =
                 Error("settings", "invalid_settings", "本地设置无法读取，已使用默认值。").json();
         }
+        try {auto saved=load_accounts(fs::u8path(user_data_root()));accounts_=saved.at("accounts");selected_account_=saved.value("selected","");}
+        catch(const Error &e){accounts_readable_=false;state_["account_warning"]=e.json();}
+        publish_accounts();
         state_["root"] = root_;
         state_["client_id"] = client_;
         state_["java"] = java_;
         state_["language"] = language_;
-        state_["download_source"] = source_;
+        state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;
         state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
     }
     ~Core() { cancel(); }
@@ -317,6 +426,10 @@ class Core {
             auto source = r.value("download_source", source_);
             if (source != "auto" && source != "official" && source != "bmclapi")
                 throw Error("settings", "invalid_source", "不支持的下载源。");
+            auto appearance=r.value("appearance",appearance_),tone=r.value("tone",tone_);
+            if(appearance!="system"&&appearance!="light"&&appearance!="dark")throw Error("settings","invalid_appearance","主题无效。");
+            if(tone!="blue"&&tone!="forest"&&tone!="violet")throw Error("settings","invalid_tone","配色无效。");
+            appearance_=appearance;tone_=tone;
             source_ = source;
             language_ = language;
             client_ = next_client;
@@ -339,9 +452,9 @@ class Core {
             state_["java"] = java_;
             if (!updated_versions.is_null()) state_["versions"] = updated_versions;
             state_["language"] = language_;
-            state_["download_source"] = source_;
+            state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;
             state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
-            state_["error"] = nullptr;
+            state_["error"] = nullptr; publish_accounts();
         } else if (action == "engine") {
             {
                 std::lock_guard<std::mutex> g(state_mutex_);
@@ -363,7 +476,8 @@ class Core {
                 try {
                     engine::Task task;
                     task.cancel = engine::Cancel(&cancelled_, [](std::atomic_bool *) {});
-                    task.source = request.value("source", "auto");
+                    task.source = request.value("source", source_);
+                    { std::lock_guard<std::mutex> g(state_mutex_); for(auto &entry:sessions_){task.secrets.push_back(entry.second.token);task.secrets.push_back(entry.second.refresh_token);} }
                     task.time_zone = request.value("time_zone", "");
                     task.progress = [this](const std::string &message, std::int64_t done,
                                            std::int64_t total) {
@@ -385,20 +499,29 @@ class Core {
                                       "核心操作失败，配置或服务响应无效。"));
                 }
             });
+        } else if (action == "accounts.restore") {
+            select_account(selected_account_,true);
+        } else if (action == "accounts.select") {
+            select_account(r.at("id"));
+        } else if (action == "accounts.remove") {
+            forget_account(r.at("id"),true);
+        } else if (action == "accounts.signout") {
+            forget_account(r.at("id"),false);
         } else if (action == "login")
-            login(r.value("locale", language_));
+            login(r.value("locale", language_),r.value("remember",false),r.value("expected_account",""));
         else if (action == "cancel") {
             cancel();
         } else if (action == "logout") {
-            cancel();
-            std::lock_guard<std::mutex> g(state_mutex_);
-            identity_ = {};
-            state_["account"] = nullptr;
-            state_["error"] = nullptr;
+            if(!identity_.uuid.empty())forget_account("microsoft:"+identity_.uuid,false);
+            else {cancel();std::lock_guard<std::mutex> g(state_mutex_);identity_={};state_["account"]=nullptr;state_["error"]=nullptr;}
         } else if (action == "clear_error") {
             std::lock_guard<std::mutex> g(state_mutex_);
             state_["error"] = nullptr;
         } else if (action == "launch") {
+            if(identity_.expires<=now()+90 && !selected_account_.empty())
+                for(auto &record:accounts_) if(record.value("id","")==selected_account_&&record.value("remembered",false)) {
+                    cancelled_=false;auto refreshed=refresh_account(record);commit_account(refreshed,true);break;
+                }
             Identity session;
             {
                 std::lock_guard<std::mutex> g(state_mutex_);

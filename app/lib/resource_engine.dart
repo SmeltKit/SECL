@@ -18,6 +18,13 @@ class ResourceEngine extends ChangeNotifier {
   bool active = false, _disposed = false, _cancelled = false;
   int _epoch = 0;
   String label = '';
+  final List<Map<String, dynamic>> history = [];
+  void clearFinished() {
+    history.removeWhere(
+        (t) => t["status"] != "running" && t["status"] != "queued");
+    update();
+  }
+
   Map<String, dynamic> progress = {};
   void update() {
     if (!_disposed) notifyListeners();
@@ -26,12 +33,21 @@ class ResourceEngine extends ChangeNotifier {
   Future<dynamic> run(Map<String, dynamic> request, {String title = '正在加载'}) {
     final done = Completer<dynamic>();
     final epoch = _epoch;
+    final record = <String, dynamic>{
+      "title": title,
+      "status": "queued",
+      "op": request["op"]
+    };
+    history.insert(0, record);
+    if (history.length > 50) history.removeLast();
     _tail = _tail.then((_) async {
       if (_disposed || epoch != _epoch) {
+        record["status"] = "cancelled";
         done.completeError(
             const EngineFailure({'code': 'cancelled', 'message': "操作已取消"}));
         return;
       }
+      record["status"] = "running";
       active = true;
       _cancelled = false;
       label = title;
@@ -55,8 +71,11 @@ class ResourceEngine extends ChangeNotifier {
           await core.call({'action': 'clear_error'});
           throw EngineFailure(error);
         }
+        record['status'] = 'complete';
         done.complete(snapshot['result']);
       } catch (e) {
+        record['status'] = _cancelled ? 'cancelled' : 'failed';
+        if (e is EngineFailure) record['error'] = e.details;
         done.completeError(e is EngineFailure
             ? e
             : const EngineFailure(

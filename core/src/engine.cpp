@@ -21,12 +21,15 @@ Json dispatch(const Json &r, const Task &t) {
                 "java.scan",
                 "java.probe",
                 "java.legal",
+                "java.releases",
+                "java.catalog", "java.roots",
                 "java.builds",
                 "java.build_legal",
                 "java.install",
                 "memory.snapshot",
                 "memory.recommend",
                 "instances.scan",
+                "instance.inventory", "instance.logs", "mods.enrich", "shaders.plan", "path.open",
                 "settings.load",
                 "settings.save",
                 "resource.search",
@@ -80,6 +83,10 @@ Json dispatch(const Json &r, const Task &t) {
         return probe_java(path("path"));
     if (op == "java.legal")
         return java_legal(path("path"));
+    if (op == "java.releases")
+        return java_releases(t);
+    if (op == "java.catalog") return java_catalog(r,t);
+    if (op == "java.roots") return java_scan_roots();
     if (op == "java.builds")
         return java_builds(r.at("major"), r.at("vendor"), r.at("os"), r.at("arch"), t);
     if (op == "java.build_legal")
@@ -92,6 +99,24 @@ Json dispatch(const Json &r, const Task &t) {
         return recommend_memory(r.value("snapshot", system_memory()), r.at("context"));
     if (op == "instances.scan")
         return scan_instances(paths("roots"), r.value("overrides", Json::object()));
+    if (op == "instance.inventory")
+        return instance_inventory(r.at("instance"), r.at("kind"));
+    if (op == "instance.logs")
+        return instance_logs(r.at("instance"), t);
+    if (op == "mods.enrich")
+        return enrich_mod_inventory(r.at("instance"), t);
+    if (op == "shaders.plan")
+        return shader_support_plan(r.at("instance"), t);
+    if (op == "path.open") {
+        auto file = path("path");
+        if (!fs::exists(file)) throw Error("files", "missing_path", "路径不存在。");
+        auto name = file.filename().u8string();
+        if (!fs::is_directory(file) && name.rfind("LICENSE",0)!=0 && name!="ASSEMBLY_EXCEPTION" &&
+            file.extension()!=".txt" && file.extension()!=".md" && file.extension()!=".log")
+            throw Error("files", "unsupported_open", "只能打开目录、许可证或日志文本。");
+        open_browser(fs::canonical(file).u8string());
+        return {{"opened",true}};
+    }
     if (op == "settings.load")
         return load_instance_settings(path("directory"));
     if (op == "settings.save") {

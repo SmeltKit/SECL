@@ -40,7 +40,7 @@ The account state and local-version list shown here are not evidence of a succes
 
 | Area | Implemented scope |
 | --- | --- |
-| Authentication | Microsoft browser authorization code + PKCE; Xbox / XSTS, Minecraft Services, Java Edition entitlement and profile checks; real account sign-in, entitlement and profile checks verified |
+| Authentication | Microsoft browser authorization code + PKCE; Xbox / XSTS, Minecraft Services, Java Edition entitlement and profile checks; real account sign-in, entitlement and profile checks verified; square pixel avatar from the official skin |
 | Game installation | Release, snapshot, special and historical groups; isolated instances, client / library / asset downloads and official Java runtime when needed; selectable primary loader |
 | Local versions | Discover existing game folders and installed versions, then select a local version to launch |
 | Java | Local runtime detection, version / distribution / architecture identification, canonical-path deduplication and manual executable selection; download a specific Zulu / Temurin / Microsoft / Oracle OpenJDK build, with automatic OS / architecture detection |
@@ -96,7 +96,7 @@ The complete application flow above has been validated on macOS ARM64. Windows /
 The macOS app is at `app/build/macos/Build/Products/Release/SECL.app`; native build output is under `build/native/`.
 
 Flutter 3.19.6's macOS Release AOT build tools require Rosetta on Apple Silicon build hosts;
-the resulting app itself runs natively on ARM64. The current local Release is about **22.9 MB**, or **9.2 MB** as a ZIP.
+the resulting app itself runs natively on ARM64. The current local Release is about **25.5 MB**, or **10.2 MB** as a ZIP.
 Signing is ad hoc for local testing. Distribution still requires release signing and notarization.
 
 Build and test only the C++ core:
@@ -107,7 +107,7 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-Currently passing: 111 authentication / core checks, 64 engine checks and 22 Flutter tests.
+Currently passing: 144 authentication / core checks, 75 engine checks and 36 Flutter tests.
 See [test notes](docs/testing.md) for coverage, real resource-download checks and validation limits.
 
 ## Data, services and accounts
@@ -118,15 +118,15 @@ See [test notes](docs/testing.md) for coverage, real resource-download checks an
 - Microsoft sign-in requires this project's own public-client Application ID. No client secret is needed.
   Register `http://localhost/oauth/callback` for the Entra desktop application; runtime authorization uses a random loopback port and PKCE S256.
   The project public Client ID is `7ed24288-81a6-4814-8271-25a1529d2e9d` and has API allow-list approval. This does not constitute official endorsement of the launcher.
-- The current UI keeps sign-in sessions in C++ memory. Tokens are not returned to Dart through FFI; restarting the app requires signing in again.
+- Sign-in sessions stay in C++ memory, and tokens are not returned to Dart through FFI. Optional account persistence stores refresh credentials in the OS credential vault; without it, restarting requires signing in again. Real credential restoration still requires acceptance testing.
   Authentication or entitlement failures show an error rather than creating an offline account or a successful session.
 - Ordinary settings use the platform application-data folder. Build packages, local settings, account data and signing keys are excluded by `.gitignore`.
 - See [artwork provenance](docs/artwork.md) for the home illustration. Third-party project icons, names and descriptions belong to their respective authors.
 
 ## Next steps
 
-- Validate actual game startup and expand the game / Java / loader test matrix.
-- Add per-instance launch settings and more migrated version-component interfaces.
+- Expand the game / Java / loader test matrix, including in-world gameplay and long-duration stability.
+- Validate per-instance launch settings and the full loader / OptiFine installation and update matrix.
 - Validate Windows / Linux builds, native-library deployment and platform compatibility.
 - Integrate CurseForge after authorization; gradually add world management and further instance features.
 - Continue reviewing terminology, long text and mod / shader compatibility guidance.
@@ -145,3 +145,7 @@ Third-party components retain their own licenses. Included licenses are accessib
 
 Unofficial project. Not affiliated with or endorsed by Mojang Studios or Microsoft.
 Minecraft is a trademark of its respective owner.
+
+### Management migration (2026-11-03)
+
+Instance library, local mods/shaders/resource packs, per-instance Java and launch options, loader/OptiFine controls, Java scans/licenses, logs, Microsoft account management and optional OS-vault persistence are connected. The UI includes full project descriptions, light/dark/system appearance and task history. Real credential restoration, the full component matrix remains unverified; macOS vanilla and Fabric + Iris/Sodium startup passed real acceptance testing. See [test record](docs/testing.md).

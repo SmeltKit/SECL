@@ -89,3 +89,15 @@ rescans the returned root after successful installation. A new install cannot
 replace an existing instance unless `replace_existing` is explicitly requested.
 An explicitly fixed install-time Java choice is saved in that instance's settings.
 The home Java selector can update the selected instance via `configure.version`.
+
+
+Verified account snapshots also contain optional `skin_url`, taken from the
+ACTIVE official Minecraft profile skin. This is a public texture URL, never a
+credential. The Flutter avatar fetches only canonical HTTPS texture URLs and
+renders the 8x8 face plus hat overlay. Skin errors do not change account ownership.
+
+
+`java.releases` returns an array of published GA major versions, newest first,
+from the official Adoptium release catalogue. It filters out EA/tip versions.
+This is a version selector catalogue, not a guarantee of a particular vendor or
+architecture package; call `java.builds` with the selected filters for those.

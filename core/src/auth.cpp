@@ -176,7 +176,7 @@ static std::string safe_service_code(const Json &o) {
 static Identity authenticate_impl(const std::string &client, const std::string &redirect,
                                   const std::string &verifier, const std::string &code,
                                   const Transport &transport,
-                                  const std::function<void(std::string)> &progress, bool refresh) {
+                                  const std::function<void(std::string)> &progress, bool refresh, bool remember) {
     std::vector<std::string> secrets{code, verifier};
     auto request = [&](const std::string &stage, const std::string &url, const std::string &body,
                        const std::string &bearer = "",
@@ -225,7 +225,7 @@ static Identity authenticate_impl(const std::string &client, const std::string &
                              : "&grant_type=authorization_code&code=" + url_encode(code) +
                                    "&redirect_uri=" + url_encode(redirect) +
                                    "&code_verifier=" + url_encode(verifier)) +
-                    "&scope=" + url_encode("XboxLive.signin"),
+                    "&scope=" + url_encode(remember ? "XboxLive.signin offline_access" : "XboxLive.signin"),
                 "", "application/x-www-form-urlencoded");
     auto access = required(grant, "access_token", "microsoft");
     auto xbox = request("xbox", "https://user.auth.xboxlive.com/user/authenticate",
@@ -277,20 +277,37 @@ static Identity authenticate_impl(const std::string &client, const std::string &
     result.uuid = profile.value("id", "");
     result.xuid = claims[0].value("xid", "");
     result.client_id = client;
+    if (remember) result.refresh_token=grant.value("refresh_token",refresh?code:"");
     if (!std::regex_match(result.uuid, std::regex("[0-9a-fA-F]{32}")) ||
         !std::regex_match(result.name, std::regex("[A-Za-z0-9_]{1,16}")))
         throw Error("profile", "invalid_profile", "Minecraft 角色信息无效，无法启动游戏。");
+    // Cosmetic metadata never changes authentication or entitlement results.
+    const auto skins = profile.find("skins");
+    if (skins != profile.end() && skins->is_array()) {
+        for (const auto &skin : *skins) {
+            if (!skin.is_object() || !skin.contains("state") || !skin["state"].is_string() ||
+                skin["state"] != "ACTIVE" || !skin.contains("url") || !skin["url"].is_string())
+                continue;
+            auto url = skin["url"].get<std::string>();
+            if (url.rfind("http://textures.minecraft.net/texture/", 0) == 0)
+                url.replace(0, 7, "https://");
+            if (std::regex_match(url, std::regex("https://textures\\.minecraft\\.net/texture/[0-9a-fA-F]{32,128}"))) {
+                result.skin_url = url;
+                break;
+            }
+        }
+    }
     return result;
 }
 Identity authenticate_code(const std::string &client, const std::string &redirect,
                            const std::string &verifier, const std::string &code, const Transport &t,
-                           const std::function<void(std::string)> &progress) {
-    return authenticate_impl(client, redirect, verifier, code, t, progress, false);
+                           const std::function<void(std::string)> &progress, bool remember) {
+    return authenticate_impl(client, redirect, verifier, code, t, progress, false, remember);
 }
 Identity authenticate_refresh(const std::string &client, const std::string &refresh,
                               const Transport &t,
                               const std::function<void(std::string)> &progress) {
-    return authenticate_impl(client, "", "", refresh, t, progress, true);
+    return authenticate_impl(client, "", "", refresh, t, progress, true, true);
 }
 
 } // namespace solar

@@ -1,3 +1,4 @@
+import 'appearance.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'localization.dart';
 import 'dart:async';
@@ -12,6 +13,12 @@ import 'app_widgets.dart';
 import 'resource_engine.dart';
 import 'resource_market.dart';
 import 'download_center.dart';
+import 'skin_avatar.dart';
+import 'instance_library.dart';
+import 'instance_page.dart';
+import 'java_manager.dart';
+import 'account_manager.dart';
+import 'task_panel.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +34,7 @@ void main() {
     }
   });
   WidgetsBinding.instance.addObserver(AppLanguage.instance);
+  WidgetsBinding.instance.addObserver(AppAppearance.instance);
   runApp(SeclApp(core: NativeCore()));
 }
 
@@ -35,7 +43,8 @@ class SeclApp extends StatelessWidget {
   final LauncherCore core;
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-      animation: AppLanguage.instance,
+      animation:
+          Listenable.merge([AppLanguage.instance, AppAppearance.instance]),
       builder: (context, _) => MaterialApp(
           locale: AppLanguage.instance.locale,
           supportedLocales: AppLanguage.supported,
@@ -46,7 +55,10 @@ class SeclApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             useMaterial3: true,
-            scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+            brightness: AppAppearance.instance.dark
+                ? Brightness.dark
+                : Brightness.light,
+            scaffoldBackgroundColor: seclColor(0xFFF5F7FA),
             fontFamily: AppLanguage.instance.code == 'en'
                 ? (Platform.isWindows ? 'Segoe UI' : null)
                 : Platform.isWindows
@@ -61,43 +73,51 @@ class SeclApp extends StatelessWidget {
                             ? 'Noto Sans CJK TC'
                             : 'Noto Sans CJK SC'),
             colorScheme: ColorScheme.fromSeed(
-                seedColor: accent, primary: accent, surface: Colors.white),
-            textTheme: const TextTheme(
+                brightness: AppAppearance.instance.dark
+                    ? Brightness.dark
+                    : Brightness.light,
+                seedColor: accent,
+                primary: accent,
+                surface: panelSurface),
+            textTheme: TextTheme(
                 bodyMedium: TextStyle(fontSize: 14, color: ink),
                 bodySmall: TextStyle(fontSize: 12, color: muted)),
             dialogTheme: DialogTheme(
-                backgroundColor: Colors.white,
+                backgroundColor: panelSurface,
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
-                titleTextStyle: const TextStyle(
+                titleTextStyle: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w600, color: ink)),
-            dividerTheme: const DividerThemeData(color: line, space: 1),
+            dividerTheme: DividerThemeData(color: line, space: 1),
             inputDecorationTheme: InputDecorationTheme(
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: panelSurface,
                 isDense: true,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: line)),
+                    borderSide: BorderSide(color: line)),
                 focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: accent, width: 1.5)),
+                    borderSide: BorderSide(color: accent, width: 1.5)),
                 enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(9),
-                    borderSide: const BorderSide(color: line))),
+                    borderSide: BorderSide(color: line))),
             outlinedButtonTheme: OutlinedButtonThemeData(
                 style: OutlinedButton.styleFrom(
                     foregroundColor: ink,
-                    side: const BorderSide(color: line),
+                    side: BorderSide(color: line),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(9)))),
             filledButtonTheme: FilledButtonThemeData(
                 style: FilledButton.styleFrom(
+                    foregroundColor: AppAppearance.instance.dark
+                        ? const Color(0xff132b3c)
+                        : Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 13),
                     shape: RoundedRectangleBorder(
@@ -125,6 +145,8 @@ class _LauncherHomeState extends State<LauncherHome> {
   String selected = '', java = '';
   String page = 'home';
   String downloadTab = 'game';
+  Map<String, dynamic>? focusedInstance, marketTarget;
+  String instanceTab = 'mod', marketQuery = '';
   late final ResourceEngine resources;
   bool working = false, polling = false, languageLoaded = false;
   Timer? timer;
@@ -170,6 +192,11 @@ class _LauncherHomeState extends State<LauncherHome> {
     } else {
       await action({'action': 'detect_java'});
     }
+    if ((state['selected_account'] as String? ?? '').isNotEmpty &&
+        (state['accounts'] as List? ?? []).any((a) =>
+            a['id'] == state['selected_account'] && a['remembered'] == true)) {
+      await action({'action': 'accounts.restore'});
+    }
   }
 
   void accept(Map<String, dynamic> next) {
@@ -177,6 +204,8 @@ class _LauncherHomeState extends State<LauncherHome> {
     if (!languageLoaded) {
       languageLoaded = true;
       AppLanguage.instance.select(next['language'] as String? ?? 'system');
+      AppAppearance.instance.select(next['appearance'] as String? ?? 'system',
+          next['tone'] as String? ?? 'blue');
     }
     setState(() {
       state = next;
@@ -187,6 +216,11 @@ class _LauncherHomeState extends State<LauncherHome> {
                 .firstOrNull ??
             '';
       }
+      final pinned =
+          versions.where((v) => v['id'] == selected).firstOrNull?['java'];
+      if (pinned is String &&
+          pinned.isNotEmpty &&
+          javas.any((j) => j['path'] == pinned)) java = pinned;
       if (java.isEmpty || !javas.any((j) => j['path'] == java)) {
         java = javas
                 .map((j) => j['path'] as String)
@@ -228,6 +262,48 @@ class _LauncherHomeState extends State<LauncherHome> {
     }
   }
 
+  void openInstance(Map<String, dynamic> instance, String tab) => setState(() {
+        focusedInstance = instance;
+        instanceTab = tab;
+        page = 'instance';
+      });
+  void browseForInstance(String kind, {String? query}) => setState(() {
+        marketTarget = focusedInstance;
+        marketQuery = query ?? '';
+        page = kind;
+      });
+  Future<void> refreshInstance() async {
+    if (focusedInstance == null) return;
+    try {
+      final result = await resources.run({
+        'op': 'instances.scan',
+        'roots': [state['root']]
+      }) as Map;
+      final matches = (result['instances'] as List)
+          .cast<Map<String, dynamic>>()
+          .where((i) => i['id'] == focusedInstance!['id']);
+      if (mounted && matches.isNotEmpty) {
+        setState(() => focusedInstance = matches.first);
+      }
+    } catch (_) {/* The current page reports actionable operation errors. */}
+  }
+
+  Future<void> manageSelected([String tab = 'mod']) async {
+    if (selected.isEmpty) return;
+    try {
+      final result = await resources.run({
+        'op': 'instances.scan',
+        'roots': [state['root']]
+      }) as Map;
+      final matches = (result['instances'] as List)
+          .cast<Map<String, dynamic>>()
+          .where((i) => i['id'] == selected);
+      if (mounted && matches.isNotEmpty) openInstance(matches.first, tab);
+    } on EngineFailure catch (e) {
+      if (mounted) setState(() => localError = e.details);
+    }
+  }
+
   Future<void> chooseRoot() async {
     final folder = await getDirectoryPath(confirmButtonText: tr("选择游戏目录"));
     if (folder != null) await action({'action': 'scan', 'root': folder});
@@ -247,7 +323,8 @@ class _LauncherHomeState extends State<LauncherHome> {
     await showDialog<void>(
         context: context,
         builder: (dialogContext) => AnimatedBuilder(
-            animation: AppLanguage.instance,
+            animation: Listenable.merge(
+                [AppLanguage.instance, AppAppearance.instance]),
             builder: (context, _) => AlertDialog(
                     title: Text(tr('设置')),
                     content: SizedBox(
@@ -256,6 +333,56 @@ class _LauncherHomeState extends State<LauncherHome> {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              DropdownButtonFormField<String>(
+                                  value: AppAppearance.instance.mode,
+                                  items: [
+                                    for (final value in [
+                                      'system',
+                                      'light',
+                                      'dark'
+                                    ])
+                                      DropdownMenuItem(
+                                          value: value,
+                                          child: Text(tr({
+                                            'system': '跟随系统',
+                                            'light': '浅色',
+                                            'dark': '深色'
+                                          }[value]!)))
+                                  ],
+                                  onChanged: (value) async {
+                                    if (value == null) return;
+                                    AppAppearance.instance.select(
+                                        value, AppAppearance.instance.tone);
+                                    await action({
+                                      'action': 'configure',
+                                      'appearance': value
+                                    });
+                                  }),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<String>(
+                                  value: AppAppearance.instance.tone,
+                                  items: [
+                                    for (final value in [
+                                      'blue',
+                                      'forest',
+                                      'violet'
+                                    ])
+                                      DropdownMenuItem(
+                                          value: value,
+                                          child: Text(tr({
+                                            'blue': '蓝色',
+                                            'forest': '森林绿',
+                                            'violet': '紫色'
+                                          }[value]!)))
+                                  ],
+                                  onChanged: (value) async {
+                                    if (value == null) return;
+                                    AppAppearance.instance.select(
+                                        AppAppearance.instance.mode, value);
+                                    await action(
+                                        {'action': 'configure', 'tone': value});
+                                  }),
+                              const SizedBox(height: 16),
                               Text(tr('界面语言'),
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w600)),
@@ -289,7 +416,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                                   }),
                               const SizedBox(height: 12),
                               Text(tr('切换后立即生效。项目介绍和文件名保留原文。'),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: 12, color: muted, height: 1.5)),
                               const SizedBox(height: 22),
                               OutlinedButton.icon(
@@ -342,7 +469,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                                   fontFamily: 'monospace', fontSize: 13)),
                           const SizedBox(height: 14),
                           Text(tr("个人 Microsoft 账号 · 授权码 + PKCE\n无需 Client Secret。API 访问仍须由应用自身获准。"),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13, color: muted, height: 1.6)),
                         ])),
                 actions: [
@@ -405,24 +532,17 @@ class _LauncherHomeState extends State<LauncherHome> {
   Widget badge(String text, {bool good = false}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-          color: good ? const Color(0xFFE7F3EC) : const Color(0xFFF0F3F7),
+          color: good ? seclColor(0xFFE7F3EC) : seclColor(0xFFF0F3F7),
           borderRadius: BorderRadius.circular(6)),
       child: Text(text,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-              fontSize: 11, color: good ? const Color(0xFF367856) : muted)));
+              fontSize: 11, color: good ? seclColor(0xFF367856) : muted)));
   Widget accountPanel() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFEBF0F5),
-                  borderRadius: BorderRadius.circular(10)),
-              child: const Icon(Icons.person_outline_rounded,
-                  color: accent, size: 25)),
+          SkinAvatar(skinUrl: account?['skin_url'] as String?),
           const SizedBox(width: 12),
           Expanded(
               child: Column(
@@ -437,7 +557,7 @@ class _LauncherHomeState extends State<LauncherHome> {
                     style: TextStyle(
                         fontSize: 11,
                         color:
-                            account == null ? muted : const Color(0xFF367856))),
+                            account == null ? muted : seclColor(0xFF367856))),
               ]))
         ]),
         const SizedBox(height: 16),
@@ -479,12 +599,20 @@ class _LauncherHomeState extends State<LauncherHome> {
   Widget navigation(String value, String label, IconData icon) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Material(
-          color: page == value ? const Color(0xFFEBF1F7) : Colors.transparent,
+          color: page == value ? seclColor(0xFFEBF1F7) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
               borderRadius: BorderRadius.circular(8),
               key: Key('nav-$value'),
-              onTap: busy ? null : () => setState(() => page = value),
+              onTap: busy
+                  ? null
+                  : () => setState(() {
+                        page = value;
+                        if (['mod', 'shader', 'resourcepack'].contains(value)) {
+                          marketTarget = null;
+                          marketQuery = '';
+                        }
+                      }),
               child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -503,112 +631,122 @@ class _LauncherHomeState extends State<LauncherHome> {
                   ])))));
   Widget sidebar() => Container(
       width: 224,
-      decoration: const BoxDecoration(
-          color: Colors.white, border: Border(right: BorderSide(color: line))),
+      decoration: BoxDecoration(
+          color: panelSurface, border: Border(right: BorderSide(color: line))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
             padding:
                 EdgeInsets.fromLTRB(23, Platform.isMacOS ? 48 : 26, 20, 16),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.wb_sunny_outlined, color: accent, size: 27),
-              SizedBox(width: 10),
-              Text('SECL',
+              const SizedBox(width: 10),
+              const Text('SECL',
                   style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 2))
             ])),
-        Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: accountPanel()),
-        const SizedBox(height: 12),
-        const Divider(),
-        Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(children: [
-              navigation('home', tr("开始"), Icons.home_outlined),
-              navigation('download', tr('下载'), Icons.download_outlined),
-              navigation('mod', tr("模组"), Icons.extension_outlined),
-              navigation('shader', tr("光影"), Icons.wb_twilight_outlined),
-              navigation('resourcepack', tr("材质包"), Icons.layers_outlined),
-            ])),
-        const Divider(),
-        Padding(
-            padding: const EdgeInsets.fromLTRB(22, 4, 12, 0),
-            child: Row(children: [
-              Expanded(
-                  child: Text(tr("本地版本"),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 13))),
-              Text('${versions.length}',
-                  style: const TextStyle(color: muted, fontSize: 12)),
-              IconButton(
-                  tooltip: tr("刷新本地版本"),
-                  onPressed: busy
-                      ? null
-                      : () => action({'action': 'scan', 'root': state['root']}),
-                  icon: const Icon(Icons.refresh_rounded, size: 17))
-            ])),
         Expanded(
-            child: versions.isEmpty
-                ? Center(
-                    child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Text(tr("尚未识别本地版本\n选择已安装的游戏目录"),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                color: muted, fontSize: 12, height: 1.8))))
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: versions.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 4),
-                    itemBuilder: (_, i) {
-                      final v = versions[i];
-                      return Material(
-                          color: v['id'] == selected
-                              ? const Color(0xFFEBF1F7)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          child: ListTile(
-                              dense: true,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 3),
-                              title: Text(v['id'] as String,
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: v['id'] == selected
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
-                                      color: v['available'] == true
-                                          ? ink
-                                          : muted)),
-                              subtitle: Text(
-                                  v['available'] == true
-                                      ? tr("已安装")
-                                      : tr("配置需要处理"),
-                                  style: const TextStyle(
-                                      fontSize: 11, color: muted)),
-                              trailing: v['id'] == selected
-                                  ? const Icon(Icons.check_rounded,
-                                      size: 17, color: accent)
-                                  : null,
-                              onTap: busy || v['available'] != true
-                                  ? null
-                                  : () => setState(() {
-                                        selected = v['id'] as String;
-                                        page = 'home';
-                                        final pinned = v['java'];
-                                        if (pinned is String &&
-                                            javas.any(
-                                                (j) => j['path'] == pinned)) {
-                                          java = pinned;
-                                        }
-                                      })));
-                    })),
+            child: SingleChildScrollView(
+                child: Column(children: [
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: accountPanel()),
+          const SizedBox(height: 12),
+          const Divider(),
+          Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(children: [
+                navigation('home', tr("开始"), Icons.home_outlined),
+                navigation('library', tr('游戏库'), Icons.grid_view_outlined),
+                navigation(
+                    'accounts', tr('账号管理'), Icons.person_outline_rounded),
+                navigation('java', tr('Java 管理'), Icons.coffee_outlined),
+                navigation('download', tr('下载'), Icons.download_outlined),
+                navigation('mod', tr("模组"), Icons.extension_outlined),
+                navigation('shader', tr("光影"), Icons.wb_twilight_outlined),
+                navigation('resourcepack', tr("材质包"), Icons.layers_outlined),
+              ])),
+          const Divider(),
+          Padding(
+              padding: const EdgeInsets.fromLTRB(22, 4, 12, 0),
+              child: Row(children: [
+                Expanded(
+                    child: Text(tr("本地版本"),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13))),
+                Text('${versions.length}',
+                    style: TextStyle(color: muted, fontSize: 12)),
+                IconButton(
+                    tooltip: tr("刷新本地版本"),
+                    onPressed: busy
+                        ? null
+                        : () =>
+                            action({'action': 'scan', 'root': state['root']}),
+                    icon: const Icon(Icons.refresh_rounded, size: 17))
+              ])),
+          SizedBox(
+              height: 220,
+              child: versions.isEmpty
+                  ? Center(
+                      child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(tr("尚未识别本地版本\n选择已安装的游戏目录"),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: muted, fontSize: 12, height: 1.8))))
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: versions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 4),
+                      itemBuilder: (_, i) {
+                        final v = versions[i];
+                        return Material(
+                            color: v['id'] == selected
+                                ? seclColor(0xFFEBF1F7)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            child: ListTile(
+                                dense: true,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8)),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 3),
+                                title: Text(v['id'] as String,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: v['id'] == selected
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        color: v['available'] == true
+                                            ? ink
+                                            : muted)),
+                                subtitle: Text(
+                                    v['available'] == true
+                                        ? tr("已安装")
+                                        : tr("配置需要处理"),
+                                    style:
+                                        TextStyle(fontSize: 11, color: muted)),
+                                trailing: v['id'] == selected
+                                    ? Icon(Icons.check_rounded,
+                                        size: 17, color: accent)
+                                    : null,
+                                onTap: busy || v['available'] != true
+                                    ? null
+                                    : () => setState(() {
+                                          selected = v['id'] as String;
+                                          page = 'home';
+                                          final pinned = v['java'];
+                                          if (pinned is String &&
+                                              javas.any(
+                                                  (j) => j['path'] == pinned)) {
+                                            java = pinned;
+                                          }
+                                        })));
+                      })),
+        ]))),
         FooterBar(
             horizontalPadding: 20,
             child: Row(children: [
@@ -617,8 +755,8 @@ class _LauncherHomeState extends State<LauncherHome> {
                       onTap: () => showAboutDialog(
                           context: context,
                           applicationName: 'SECL',
-                          children: const [
-                            Padding(
+                          children: [
+                            const Padding(
                                 padding: EdgeInsets.only(top: 12),
                                 child: Text('SUPREME ETERNITY CRAFT LAUNCHER',
                                     style: TextStyle(
@@ -630,6 +768,12 @@ class _LauncherHomeState extends State<LauncherHome> {
                           applicationLegalese: tr(
                               "Copyright © 2026 ppm203\n基于 M²CL 迁移与重写 · GPL-3.0-only + 第 7 节附加条款\n非官方项目，与 Mojang 或 Microsoft 无隶属或背书关系。")),
                       child: badge(tr("开发预览 0.1.0")))),
+              IconButton(
+                  tooltip: tr('下载任务'),
+                  onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => TaskPanel(engine: resources)),
+                  icon: const Icon(Icons.downloading_outlined, size: 19)),
               const SizedBox(width: 6),
               IconButton(
                   key: const Key('settingsButton'),
@@ -644,12 +788,12 @@ class _LauncherHomeState extends State<LauncherHome> {
       margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: const Color(0xFFFFF3EE),
+          color: seclColor(0xFFFFF3EE),
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFFF2D5C6))),
+          border: Border.all(color: seclColor(0xFFF2D5C6))),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.error_outline_rounded,
-            color: Color(0xFFA75536), size: 20),
+        Icon(Icons.error_outline_rounded,
+            color: seclColor(0xFFA75536), size: 20),
         const SizedBox(width: 10),
         Expanded(
             child: Column(
@@ -671,7 +815,7 @@ class _LauncherHomeState extends State<LauncherHome> {
               const SizedBox(height: 4),
               SelectableText(
                   '${error['code'] ?? ''}${(error['url'] as String? ?? '').isNotEmpty ? ' · ${error['url']}' : ''}',
-                  style: const TextStyle(fontSize: 10, color: muted))
+                  style: TextStyle(fontSize: 10, color: muted))
             ])),
         const SizedBox(width: 4),
         IconButton(
@@ -690,253 +834,359 @@ class _LauncherHomeState extends State<LauncherHome> {
         body: Row(children: [
       sidebar(),
       Expanded(
-          child: page == 'download'
-              ? DownloadCenter(
-                  key: ValueKey('download-$downloadTab'),
-                  engine: resources,
-                  root: state['root'] as String? ?? '',
-                  javaDirectory: state['java_directory'] as String? ?? '',
-                  javas: javas,
-                  source: state['download_source'] as String? ?? 'auto',
-                  onSource: (source) => action(
-                      {'action': 'configure', 'download_source': source}),
-                  onInstalled: installed,
-                  initialTab: downloadTab)
-              : page != 'home'
-                  ? ResourceMarket(
-                      kind: page,
+          child: page == 'accounts'
+              ? AccountManager(
+                  snapshot: state, action: action, onConfigure: configure)
+              : page == 'java'
+                  ? JavaManager(
                       engine: resources,
-                      root: state['root'] as String? ?? '',
-                      selectedVersion: selected)
-                  : Column(children: [
-                      Padding(
-                          padding: EdgeInsets.fromLTRB(
-                              28, Platform.isMacOS ? 44 : 22, 28, 18),
-                          child: Row(children: [
-                            Text(tr("开始"),
-                                style: const TextStyle(
-                                    fontSize: 25, fontWeight: FontWeight.w600)),
-                            const Spacer(),
-                            TextButton.icon(
-                                key: const Key('installGameShortcut'),
-                                onPressed:
-                                    busy ? null : () => downloads('game'),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: Text(tr('安装游戏'))),
-                            const SizedBox(width: 8),
-                            IconButton(
-                                tooltip: tr("选择游戏目录"),
-                                onPressed: busy ? null : chooseRoot,
-                                icon: const Icon(Icons.folder_open_rounded,
-                                    size: 20))
-                          ])),
-                      Expanded(
-                          child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 28),
-                              child: Column(children: [
-                                Expanded(
-                                    child: Container(
-                                        key: const Key('cover'),
-                                        width: double.infinity,
-                                        clipBehavior: Clip.antiAlias,
-                                        decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(12)),
-                                        child: Stack(
-                                            fit: StackFit.expand,
-                                            children: [
-                                              Image.asset(
-                                                  'assets/solar-dawn.jpg',
-                                                  fit: BoxFit.cover,
-                                                  alignment: Alignment.center),
-                                              const DecoratedBox(
-                                                  decoration: BoxDecoration(
-                                                      gradient: LinearGradient(
-                                                          begin: Alignment
-                                                              .bottomLeft,
-                                                          end: Alignment
-                                                              .topRight,
-                                                          colors: [
-                                                    Color(0xA5182B40),
-                                                    Color(0x00182B40)
-                                                  ]))),
-                                              Padding(
-                                                  padding:
-                                                      const EdgeInsets.all(28),
-                                                  child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment.end,
-                                                      children: [
-                                                        Text(
-                                                            selected.isEmpty
-                                                                ? 'SECL'
-                                                                : selected,
-                                                            style: const TextStyle(
-                                                                fontSize: 32,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color: Colors
-                                                                    .white)),
-                                                        const SizedBox(
-                                                            height: 9),
-                                                        Text(
-                                                            selected.isEmpty
-                                                                ? tr(
-                                                                    "选择一个本地版本，开始你的旅程。")
-                                                                : tr(
-                                                                    "Java Edition · 本地已安装"),
-                                                            style: const TextStyle(
-                                                                fontSize: 13,
-                                                                color: Color(
-                                                                    0xFFDFE7EF)))
-                                                      ]))
-                                            ]))),
-                                const SizedBox(height: 18),
-                                Row(children: [
-                                  const Icon(Icons.folder_outlined,
-                                      color: muted, size: 19),
-                                  const SizedBox(width: 9),
-                                  Expanded(
-                                      child: Tooltip(
-                                          message:
-                                              state['root'] as String? ?? '',
-                                          child: Text(
-                                              (state['root'] as String? ??
-                                                      tr("尚未选择游戏目录"))
-                                                  .replaceFirst(
-                                                      Platform.environment[
-                                                              'HOME'] ??
-                                                          Platform.environment[
-                                                              'USERPROFILE'] ??
-                                                          '<none>',
-                                                      '~'),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  fontSize: 12, color: muted))))
-                                ]),
-                                const SizedBox(height: 14),
-                                Row(children: [
-                                  const Text('Java',
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600)),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                      child: DropdownButtonFormField<String>(
-                                          key: const Key('javaSelector'),
-                                          value: java.isEmpty ? null : java,
-                                          isExpanded: true,
-                                          icon: const Icon(
-                                              Icons.keyboard_arrow_down_rounded,
-                                              size: 20),
-                                          hint: Text(tr("未检测到 Java"),
-                                              style: const TextStyle(
-                                                  fontSize: 13)),
-                                          style: const TextStyle(
-                                              color: ink, fontSize: 13),
-                                          items: javas
-                                              .map((j) => DropdownMenuItem(
-                                                  value: j['path'] as String,
-                                                  child: Text(
-                                                      'Java ${j['version']} · ${j['vendor']} · ${j['arch']}',
-                                                      overflow: TextOverflow
-                                                          .ellipsis)))
-                                              .toList(),
-                                          onChanged: busy
-                                              ? null
-                                              : (v) {
-                                                  if (v != null) {
-                                                    setState(() => java = v);
-                                                    unawaited(action({
-                                                      'action': 'configure',
-                                                      'java': v,
-                                                      'version': selected
-                                                    }));
-                                                  }
-                                                })),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                      key: const Key('installJavaShortcut'),
-                                      tooltip: tr('安装 Java'),
-                                      onPressed:
-                                          busy ? null : () => downloads('java'),
-                                      icon: const Icon(Icons.download_outlined,
-                                          size: 20)),
-                                  IconButton(
-                                      tooltip: tr("检测本机 Java"),
-                                      onPressed: busy
+                      onDownload: () => downloads('java'),
+                      onChanged: () => action({'action': 'detect_java'}))
+                  : page == 'library'
+                      ? InstanceLibrary(
+                          engine: resources,
+                          root: state['root'] as String? ?? '',
+                          onOpen: openInstance,
+                          onInstall: () => downloads('game'),
+                          onLaunch: (i) {
+                            setState(() {
+                              selected = i['id'] as String;
+                              page = 'home';
+                            });
+                            action({
+                              'action': 'launch',
+                              'version': selected,
+                              'java': java
+                            });
+                          })
+                      : page == 'instance' && focusedInstance != null
+                          ? InstancePage(
+                              key: ValueKey(
+                                  'instance-${focusedInstance!['path']}'),
+                              engine: resources,
+                              instance: focusedInstance!,
+                              javas: javas,
+                              initialTab: instanceTab,
+                              onBack: () => setState(() => page = 'library'),
+                              onChanged: refreshInstance,
+                              onBrowse: browseForInstance)
+                          : page == 'download'
+                              ? DownloadCenter(
+                                  key: ValueKey('download-$downloadTab'),
+                                  engine: resources,
+                                  root: state['root'] as String? ?? '',
+                                  javaDirectory:
+                                      state['java_directory'] as String? ?? '',
+                                  javas: javas,
+                                  source: state['download_source'] as String? ??
+                                      'auto',
+                                  onSource: (source) => action({
+                                        'action': 'configure',
+                                        'download_source': source
+                                      }),
+                                  onInstalled: installed,
+                                  initialTab: downloadTab)
+                              : page != 'home'
+                                  ? ResourceMarket(
+                                      kind: page,
+                                      engine: resources,
+                                      root: state['root'] as String? ?? '',
+                                      selectedVersion: selected,
+                                      initialTarget: marketTarget,
+                                      initialQuery: marketQuery,
+                                      onBack: marketTarget == null
                                           ? null
                                           : () =>
-                                              action({'action': 'detect_java'}),
-                                      icon: const Icon(Icons.refresh_rounded,
-                                          size: 20)),
-                                  IconButton(
-                                      tooltip: tr("选择本地 Java"),
-                                      onPressed: busy ? null : chooseJava,
-                                      icon: const Icon(Icons.more_horiz_rounded,
-                                          size: 20))
-                                ]),
-                                if (error != null)
-                                  ConstrainedBox(
-                                      constraints:
-                                          const BoxConstraints(maxHeight: 160),
-                                      child: SingleChildScrollView(
-                                          child: errorBox(error))),
-                                const SizedBox(height: 20),
-                              ]))),
-                      FooterBar(
-                          child: Row(children: [
-                        Expanded(
-                            child: Text(
-                                state['game_running'] == true
-                                    ? tr("游戏正在运行")
-                                    : account == null
-                                        ? tr("登录后验证游戏资格")
-                                        : selected.isEmpty
-                                            ? tr("请选择本地版本")
-                                            : '${account!['name']} · $selected',
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500))),
-                        const SizedBox(width: 14),
-                        Tooltip(
-                            message: canLaunch
-                                ? tr("启动所选本地游戏")
-                                : tr("需要登录、有效游戏资格、本地版本与可用 Java"),
-                            child: SizedBox(
-                                width: 176,
-                                height: 50,
-                                child: FilledButton.icon(
-                                    key: const Key('launchButton'),
-                                    onPressed: canLaunch
-                                        ? () => action({
-                                              'action': 'launch',
-                                              'version': selected,
-                                              'java': java
-                                            })
-                                        : null,
-                                    style: FilledButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(9))),
-                                    icon: working
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                                strokeWidth: 2))
-                                        : const Icon(Icons.play_arrow_rounded,
-                                            size: 23),
-                                    label: Text(tr("启动游戏"),
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)))))
-                      ])),
-                    ]))
+                                              setState(() => page = 'instance'))
+                                  : Column(children: [
+                                      Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                              28,
+                                              Platform.isMacOS ? 44 : 22,
+                                              28,
+                                              18),
+                                          child: Row(children: [
+                                            Text(tr("开始"),
+                                                style: const TextStyle(
+                                                    fontSize: 25,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                            const Spacer(),
+                                            if (selected.isNotEmpty)
+                                              TextButton.icon(
+                                                  onPressed: busy
+                                                      ? null
+                                                      : () => manageSelected(),
+                                                  icon: const Icon(
+                                                      Icons.tune_rounded,
+                                                      size: 18),
+                                                  label: Text(tr('管理实例'))),
+                                            TextButton.icon(
+                                                key: const Key(
+                                                    'installGameShortcut'),
+                                                onPressed: busy
+                                                    ? null
+                                                    : () => downloads('game'),
+                                                icon: const Icon(
+                                                    Icons.add_rounded,
+                                                    size: 18),
+                                                label: Text(tr('安装游戏'))),
+                                            const SizedBox(width: 8),
+                                            IconButton(
+                                                tooltip: tr("选择游戏目录"),
+                                                onPressed:
+                                                    busy ? null : chooseRoot,
+                                                icon: const Icon(
+                                                    Icons.folder_open_rounded,
+                                                    size: 20))
+                                          ])),
+                                      Expanded(
+                                          child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 28),
+                                              child: Column(children: [
+                                                Expanded(
+                                                    child: Container(
+                                                        key: const Key('cover'),
+                                                        width: double.infinity,
+                                                        clipBehavior:
+                                                            Clip.antiAlias,
+                                                        decoration: BoxDecoration(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12)),
+                                                        child: Stack(
+                                                            fit:
+                                                                StackFit.expand,
+                                                            children: [
+                                                              Image.asset(
+                                                                  'assets/solar-dawn.jpg',
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                  alignment:
+                                                                      Alignment
+                                                                          .center),
+                                                              const DecoratedBox(
+                                                                  decoration: BoxDecoration(
+                                                                      gradient: LinearGradient(
+                                                                          begin:
+                                                                              Alignment.bottomLeft,
+                                                                          end: Alignment.topRight,
+                                                                          colors: [
+                                                                    Color(
+                                                                        0xA5182B40),
+                                                                    Color(
+                                                                        0x00182B40)
+                                                                  ]))),
+                                                              Padding(
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .all(
+                                                                          28),
+                                                                  child: Column(
+                                                                      crossAxisAlignment:
+                                                                          CrossAxisAlignment
+                                                                              .start,
+                                                                      mainAxisAlignment:
+                                                                          MainAxisAlignment
+                                                                              .end,
+                                                                      children: [
+                                                                        Text(
+                                                                            selected.isEmpty
+                                                                                ? 'SECL'
+                                                                                : selected,
+                                                                            style: const TextStyle(
+                                                                                fontSize: 32,
+                                                                                fontWeight: FontWeight.w600,
+                                                                                color: Colors.white)),
+                                                                        const SizedBox(
+                                                                            height:
+                                                                                9),
+                                                                        Text(
+                                                                            selected.isEmpty
+                                                                                ? tr("选择一个本地版本，开始你的旅程。")
+                                                                                : tr("Java Edition · 本地已安装"),
+                                                                            style: const TextStyle(fontSize: 13, color: Color(0xFFDFE7EF)))
+                                                                      ]))
+                                                            ]))),
+                                                const SizedBox(height: 18),
+                                                Row(children: [
+                                                  Icon(Icons.folder_outlined,
+                                                      color: muted, size: 19),
+                                                  const SizedBox(width: 9),
+                                                  Expanded(
+                                                      child: Tooltip(
+                                                          message: state['root']
+                                                                  as String? ??
+                                                              '',
+                                                          child: Text(
+                                                              (state['root']
+                                                                          as String? ??
+                                                                      tr(
+                                                                          "尚未选择游戏目录"))
+                                                                  .replaceFirst(
+                                                                      Platform.environment['HOME'] ??
+                                                                          Platform.environment[
+                                                                              'USERPROFILE'] ??
+                                                                          '<none>',
+                                                                      '~'),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color:
+                                                                      muted))))
+                                                ]),
+                                                const SizedBox(height: 14),
+                                                Row(children: [
+                                                  const Text('Java',
+                                                      style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.w600)),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                      child: DropdownButtonFormField<
+                                                              String>(
+                                                          key: const Key(
+                                                              'javaSelector'),
+                                                          value: java.isEmpty
+                                                              ? null
+                                                              : java,
+                                                          isExpanded: true,
+                                                          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                                                              size: 20),
+                                                          hint: Text(tr("未检测到 Java"),
+                                                              style: const TextStyle(
+                                                                  fontSize:
+                                                                      13)),
+                                                          style: TextStyle(
+                                                              color: ink,
+                                                              fontSize: 13),
+                                                          items: javas
+                                                              .map((j) => DropdownMenuItem(
+                                                                  value: j['path']
+                                                                      as String,
+                                                                  child: Text('Java ${j['version']} · ${j['vendor']} · ${j['arch']}',
+                                                                      overflow: TextOverflow.ellipsis)))
+                                                              .toList(),
+                                                          onChanged: busy
+                                                              ? null
+                                                              : (v) {
+                                                                  if (v !=
+                                                                      null) {
+                                                                    setState(() =>
+                                                                        java =
+                                                                            v);
+                                                                    unawaited(
+                                                                        action({
+                                                                      'action':
+                                                                          'configure',
+                                                                      'java': v,
+                                                                      'version':
+                                                                          selected
+                                                                    }));
+                                                                  }
+                                                                })),
+                                                  const SizedBox(width: 8),
+                                                  IconButton(
+                                                      key: const Key(
+                                                          'installJavaShortcut'),
+                                                      tooltip: tr('安装 Java'),
+                                                      onPressed: busy
+                                                          ? null
+                                                          : () =>
+                                                              downloads('java'),
+                                                      icon: const Icon(
+                                                          Icons
+                                                              .download_outlined,
+                                                          size: 20)),
+                                                  IconButton(
+                                                      tooltip: tr("检测本机 Java"),
+                                                      onPressed: busy
+                                                          ? null
+                                                          : () => action({
+                                                                'action':
+                                                                    'detect_java'
+                                                              }),
+                                                      icon: const Icon(
+                                                          Icons.refresh_rounded,
+                                                          size: 20)),
+                                                  IconButton(
+                                                      tooltip: tr("选择本地 Java"),
+                                                      onPressed: busy
+                                                          ? null
+                                                          : chooseJava,
+                                                      icon: const Icon(
+                                                          Icons
+                                                              .more_horiz_rounded,
+                                                          size: 20))
+                                                ]),
+                                                if (error != null)
+                                                  ConstrainedBox(
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                              maxHeight: 160),
+                                                      child:
+                                                          SingleChildScrollView(
+                                                              child: errorBox(
+                                                                  error))),
+                                                const SizedBox(height: 20),
+                                              ]))),
+                                      FooterBar(
+                                          child: Row(children: [
+                                        Expanded(
+                                            child: Text(
+                                                state['game_running'] == true
+                                                    ? tr("游戏正在运行")
+                                                    : account == null
+                                                        ? tr("登录后验证游戏资格")
+                                                        : selected.isEmpty
+                                                            ? tr("请选择本地版本")
+                                                            : '${account!['name']} · $selected',
+                                                style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight:
+                                                        FontWeight.w500))),
+                                        const SizedBox(width: 14),
+                                        Tooltip(
+                                            message: canLaunch
+                                                ? tr("启动所选本地游戏")
+                                                : tr(
+                                                    "需要登录、有效游戏资格、本地版本与可用 Java"),
+                                            child: SizedBox(
+                                                width: 176,
+                                                height: 50,
+                                                child: FilledButton.icon(
+                                                    key: const Key(
+                                                        'launchButton'),
+                                                    onPressed: canLaunch
+                                                        ? () => action({
+                                                              'action':
+                                                                  'launch',
+                                                              'version':
+                                                                  selected,
+                                                              'java': java
+                                                            })
+                                                        : null,
+                                                    style: FilledButton.styleFrom(
+                                                        shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                    9))),
+                                                    icon: working
+                                                        ? const SizedBox(
+                                                            width: 18,
+                                                            height: 18,
+                                                            child: CircularProgressIndicator(strokeWidth: 2))
+                                                        : const Icon(Icons.play_arrow_rounded, size: 23),
+                                                    label: Text(tr("启动游戏"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)))))
+                                      ])),
+                                    ]))
     ]));
   }
 }

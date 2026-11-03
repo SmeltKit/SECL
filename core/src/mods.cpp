@@ -359,6 +359,8 @@ Json local_mods(const fs::path &game, const std::string &loader) {
         if (record.value("sha512", "") == mod.value("sha512", "")) {
             mod["project_id"] = record.value("projectId", "");
             mod["version_id"] = record.value("versionId", "");
+            mod["icon_url"] = record.value("icon_url",Json());
+            if(!record.value("title","").empty()) mod["name"]=record.at("title");
         }
         out.push_back(mod);
     }
@@ -377,7 +379,13 @@ Json check_mods(const Json &i, const Json &mods, bool allow_unknown, bool allow_
         if (r.second == loader)
             versions[r.first] = i.value("loader_version", "");
     std::map<std::string, std::string> seen;
+    std::map<std::string, std::string> content;
+    std::set<std::string> nested_ids;
+    std::map<std::string,std::string> root_files,root_versions;
+    std::map<std::string,std::set<std::string>> candidates;
     std::set<std::string> ids;
+    auto optifine=i.value("optifine",Json::object());
+    if(!optifine.empty()) { ids.insert("optifine"); versions["optifine"]=optifine.value("version","unknown"); }
     for (auto &m : mods)
         if (m.value("enabled", true)) {
             if (!m.value("known", false)) {
@@ -399,10 +407,20 @@ Json check_mods(const Json &i, const Json &mods, bool allow_unknown, bool allow_
                 auto key = id.get<std::string>();
                 if (runtime.count(key) || key == "minecraft" || key == "java")
                     errors.push_back("加载器与 Java 是实例版本组件，不能由 mods 文件替代：" + key);
-                else if (seen.count(key))
-                    errors.push_back("重复模组 ID：" + key + "（" + seen[key] + " / " +
-                                     m.value("filename", "") + "）。");
-                seen[key] = m.value("filename", "");
+                auto embedded=m.value("embedded_hashes",Json::object());
+                auto hash=embedded.value(key,m.value("sha512",""));
+                const bool nested=embedded.contains(key);
+                // Fabric/Quilt nested jars are dependency candidates, not duplicate roots.
+                // The loader resolves their versions; two explicit root mods still conflict.
+                const bool fabric_candidates=(loader=="fabric"||loader=="quilt");
+                if(!nested && root_files.count(key))
+                    errors.push_back("重复模组 ID："+key+"（"+root_files[key]+" / "+m.value("filename","")+"）。");
+                else if(seen.count(key) && !fabric_candidates && !(nested||nested_ids.count(key) ? !hash.empty()&&content[key]==hash : false))
+                    errors.push_back("重复模组 ID："+key+"（"+seen[key]+" / "+m.value("filename","")+"）。");
+                auto value=m.value("provided_versions",Json::object()).value(key,m.value("version",""));
+                candidates[key].insert(value);
+                if(!nested){root_files[key]=m.value("filename","");root_versions[key]=value;}
+                seen[key]=m.value("filename","");content[key]=hash;if(nested)nested_ids.insert(key);
                 ids.insert(key);
                 versions[key] =
                     m.value("provided_versions", Json::object()).value(key, m.value("version", ""));
@@ -417,7 +435,14 @@ Json check_mods(const Json &i, const Json &mods, bool allow_unknown, bool allow_
                 if (!allow_missing)
                     errors.push_back(m.value("name", "") + " 缺少前置：" + dep.key());
             } else {
-                auto match = requirement(dep.value(), versions[dep.key()]);
+                int match=requirement(dep.value(),versions[dep.key()]);
+                if(loader=="fabric"||loader=="quilt") {
+                    if(root_versions.count(dep.key()))match=requirement(dep.value(),root_versions[dep.key()]);
+                    else if(candidates.count(dep.key())) {
+                        match=0;
+                        for(auto &candidate:candidates[dep.key()]){auto value=requirement(dep.value(),candidate);if(value==1){match=1;break;}if(value<0)match=-1;}
+                    }
+                }
                 if (match == 0)
                     errors.push_back(m.value("name", "") + " 前置版本不符合：" + dep.key());
                 if (match < 0)
@@ -438,7 +463,7 @@ Json check_mods(const Json &i, const Json &mods, bool allow_unknown, bool allow_
         if (m.value("enabled", true) && m.value("known", false))
             check(m);
     for (auto &pair : std::vector<std::pair<std::string, std::string>>{
-             {"iris", "optifine"}, {"iris", "optifabric"}, {"sodium", "optifine"}})
+             {"iris", "optifine"}, {"iris", "optifabric"}, {"sodium", "optifine"}, {"oculus","optifine"}})
         if (ids.count(pair.first) && ids.count(pair.second))
             errors.push_back(pair.first + " 与 " + pair.second + " 不能同时启用。");
     if (loader == "quilt") {

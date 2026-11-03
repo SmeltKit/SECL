@@ -89,7 +89,7 @@ Json local_packs(const fs::path &game, const std::string &kind) {
                 auto current = game / ".solar-pack-metadata" / (hash + ".json");
                 auto meta = read_json(fs::exists(current) ? current :
                                      game / ".m2cl-pack-metadata" / (hash + ".json"));
-                for (auto key : {"name", "description", "version"})
+                for (auto key : {"name", "description", "version", "project_id", "icon_url"})
                     if (meta.contains(key))
                         p[key] = meta[key];
                 out.push_back(p);
@@ -161,6 +161,7 @@ Json apply_pack_plan(const Json &plan, const Task &task) {
                      Json{{"name", file.value("title", file.value("name", ""))},
                           {"version", file.value("version", "")},
                           {"description", file.value("description", "")},
+                          {"icon_url",file.value("icon_url",Json())},
                           {"project_id", file.value("project_id", "")}}.dump());
         std::error_code ec;
         fs::remove_all(stage, ec);
@@ -208,7 +209,7 @@ void remove_pack(const fs::path &game, const std::string &kind, const std::strin
 Json shader_support(const Json &i) {
     auto mods =
         local_mods(fs::u8path(i.at("game_directory").get<std::string>()), i.value("loader", ""));
-    bool iris = false, optifine = !i.value("optifine", Json::object()).empty();
+    bool iris = false, oculus = false, optifine = !i.value("optifine", Json::object()).empty();
     Json components = Json::array();
     for (auto &m : mods)
         if (m.value("enabled", true))
@@ -217,11 +218,12 @@ Json shader_support(const Json &i) {
                     iris = true;
                 if (id == "optifine")
                     optifine = true;
-                if (id == "iris" || id == "optifine" || id == "sodium")
+                if (id == "oculus") oculus=true;
+                if (id == "iris" || id == "optifine" || id == "sodium" || id=="oculus" || id=="embeddium" || id=="rubidium")
                     components.push_back(m.value("name", "") + " " + m.value("version", ""));
             }
     auto check = check_mods(i, mods, true, false);
-    return {{"available", (iris || optifine) && check["errors"].empty()},
+    return {{"available", (iris || oculus || optifine) && check["errors"].empty()},
             {"components", components},
             {"conflicts", check["errors"]},
             {"warnings", check["warnings"]}};

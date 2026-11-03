@@ -68,6 +68,7 @@ Json plan_mod_install(const Json &instance, const Json &root, const Task &task) 
               {"optional", Json::array()},
               {"skipped", Json::array()},
               {"disable_files", Json::array()},
+              {"conflicts",Json::array()},
               {"expected_files", expected},
               {"root_project", root.value("project_id", "")},
               {"original_manifest", mod_inventory(game)}};
@@ -81,6 +82,17 @@ Json plan_mod_install(const Json &instance, const Json &root, const Task &task) 
         auto project = file.value("project_id", "");
         if (project.empty())
             throw Error("dependencies", "missing_project", "资源缺少项目标识。");
+        const bool iris=project=="iris" || project=="YL57xq9U";
+        const bool rendering=iris || project=="sodium" || project=="AANobbMI";
+        if(rendering && !instance.value("optifine",Json::object()).empty())
+            throw Error("mods","managed_optifine","请先在版本组件中移除 OptiFine，再安装 Iris / Sodium。");
+        if(rendering) for(auto &m:mods) if(m.value("enabled",true))
+            for(auto &mod_id:m.value("ids",Json::array()))
+                if(mod_id=="optifine" || (iris && mod_id=="optifabric")) {
+                    auto filename=m.value("filename",""); bool found=false;
+                    for(auto &conflict:plan["conflicts"]) if(conflict.value("filename","")==filename)found=true;
+                    if(!found)plan["conflicts"].push_back({{"filename",filename},{"reason","与所选渲染组件不兼容"}});
+                }
         if (!resource_compatible(file, instance.value("version", ""), instance.value("loader", "")))
             throw Error("dependencies", "incompatible_file",
                         "模组文件与目标游戏版本或加载器不匹配。");
@@ -211,6 +223,10 @@ Json apply_mod_plan(const Json &plan, const Task &task) {
         if (!contains(plan.value("disable_files", Json::array()), conflict.value("filename", "")))
             throw Error("mods", "unresolved_conflict", "请先确认停用作者声明不兼容的组件。");
     auto i = plan.at("target");
+    auto managed=i.value("optifine",Json::object()).value("modFile","");
+    for(auto &name:plan.value("disable_files",Json::array()))
+        if(!managed.empty() && (name==managed || name==managed+".disabled"))
+            throw Error("mods","version_component","OptiFine 属于版本组件，请在版本组件中修改。");
     auto game = fs::u8path(i.at("game_directory").get<std::string>());
     auto folder = checked_path(game, "mods");
     fs::create_directories(folder);

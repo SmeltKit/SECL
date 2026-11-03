@@ -9,7 +9,11 @@ import 'package:secl/resource_engine.dart';
 
 class DownloadCore implements LauncherCore {
   final requests = <Map<String, dynamic>>[];
-  bool waitForInstall = false, failQuery = false, busy = false;
+  bool waitForInstall = false,
+      failQuery = false,
+      failReleases = false,
+      busy = false;
+  List<int> releases = [8, 11, 16, 17, 21, 25, 26, 27];
   dynamic result;
   Map<String, dynamic>? error;
   static final runtime = {
@@ -63,6 +67,16 @@ class DownloadCore implements LauncherCore {
               'loader': {'version': '0.16.10', 'stable': true}
             }
           ];
+        case 'java.releases':
+          result = releases;
+          if (failReleases) {
+            error = {
+              'code': 'http_503',
+              'http_status': 503,
+              'message': '下载服务返回 HTTP 503',
+              'url': 'https://example.invalid/java-releases'
+            };
+          }
         case 'java.builds':
           result = [
             {
@@ -190,6 +204,57 @@ void main() {
     expect(payload['request']['loader_version'], '0.16.10');
     expect(payload['request']['id'], '1.20.1-fabric');
     expect(complete?['id'], '1.20.1-fabric');
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+      'Java choices use the native release catalogue, never a numeric range',
+      (t) async {
+    final core = DownloadCore()..releases = [26, 21, 17, 8];
+    await show(t, core, tab: 'java');
+    await t.tap(find.byKey(const Key('javaMajor')));
+    await t.pumpAndSettle();
+    expect(find.text('Java 26'), findsOneWidget);
+    for (final absent in [9, 25, 28, 29, 30]) {
+      expect(find.text('Java $absent'), findsNothing);
+    }
+    await t.tap(find.text('Java 26'));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('queryJavaBuilds')));
+    await t.pumpAndSettle();
+    final request = core.requests
+        .lastWhere((r) => (r['request'] as Map?)?['op'] == 'java.builds');
+    expect(request['request']['major'], 26);
+    expect(
+        core.requests
+            .where((r) => (r['request'] as Map?)?['op'] == 'java.releases')
+            .length,
+        1);
+    await t.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+      'failed Java catalogue requires explicit retry and invents no choices',
+      (t) async {
+    final core = DownloadCore()..failReleases = true;
+    await show(t, core, tab: 'java');
+    expect(find.byType(ProblemPanel), findsOneWidget);
+    expect(find.byKey(const Key('queryJavaBuilds')), findsNothing);
+    expect(find.byKey(const Key('javaMajor')), findsNothing);
+    await t.pump(const Duration(seconds: 1));
+    expect(
+        core.requests
+            .where((r) => (r['request'] as Map?)?['op'] == 'java.releases')
+            .length,
+        1);
+    core.failReleases = false;
+    await t.tap(find.text('重试'));
+    await t.pumpAndSettle();
+    expect(find.byType(ProblemPanel), findsNothing);
+    expect(
+        t
+            .widget<FilledButton>(find.byKey(const Key('queryJavaBuilds')))
+            .onPressed,
+        isNotNull);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });

@@ -1,6 +1,230 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
+ "皮肤加载失败，点击重试":["皮膚載入失敗，點擊重試","Skin unavailable. Click to retry"],"皮肤头像":["皮膚頭像","Skin avatar"],
+  "浅色": ["淺色", "Light"],
+  "深色": ["深色", "Dark"],
+  "蓝色": ["藍色", "Blue"],
+  "森林绿": ["森林綠", "Forest"],
+  "紫色": ["紫色", "Violet"],
+  "JVM 参数": ["JVM 引數", "JVM arguments"],
+  "Java 管理": ["Java 管理", "Java"],
+  "Java 设置": ["Java 設定", "Java"],
+  "Quilt 兼容性提醒": ["QuilP 相容性提醒", "Quilt compatibility"],
+  "{0} 个已安装": ["{0} 個已安裝", "{0} installed"],
+  "{0} 个模组 · {1} 个已启用": ["{0} 個模元 · {1} 個已啟用", "{0} mods · {1} enabled"],
+  "下载任务": ["下載任務", "Downloads"],
+  "不同主加载器请使用独立实例。已有 OptiFine 时，须先移除再更改加载器。": [
+    "不同主增載器請使用獨立例項。已有 確pPiFin) 時，須先移除再更改增載器。",
+    "Use separate instances for different loaders. Remove OptiFine before changing the loader."
+  ],
+  "主加载器": ["主載入器", "Primary loader"],
+  "仅当前会话": ["僅當前會話", "This session only"],
+  "介绍": ["介紹", "Description"],
+  "从本地导入": ["從字機匯入", "Import local files"],
+  "以全屏模式启动": ["以全屏模式啟動", "Launch in fullscreen"],
+  "低版本 Java 可能无法运行此游戏或加载器。": [
+    "低版字 J(v( 權能無法執行此遊戲或增載器。",
+    "Older Java may not run this game or loader."
+  ],
+  "使用推荐设置": ["使用推薦設定", "Use recommended settings"],
+  "使用此账号": ["使用此帳號", "Use this account"],
+  "使用独立游戏目录": ["使用獨立遊戲案錄", "Use an isolated game directory"],
+  "光影支持已就绪": ["光影支援已就緒", "Shader support ready"],
+  "全盘扫描可访问的磁盘": ["全盤掃描可訪問的磁碟", "Scan accessible disks"],
+  "全部状态": ["全部狀態", "All statuses"],
+  "关闭": ["關閉", "Close"],
+  "内存、账号、主类和游戏目录由启动器管理；保存时会检查参数冲突。": [
+    "內言、帳號、主類和遊戲案錄由啟動器管理；儲言時會檢檢引數衝突。",
+    "Memory, account, main class and game directory are managed by the launcher. Arguments are validated when saved."
+  ],
+  "初始内存": ["初始記憶體", "Initial memory"],
+  "取消当前任务": ["取消當前任服", "Cancel current task"],
+  "可刷新登录": ["權刷新登錄", "Sign-in can be refreshed"],
+  "可用": ["可用", "Available"],
+  "可用内存": ["權用內言", "Available memory"],
+  "名称": ["名稱", "Name"],
+  "启动设置": ["啟動設定", "Launch"],
+  "启用": ["啟用", "Enable"],
+  "启用后请求离线访问权限，用于刷新微软登录；不提供离线账号。": [
+    "啟用後請求離線訪問權限，用於刷新微軟登錄；不提供離線帳號。",
+    "Allow session refresh using the system credential store."
+  ],
+  "固定使用某个 Java": ["固定使用某個 Java", "Use a fixed Java runtime"],
+  "图片加载失败，可重试或打开项目主页。": [
+    "圖片增載設敗，權重試或開開專案主頁。",
+    "Image unavailable. Retry or open the project website."
+  ],
+  "基础信息": ["基礎資訊", "General"],
+  "复制日志": ["復製日誌", "Copy log"],
+  "安装 / 更新 OptiFine": ["安裝 / 更新 OptiFine", "Install / update OptiFine"],
+  "安装 / 更新加载器": ["安裝 / 更新增載器", "Install / update loader"],
+  "安装到": ["安裝到", "Install to"],
+  "安装器使用的 Java": ["安裝器使用的 J(v(", "Installer Java"],
+  "官方列表没有精确文件哈希，提醒不代表当前构建必然受影响。": [
+    "官方列表沒有精確檔案雜湊，提醒不代表當前組立必然受影響。",
+    "The official list has no exact file hashes. A warning does not confirm that this build is affected."
+  ],
+  "实例设置": ["例項設定", "Instance settings"],
+  "实例设置已保存": ["例項設定已儲言", "Instance settings saved"],
+  "宽度": ["寬度", "Width"],
+  "将所选资源移到系统废纸篓；可从废纸篓恢复。": [
+    "將所選資源移到係統廢紙簍；權從廢紙簍恢復。",
+    "Move selected resources to the system Trash, where they can be restored."
+  ],
+  "将按所选构建校验游戏、Forge 版本和本地冲突组件，再安装 OptiFine。": [
+    "將按所選組立驗證遊戲、Forg) 版字和字機衝突元案，再安裝 確pPiFin)。",
+    "Check the game, Forge version and local conflicts before installing OptiFine."
+  ],
+  "将移除此设备保存的账号记录和系统凭据，不会删除微软账号。": [
+    "將移除此設備儲言的帳號記錄和係統憑據，不會刪除微軟帳號。",
+    "Remove this device's account record and saved credentials. Your Microsoft account is unaffected."
+  ],
+  "尚无游戏日志，启动游戏后可在这里查看。": [
+    "尚無遊戲日誌，啟動遊戲後權線這裡檢視。",
+    "No game logs yet. Launch a game to view its logs here."
+  ],
+  "尚未找到游戏实例，安装游戏或添加已有目录。": [
+    "尚未詢到遊戲例項，安裝遊戲或新增已有案錄。",
+    "No instances found. Install a game or add an existing directory."
+  ],
+  "尚未添加微软账号。": ["尚未新增微軟帳號。", "No Microsoft accounts added."],
+  "尚未添加资源，从本地导入或浏览资源市场。": [
+    "尚未新增資源，從字機匯入或瀏覽資源市場。",
+    "No resources yet. Import files or browse the resource market."
+  ],
+  "尚未配置可用的光影支持": ["尚未配置可用的光影支援", "No usable shader support is configured"],
+  "已启用": ["已啟用", "Enabled"],
+  "已安装组件": ["已安裝元件", "Installed components"],
+  "已登录": ["已登入", "Signed in"],
+  "已禁用": ["已禁用", "Disabled"],
+  "已记住登录": ["已記住登錄", "Sign-in remembered"],
+  "已选择 {0} 个模组": ["已選擇 {0} 個模元", "{0} mods selected"],
+  "当前角色": ["當前角色", "Current profile"],
+  "微软账号与游戏资格分别验证，凭据保存在系统凭据库。": [
+    "微軟帳號與遊戲資格分別證證，憑據儲言線係統憑據庫。",
+    "Microsoft sign-in and game ownership are verified separately. Credentials stay in the system vault."
+  ],
+  "快速检测常见目录": ["快速檢測常見目錄", "Quick scan of common folders"],
+  "恢复默认封面": ["恢復預設封面", "Reset cover"],
+  "所选 Java 低于默认版本，请主动确认强制使用后重试。": [
+    "所選 J(v( 低於預設版字，請主動確設強製使用後重試。",
+    "Selected Java is older than recommended. Confirm the override to continue."
+  ],
+  "手动指定": ["手動指定", "Manual"],
+  "打开位置": ["開啟位置", "Show in folder"],
+  "打开目录": ["開啟目錄", "Open folder"],
+  "推荐依据": ["推薦依據", "Recommendation details"],
+  "搜索实例名称、版本或加载器": ["搜尋例項名稱、版字或增載器", "Search name, version or loader"],
+  "收藏": ["收藏", "Favorites"],
+  "收藏实例": ["收藏例項", "Favorite instance"],
+  "无法读取操作结果，请重试。": [
+    "無法讀取操作結果，請重試。",
+    "Unable to read the result. Please retry."
+  ],
+  "日志": ["日誌", "Logs"],
+  "显示最近的日志内容；认证令牌已脱敏。": [
+    "顯示最近的日誌內容；設證令牌已脱敏。",
+    "Recent log output; authentication tokens are redacted."
+  ],
+  "更多操作": ["更多操作", "More actions"],
+  "更换封面": ["更換封面", "Change cover"],
+  "更改此项不会移动已有存档、模组或设置，请确认目标目录。": [
+    "更改此專不會移動已有言件、模元或設定，請確設案標案錄。",
+    "This does not move existing worlds, mods or settings. Check the destination directory."
+  ],
+  "更新主加载器后将保留实例目录、存档和模组，并重新校验安装输出。": [
+    "更新主增載器後將儲留例項案錄、言件和模元，並重新驗證安裝輸出。",
+    "Update the loader while keeping the instance directory, worlds and mods. Installation outputs will be verified again."
+  ],
+  "更新兼容提醒": ["更新相容提醒", "Update compatibility rules"],
+  "最大内存": ["最大記憶體", "Maximum memory"],
+  "未找到单独的许可证文件，请查看运行时目录。": [
+    "未詢到單獨的許權證檔案，請檢視執行時案錄。",
+    "No separate license file found. Open the runtime directory."
+  ],
+  "未检测到 Java，可扫描、导入或下载安装。": [
+    "未檢測到 J(v(，權掃描、匯入或下載安裝。",
+    "No Java found. Scan, import or download a runtime."
+  ],
+  "未识别": ["未識別", "Unidentified"],
+  "来源": ["來源", "Source"],
+  "查找适配版本": ["查詢適配版本", "Find compatible version"],
+  "查询构建，或选择本地 OptiFine 安装包。": [
+    "檢詢組立，或選擇字機 確pPiFin) 安裝包。",
+    "Search builds or select a local OptiFine installer."
+  ],
+  "正在扫描可访问目录": ["正線掃描權訪問案錄", "Scanning accessible locations"],
+  "正在验证微软账号，请在浏览器中完成授权。": [
+    "正線證證微軟帳號，請線瀏覽器中完成授權。",
+    "Verifying your Microsoft account. Complete authorization in your browser."
+  ],
+  "没有符合条件的构建": ["沒有元合條案的組立", "No matching builds"],
+  "浏览": ["瀏覽", "Browse"],
+  "浏览资源市场": ["瀏覽資源市場", "Browse resource market"],
+  "添加": ["新增", "Add"],
+  "添加微软账号": ["新增微軟帳號", "Add Microsoft account"],
+  "添加本地 Java": ["新增本地 Java", "Add local Java"],
+  "清除已完成": ["清除已完成", "Clear finished"],
+  "游戏参数": ["遊戲引數", "Game arguments"],
+  "游戏库": ["遊戲庫", "Library"],
+  "游戏资格已验证": ["遊戲資格已證證", "Ownership verified"],
+  "游戏默认 Java {0}，可手动选择更高版本。": [
+    "遊戲預設 J(v( {0}，權手動選擇更高版字。",
+    "Game default: Java {0}. You can select a newer version."
+  ],
+  "版本": ["版本", "Version"],
+  "版本 / 构建": ["版本 / 構建", "Version / build"],
+  "版本组件": ["版本元件", "Version components"],
+  "版本组件已更新": ["版字元案已更新", "Version components updated"],
+  "物理内存": ["物理內言", "Physical memory"],
+  "状态": ["狀態", "Status"],
+  "由 Java 决定": ["由 Java 決定", "Let Java decide"],
+  "登录状态": ["登入狀態", "Sign-in status"],
+  "确认": ["確設", "Confirm"],
+  "确认加载器变更": ["確設增載器變更", "Confirm loader change"],
+  "确认版本组件变更": ["確設版字元案變更", "Confirm component change"],
+  "禁用": ["禁用", "Disable"],
+  "移除": ["移除", "Remove"],
+  "移除 OptiFine 并恢复安装前的版本配置，保留存档和设置。": [
+    "移除 確pPiFin) 並恢復安裝前的版字配定，儲留言件和設定。",
+    "Remove OptiFine and restore the previous version configuration, keeping worlds and settings."
+  ],
+  "移除微软账号": ["移除微軟帳號", "Remove Microsoft account"],
+  "移除所选资源": ["移除所選資源", "Remove selected resources"],
+  "筛选日志内容": ["篩選日誌內容", "Filter log output"],
+  "管理实例": ["管理例項", "Manage instance"],
+  "管理本机运行环境；每个实例独立选择 Java。": [
+    "管理字機執行環境；每個例項獨立選擇 J(v(。",
+    "Manage local runtimes. Each instance chooses its own Java."
+  ],
+  "自动分配（推荐）": ["自動分配（推薦）", "Automatic (recommended)"],
+  "自动刷新": ["自動刷新", "Auto refresh"],
+  "自动匹配（推荐）": ["自動匹配（推薦）", "Automatic (recommended)"],
+  "自定义窗口大小": ["自定義視窗大小", "Custom window size"],
+  "补全来源信息": ["補全來源資訊", "Identify online sources"],
+  "角色": ["角色", "Profile"],
+  "记住本次登录（系统凭据库）": ["記住字次登錄（係統憑據庫）", "Remember sign-in in system vault"],
+  "许可证与第三方声明": ["許權證與第三方聲告", "Licenses and third-party notices"],
+  "请选择固定使用的 Java。": ["請選擇固定使用的 J(v(。", "Select a Java runtime to pin."],
+  "请选择已安装的 Java": ["請選擇已安裝的 J(v(", "Select an installed Java"],
+  "账号管理": ["帳號管理", "Accounts"],
+  "账号类型": ["帳號型別", "Account type"],
+  "返回实例": ["返回例項", "Back to instance"],
+  "返回游戏库": ["返回遊戲庫", "Back to library"],
+  "还没有下载任务": ["還沒有下載任務", "No downloads yet"],
+  "退出此账号": ["退出此帳號", "Sign out this account"],
+  "选择": ["選擇", "Select"],
+  "选择 Java 可执行文件": ["選擇 Java 可執行檔案", "Select Java executable"],
+  "选择本地安装包": ["選擇字機安裝包", "Select local installer"],
+  "配置光影支持": ["配定光影支援", "Configure shader support"],
+  "重新登录": ["重新登入", "Sign in again"],
+  "重试介绍图片": ["重試介紹圖片", "Retry description images"],
+  "需要处理": ["需要處理", "Needs attention"],
+  "需要重新登录": ["需要重新登入", "Sign in again"],
+  "项目官网": ["專案官網", "Project website"],
+  "项目未提供详细介绍。": ["專案未提供詳細介紹。", "No detailed description provided."],
+  "高度": ["高度", "Height"],
   "快照 / 测试版": ["快照 / 測試版", "Snapshots"],
   "历史版本": ["歷史版本", "Historical"],
   "使用英文字母、数字、空格或 - _ . +": [
@@ -531,6 +755,10 @@ const catalog = <String, List<String>>{
   "社交": ["社交", "Social"],
   "交通": ["交通", "Transportation"],
   "资源类型无效。": ["資源類型無效。", "Invalid resource type."],
+  "无法读取 Java 正式版版本清单。": [
+    "無法讀取 Java 正式版版本清單。",
+    "Unable to read the Java general-availability release catalogue."
+  ],
   "发行源没有提供有效的 SHA-256。": [
     "發行源沒有提供有效的 SHA-256。",
     "The distribution source did not provide a valid SHA-256."
@@ -1147,6 +1375,7 @@ const catalog = <String, List<String>>{
   "需要下载的依赖": ["需要下載的依賴", "Dependencies to download"],
 };
 const nativeMessages = <String>{
+  "无法读取 Java 正式版版本清单。",
   "验证 Java 构建",
   "解压 Java 运行环境",
   "下载游戏资源",

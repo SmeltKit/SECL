@@ -7,6 +7,26 @@
 #include <set>
 #include <zlib.h>
 namespace solar::engine {
+Json released_java_versions(const Json &metadata) {
+    const auto latest = metadata.find("most_recent_feature_release");
+    const auto available = metadata.find("available_releases");
+    if (latest == metadata.end() || !latest->is_number_integer() ||
+        available == metadata.end() || !available->is_array() ||
+        latest->get<int>() < 8 || latest->get<int>() > 99)
+        throw Error("java", "invalid_release_catalog", "无法读取 Java 正式版版本清单。");
+    std::set<int, std::greater<int>> versions;
+    for (const auto &version : *available)
+        if (version.is_number_integer() && version >= 8 && version <= *latest)
+            versions.insert(version.get<int>());
+    if (versions.empty())
+        throw Error("java", "invalid_release_catalog", "无法读取 Java 正式版版本清单。");
+    return Json(versions);
+}
+Json java_releases(const Task &task) {
+    // Use GA metadata, never most_recent_feature_version / tip_version (EA).
+    return released_java_versions(
+        fetch_json("https://api.adoptium.net/v3/info/available_releases", task));
+}
 static std::string checksum(const std::string &url, const Task &t) {
     auto bytes = fetch_data(url, t, 16384);
     std::smatch m;

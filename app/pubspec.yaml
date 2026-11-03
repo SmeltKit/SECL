@@ -13,6 +13,9 @@ dependencies:
   intl: 0.18.1
   ffi: 2.1.0
   file_selector: 1.0.3
+  flutter_widget_from_html_core: 0.14.12
+  markdown: 7.2.2
+  html: 0.15.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

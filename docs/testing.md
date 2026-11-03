@@ -16,7 +16,7 @@ cd app
 /path/to/flutter-3.19.6/bin/flutter build macos --debug
 ```
 
-The latest Release-native test run passes 111 authentication/core checks and 64
+The latest Release-native test run passes 144 authentication/core checks and 75
 engine checks. The earlier baseline (110 core / 47 engine checks) also passed
 AddressSanitizer and UndefinedBehaviorSanitizer in a separate Debug build.
 
@@ -43,7 +43,7 @@ reported runtime home. A real `JAVA_HOME` reproduction returns Java 21 and 26
 once each. The sidebar and launch footer now share the same height and divider;
 the unofficial-project notice remains in About and the README.
 
-Twenty-two Flutter tests cover disabled launch without ownership, structured error
+Thirty-six Flutter tests cover disabled launch without ownership, structured error
 presentation, all three markets at 880×640, explicit retry clearing stale errors,
 returning from details with search preserved, loader/version matching, grouped
 game-version selectors and required/optional dependency checkbox defaults. Static
@@ -74,10 +74,10 @@ Qt dependency.
 
 Not yet verified:
 
-- Real game startup with an authenticated account.
+- World creation/gameplay and long-duration game stability.
 - Complete online install/upgrade/rollback matrices for all Java vendors, game
   versions, Forge/NeoForge installers and OptiFine builds.
-- System credential persistence with a real account; current UI is session-only.
+- System credential persistence with a real account; UI is implemented; real credential restore remains unverified.
 - Windows 7/8, 32-bit Windows, Windows ARM64, Intel macOS and Linux packaging.
 
 Old Flutter reference: https://github.com/flutter/flutter/issues/140830.
@@ -188,3 +188,80 @@ validates matching legacy JVM version syntax against an `8.0.504+1` package buil
 All Java 8 smoke-test files were removed automatically afterwards.
 
 Downloads Release ARM64: 22,857,345 bytes as an app, 9,154,986 bytes as a ZIP. Ad hoc signature verification passed; Qt is absent from linked dependencies.
+
+
+### Signed-in skin avatar
+
+The verified profile now retains the ACTIVE official skin URL as public cosmetic
+metadata. The URL is HTTPS and restricted to textures.minecraft.net; bearer tokens
+are never passed to the avatar loader. Missing / malformed skin data and rejected
+third-party URLs do not invalidate an otherwise verified account. Texture requests
+have a ten-second overall timeout, no automatic retries, a one-MiB bound and PNG
+size validation. At most eight small immutable texture files are cached in memory.
+The UI uses a front orthographic head projection: the 8-unit face is centered
+inside the 9-unit outer hair/hat layer. Both layers retain nearest-neighbor pixels
+and square corners; the outer layer fits within the avatar bounds without clipping.
+The official texture of the current real player was fetched separately
+and checked with the production painter; no login or ownership was simulated.
+Rendering checks cover the 8:9 face/hat geometry, unclipped square corners,
+translucent outer pixels, legacy 64×32 skins and an undistorted head in a rectangular
+viewport. Widget tests cover successful image replacement,
+logout during an in-flight load, CDN failure, and unchanged entitlement gates.
+
+
+### Java GA version catalogue
+
+The download selector now requests `java.releases` from the native core. It uses
+Adoptium's official `available_releases` list capped by
+`most_recent_feature_release`; EA/tip version fields never create download choices.
+The numeric 8–30 placeholder range was removed. Common versions are prioritized
+only when present in the returned catalogue. Actual vendor/OS/architecture build
+availability is still determined by the separate build query.
+
+A catalogue failure shows the existing error/retry panel and does not invent
+versions or retry automatically. Native checks cover GA filtering, sorting,
+deduplication, malformed/empty catalogues and accepting a later GA release when
+metadata changes. Widget checks cover data-driven choices and explicit retry.
+
+## Management migration, 2026-11-03
+
+New tests cover instance metadata, launch log paths, token-redacted log output, invalid Java pins, nested Markdown/HTML retention and sanitization, table alignment and compact account layout. Native: 144 + 75 checks. Flutter: 36 tests. Static analysis: no issues.
+
+Implemented UI is distinct from acceptance testing: real account restoration in OS vaults, all loader/OptiFine update combinations, deep disk scans and Windows/Linux packaging remain unverified.
+
+## Real macOS acceptance run — 2026-11-03
+
+Tested the shipped Release library and app with an isolated temporary game directory. No synthetic identity was used for production launch.
+
+| Scenario | Actual result |
+| --- | --- |
+| Microsoft sign-in | Real account, ownership and profile verified |
+| Avatar | Real official 64x64 PNG decoded; sidebar displayed the skin. Fixed unrecoverable placeholder after CDN failure; manual retry and shared-cache notification added |
+| Java download | Zulu Java 17.0.21 ARM64 installed, reinstallation reused existing files, runtime discovered |
+| Game download | Minecraft 1.20.1, client SHA1 and all 3,598 asset hashes verified |
+| Vanilla launch | Real authenticated process launched, LWJGL, sound and texture initialization completed |
+| Fabric launch | Loader 0.16.10 with Comforts, Fabric API, Iris and Sodium launched; 69 total modules including embedded libraries loaded; OpenGL, sound and texture initialization completed |
+| Independent settings | Actual JVM command used pinned Zulu 17, -Xmx2048M, --width 960 and --height 600; no tokens printed |
+| Resource installation | Comforts plus required dependency, MakeUp shader and Default Dark Mode resource pack downloaded and reused on repeat |
+| Wrong-loader import | Real Forge AppleSkin rejected in a Fabric instance, mod directory unchanged |
+| Local inventory/log UI | Four top-level mods with embedded icons and versions displayed; real game logs read in the instance page |
+
+Real tests found and fixed different-version Fabric nested libraries being incorrectly treated as duplicate root mods. Fabric Loader treats nested jars as candidates; two explicit root mods with the same ID remain rejected. Reference: https://docs.fabricmc.net/develop/loader/ .
+
+Also fixed isolation settings accidentally replacing an installer-created instances/<id> directory with versions/<id>, and settings failing to display a pinned Java outside the global scan results.
+
+The automation surface did not expose the Java game window for screenshots. Launch acceptance above is based on the actual running process, initialization logs and the user's observation of the opened window; it does not claim visual gameplay or shader rendering validation. Test JVMs were deliberately stopped with SIGTERM after checks (exit 143 is expected for this test stop).
+
+Not covered: actual remembered-account restoration, Forge/NeoForge/OptiFine full install/runtime matrices, Windows/Linux, shader rendering in a world. Test files remain under /private/tmp/secl-live-acceptance and /private/tmp/secl-resource-acceptance, outside the repository.
+
+Final UI acceptance also confirmed that the homepage shows the actual pinned Java 17 (not the global Java 21 selection), and that saved isolated directories retain their installer-created path. The test run left the installed assets in the isolated temporary directory for inspection (approximately 900 MiB).
+
+## Local resource icon repaint regression — 2026-11-03
+
+Local mod, shader and resource-pack icons retain decoded PNG buffers across parent
+status polling. Repeated builds now reuse the same Flutter image-cache key;
+changed icon content receives a new key. The regression test reproduces cache
+key churn before the fix, verifies stable keys afterwards and checks malformed
+metadata fallback. All 36 Flutter tests and static analysis passed. The updated
+ARM64 Release was opened on the real four-mod inventory; ad hoc signature
+verification passed.

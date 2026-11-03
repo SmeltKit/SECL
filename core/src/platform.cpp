@@ -18,6 +18,7 @@
 #include <spawn.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 extern char **environ;
 #ifdef __APPLE__
@@ -184,16 +185,23 @@ std::string run_capture(const fs::path &exe, const std::vector<std::string> &arg
     return out;
 }
 std::int64_t spawn_game(const Command &c) {
-    STARTUPINFOW start{};
-    start.cb = sizeof(start);
+    STARTUPINFOW start{}; start.cb=sizeof(start);
     PROCESS_INFORMATION child{};
-    auto cmd = command_line(c.executable, c.arguments);
-    if (!CreateProcessW(c.executable.c_str(), cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
-                        nullptr, c.directory.c_str(), &start, &child))
-        throw Error("launch", "process_failed",
-                    "无法创建游戏进程，系统代码 " + std::to_string(GetLastError()));
-    CloseHandle(child.hThread);
-    return reinterpret_cast<std::int64_t>(child.hProcess);
+    SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES),nullptr,TRUE};
+    HANDLE log=INVALID_HANDLE_VALUE,input=INVALID_HANDLE_VALUE;
+    if(!c.log_file.empty()) {
+        log=CreateFileW(c.log_file.c_str(),GENERIC_WRITE,FILE_SHARE_READ,&attributes,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
+        if(log==INVALID_HANDLE_VALUE)throw Error("launch","log_open_failed","无法创建启动日志。");
+        BY_HANDLE_FILE_INFORMATION info{};
+        if(!GetFileInformationByHandle(log,&info)||(info.dwFileAttributes&FILE_ATTRIBUTE_REPARSE_POINT)){CloseHandle(log);throw Error("launch","log_open_failed","启动日志路径无效。");}
+        input=CreateFileW(L"NUL",GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,&attributes,OPEN_EXISTING,0,nullptr);
+        start.dwFlags=STARTF_USESTDHANDLES;start.hStdOutput=log;start.hStdError=log;start.hStdInput=input;
+    }
+    auto cmd=command_line(c.executable,c.arguments);
+    auto ok=CreateProcessW(c.executable.c_str(),cmd.data(),nullptr,nullptr,log!=INVALID_HANDLE_VALUE,CREATE_NO_WINDOW,nullptr,c.directory.c_str(),&start,&child);
+    auto error=GetLastError();if(log!=INVALID_HANDLE_VALUE)CloseHandle(log);if(input!=INVALID_HANDLE_VALUE)CloseHandle(input);
+    if(!ok)throw Error("launch","process_failed","无法创建游戏进程，系统代码 "+std::to_string(error));
+    CloseHandle(child.hThread);return reinterpret_cast<std::int64_t>(child.hProcess);
 }
 int game_exit(std::int64_t handle) {
     auto h = reinterpret_cast<HANDLE>(handle);
@@ -283,13 +291,17 @@ std::int64_t spawn_game(const Command &c) {
         if (chdir(c.directory.c_str()) != 0)
             error = errno;
         int null = open("/dev/null", O_RDWR);
+        int output = c.log_file.empty() ? -1 : open(c.log_file.c_str(), O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0600);
+        if (!c.log_file.empty() && output < 0) error=errno;
+        if (output >= 0) fchmod(output,0600);
         if (null >= 0) {
             dup2(null, 0);
-            dup2(null, 1);
-            dup2(null, 2);
+            dup2(output>=0?output:null, 1);
+            dup2(output>=0?output:null, 2);
             if (null > 2)
                 close(null);
         }
+        if(output>2)close(output);
         if (!error)
             execve(c.executable.c_str(), argv.data(), environ);
         error = error ? error : errno;

@@ -308,6 +308,16 @@ void save_instance_settings(const fs::path &p, const Json &value) {
     if (!value.is_object())
         throw Error("settings", "invalid_instance_settings", "实例设置必须是 JSON 对象。");
     validate_launch_options(value.value("launch", Json::object()));
+    const auto java=value.value("java",Json::object());
+    if(!java.is_object() || (java.value("mode","auto")!="auto" && java.value("mode","auto")!="fixed"))
+        throw Error("settings","invalid_java_choice","Java 选择方式无效。");
+    if(java.value("mode","auto")=="fixed" && java.value("path","").empty())
+        throw Error("settings","missing_java_path","请选择固定使用的 Java。");
+    const auto display=value.value("display",Json::object());
+    if(!display.is_object() || display.value("name","").size()>512 || display.value("cover","").size()>4096)
+        throw Error("settings","invalid_display","实例名称或封面路径无效。");
+    if(value.contains("isolated") && !value["isolated"].is_boolean())
+        throw Error("settings","invalid_isolation","游戏目录设置无效。");
     if (value.contains("offlinePlayer") || value.contains("offlineSkin"))
         throw Error("settings", "offline_unsupported", "SECL 不提供离线身份设置。");
     atomic_write(p / ".solar-instance.json", value.dump(2));
@@ -337,8 +347,17 @@ Json scan_instances(const std::vector<fs::path> &roots, const Json &overrides) {
                     isolated = true;
                 if (overrides.contains(path.u8string()))
                     isolated = overrides[path.u8string()].get<bool>();
+                auto stored=m.value("_solarGameDirectory",m.value("_m2clGameDirectory",std::string()));
+                if(!stored.empty())isolated=fs::weakly_canonical(fs::u8path(stored))!=fs::weakly_canonical(root);
+                auto isolated_directory=stored.empty()||!isolated?path:fs::u8path(stored);
+                auto settings=load_instance_settings(path);
+                if(settings.contains("isolated")) isolated=settings.at("isolated").get<bool>();
+                auto display=settings.value("display",Json::object());
                 instances.push_back(
                     {{"id", id},
+                     {"name",display.value("name",id).empty()?id:display.value("name",id)},
+                     {"cover",display.value("cover","")},
+                     {"favorite",display.value("favorite",false)},
                      {"path", path.u8string()},
                      {"root", fs::canonical(root).u8string()},
                      {"version", m.value("_baseId", m.value("id", id))},
@@ -350,7 +369,8 @@ Json scan_instances(const std::vector<fs::path> &roots, const Json &overrides) {
                       loaders.size() > 1 ? "同时检测到多个主加载器，请使用独立实例。" : ""},
                      {"isolated", isolated},
                      {"game_directory",
-                      m.value("_solarGameDirectory", (isolated ? path : root).u8string())},
+                      settings.contains("isolated") ? (isolated ? isolated_directory : root).u8string() :
+                          m.value("_solarGameDirectory", m.value("_m2clGameDirectory",(isolated ? path : root).u8string()))},
                      {"java_major",
                       m.value("javaVersion", Json::object()).value("majorVersion", 0)},
                      {"optifine",

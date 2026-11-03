@@ -27,7 +27,7 @@ struct HttpResponse {
 using Transport = std::function<HttpResponse(const std::string &, const std::string &,
                                              const std::string &, const std::string &)>;
 struct Identity {
-    std::string name, uuid, token, xuid, client_id;
+    std::string name, uuid, token, xuid, client_id, skin_url, refresh_token;
     std::int64_t expires = 0;
     bool owned = false;
 };
@@ -37,6 +37,7 @@ struct Platform {
 struct Command {
     fs::path executable, directory;
     std::vector<std::string> arguments;
+    fs::path log_file;
 };
 std::int64_t now();
 std::string read_file(const fs::path &, std::size_t limit = 16 * 1024 * 1024);
@@ -49,7 +50,7 @@ HttpResponse https_request(const std::string &, const std::string &, const std::
 std::string callback_code(const std::string &, const std::string &);
 Identity authenticate_code(const std::string &client, const std::string &redirect,
                            const std::string &verifier, const std::string &code, const Transport &,
-                           const std::function<void(std::string)> &);
+                           const std::function<void(std::string)> &, bool remember = false);
 Identity authenticate_refresh(const std::string &client, const std::string &refresh,
                               const Transport &, const std::function<void(std::string)> &);
 bool rules_allow(const Json &, const Platform &);

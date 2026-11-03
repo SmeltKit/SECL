@@ -23,3 +23,5 @@ Third-party material retains its own license:
 
 Unofficial project. Not approved by or associated with Mojang or Microsoft.
 Minecraft is a trademark of Mojang Synergies AB. No game files are included.
+
+Description rendering: flutter_widget_from_html_core 0.14.12 (MIT), markdown 7.2.2 (BSD-3-Clause), html 0.15.6 (MIT). Published license texts are included in Flutter generated notices, accessible from About.

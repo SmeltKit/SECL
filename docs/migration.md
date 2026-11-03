@@ -7,7 +7,7 @@
 | 原模块 | SECL 实现 | 界面状态 / 验证边界 |
 | --- | --- | --- |
 | microsoftauth / networkerror | `auth.cpp`、`api.cpp` | PKCE、回调、Xbox、XSTS、资格、角色；2026-11-02 AppID 白名单获准，2026-11-03 真实账号、资格和角色校验通过 |
-| accounts / accountmanager / credentialvault | `accounts.cpp`、`credentialvault.cpp`、原生会话管理 | Microsoft 元数据、严格验证、系统凭据库适配；当前 UI 仅单会话登录，不开放记住账号 |
+| accounts / accountmanager / credentialvault | `accounts.cpp`、`credentialvault.cpp`、原生会话管理 | Microsoft 元数据、严格验证、系统凭据库适配；多账号界面与可选系统凭据记忆已接入；真实凭据恢复待验收 |
 | catalog / settings | `runtime.cpp`、`game.cpp` | 本地版本识别、继承、隔离目录、实例 Java 与参数；读取旧实例设置 |
 | java / javaarchive / javaprovider | `runtime.cpp`、`javaprovider.cpp`、`archive.cpp` | 扫描、实际版本探测、发行版/构建查询、校验解压安装、许可路径；三种语言下载页已接入，支持主版本、发行版、具体构建和系统 / 架构选择 |
 | memory / launchoptions / gameplan | `runtime.cpp`、`game.cpp`、`gameinstall.cpp` | 可用内存建议、手动内存、分辨率和参数检查；实例参数参与实际命令生成 |
@@ -17,14 +17,14 @@
 | resources / resourceclient | `resources.cpp`、Flutter 资源市场 | 三类独立入口、中文分类、项目图标、版本/加载器筛选、正式/测试/预览文件分类、底部分页；Modrinth 已实测，未接入 CurseForge |
 | mods / modinstaller | `mods.cpp`、`modinstall.cpp`、共用安装确认窗口 | 递归依赖、已有组件复用、显式重下、依赖勾选、冲突确认、暂存与回滚；Comforts 与必需前置真实下载通过 |
 | packs / compatibility | `packs.cpp`、共用安装确认窗口 | 光影/材质包下载、哈希/归档验证、重复复用、光影支持提示；MakeUp 与 Default Dark Mode 真实下载通过；保留 Quilt 规则缓存与退避 |
-| gamelog / SecretRedactor | `accounts.cpp`、`runtime.cpp` | 跨分块令牌脱敏、XML 日志解码和通用脱敏；当前精简 UI 未提供日志阅读器 |
+| gamelog / SecretRedactor | `accounts.cpp`、`runtime.cpp` | 跨分块令牌脱敏、XML 日志解码和通用脱敏；已接入实例日志阅读器 |
 
 **明确排除**：离线账号创建、离线 UUID、离线皮肤、authlib-injector 皮肤注入。
 原 `skins.cpp` 的业务都是离线皮肤，因此未搬入；没有自带 Steve/Alex 素材。
 Qt Widgets UI、Qt 国际化与富文本渲染属于外壳，未作为核心依赖搬入。
 
 原 Qt 账号管理器拆为无 Qt 的存储、认证、系统凭据和任务状态；Flutter 不接收
-原始令牌。刷新函数仍须完整重新检查游戏资格；当前精简 UI 每次启动重新登录，
+原始令牌。刷新函数仍须完整重新检查游戏资格；可选系统凭据记忆已接入；
 不会自动从旧 M²CL 读取凭据，也不会在磁盘保存访问令牌。
 
 ## 数据边界
@@ -38,4 +38,10 @@ Qt Widgets UI、Qt 国际化与富文本渲染属于外壳，未作为核心依�
 - 对不支持的老 Forge 安装器格式仍明确报错，不伪装成功。
 
 构建通过不等于每个发行版、加载器和历史版本组合都已经联网安装成功。
-请按 `testing.md` 中的后续矩阵进行真实集成验证后再开放扩展 UI。
+扩展 UI 已开放，真实集成验证范围见 `testing.md`。
+
+## Management UI connected, 2026-11-03
+
+The prior table describes the initial migration baseline. The Flutter shell now connects instance library and favorites/custom covers; shared local mod/shader/resource tables; per-instance Java pins, recommended memory, resolution/fullscreen and JVM/game options; loader/OptiFine controls; Java catalogue, scan and legal files; log viewing and process output capture; Microsoft multi-account selection, optional OS-vault refresh; full Markdown/HTML project bodies; light/dark/system appearance and in-memory task history. Tokens stay native. Metadata never grants ownership. Real credential restoration and component installation matrices still need acceptance tests.
+
+Still excluded: offline identities/skins, CurseForge, worlds, modpack import and persistent pause/resume.

@@ -284,6 +284,19 @@ int main(int argc, char **argv) {
         empty_instance["game_directory"] = (temp / "empty-plan").u8string();
         check(plan_mod_install(empty_instance, nullable_root)["files"].size() == 1,
               "Modrinth nullable dependency IDs do not break planning");
+        auto release_metadata = Json{
+            {"most_recent_feature_release", 27},
+            {"most_recent_feature_version", 28}, {"tip_version", 30},
+            {"available_releases", Json::array({8, 11, 17, 21, 25, 26, 27, 28, 30, 6, 27, "bad"})}};
+        check(released_java_versions(release_metadata) ==
+                  Json::array({27, 26, 25, 21, 17, 11, 8}),
+              "Java catalogue excludes EA and invented future versions, sorts and deduplicates");
+        release_metadata["most_recent_feature_release"] = 30;
+        check(released_java_versions(release_metadata).front() == 30,
+              "Future GA versions come from updated metadata, not a hardcoded ceiling");
+        rejects([] { released_java_versions({{"available_releases", Json::array({21})}}); });
+        rejects([] { released_java_versions({{"most_recent_feature_release", 27},
+                                              {"available_releases", Json::array({28, 30})}}); });
         check(game_channel("1.20.1") == "release" && game_channel("24w14potato") == "special" &&
                   game_channel("1.20-pre1") == "snapshot",
               "separate game channels");
@@ -371,7 +384,27 @@ int main(int argc, char **argv) {
               "verified launch argument expansion fixture");
         check(normalize_java_version("1.8.0_482-b08") == "8.0.482+8", "legacy Java 8 build normalization");
         check(normalize_java_version("17.0.17+10-LTS") == "17.0.17+10", "modern Java build normalization");
+        check(command.log_file==fs::weakly_canonical(game/".solar-launch.log"),"launch captures output in per-instance log");
+        atomic_write(game/"logs/latest.log","hello TEST_ONLY_NOT_A_REAL_TOKEN world");
+        Task log_task;log_task.secrets={identity.token};
+        auto logs=instance_logs({{"game_directory",game.u8string()}},log_task);
+        check(logs.size()==1 && logs[0]["text"].get<std::string>().find(identity.token)==std::string::npos,"log display redacts active authentication token");
+        rejects([&]{save_instance_settings(game/"versions/test",{{"java",{{"mode","fixed"},{"path",""}}}});});
+        save_instance_settings(game/"versions/test",{{"display",{{"name","Named instance"},{"favorite",true}}},{"isolated",true}});
+        auto inventory=scan_instances({game});
+        check(inventory["instances"][0]["name"]=="Named instance" && inventory["instances"][0]["favorite"]==true,"instance display metadata is persisted");
+        Json parent_a={{"known",true},{"enabled",true},{"loader","fabric"},{"ids",Json::array({"parent_a","shared_lib"})},{"filename","a.jar"},{"version","1"},{"embedded_hashes",{{"shared_lib","hash-a"}}},{"provided_versions",{{"shared_lib","1.0.0"}}}};
+        auto parent_b=parent_a;parent_b["ids"]=Json::array({"parent_b","shared_lib"});parent_b["filename"]="b.jar";parent_b["embedded_hashes"]["shared_lib"]="hash-b";parent_b["provided_versions"]["shared_lib"]="2.0.0";
+        Json fabric_context={{"version","1.20.1"},{"loader","fabric"},{"loader_version","0.16.10"}};
+        check(check_mods(fabric_context,Json::array({parent_a,parent_b}))["errors"].empty(),"different Fabric nested library candidates do not conflict");
+        auto root_copy=parent_a;root_copy["filename"]="copy.jar";
+        check(!check_mods(fabric_context,Json::array({parent_a,root_copy}))["errors"].empty(),"duplicate top-level Fabric mod IDs are still rejected");
         auto record = game / "versions/test/test.json";
+        auto custom=vm;custom["_solarGameDirectory"]=(game/"instances/test").u8string();
+        atomic_write(record,custom.dump());
+        auto custom_scan=scan_instances({game});
+        check(custom_scan["instances"][0]["isolated"]==true && fs::path(custom_scan["instances"][0]["game_directory"].get<std::string>())==game/"instances/test","saving isolation keeps installer-created game directory");
+        atomic_write(record,vm.dump());
         auto before_install = read_file(record);
         rejects([&] { install_game({{"root", game.u8string()}, {"id", "test"},
                                     {"version_entry", Json::object()}}); });

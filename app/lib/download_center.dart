@@ -1,3 +1,4 @@
+import 'appearance.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'dart:async';
 import 'dart:io';
@@ -39,6 +40,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
   final name = TextEditingController();
   final search = TextEditingController();
   List<Map<String, dynamic>> games = [], builds = [], loaders = [];
+  List<int> javaReleases = [];
   Map<String, dynamic>? game, selectedBuild, problem;
   Map<String, dynamic> host = {};
   String os = '', arch = '', vendor = 'zulu';
@@ -49,18 +51,18 @@ class _DownloadCenterState extends State<DownloadCenter> {
   String? notice;
   VoidCallback? retry;
   bool get locked => loading || installing || widget.engine.active;
-  static const vendors = {
+  static final vendors = {
     'zulu': 'Zulu',
     'temurin': 'Temurin',
     'microsoft': 'Microsoft OpenJDK',
     'oracle-openjdk': 'Oracle OpenJDK'
   };
-  static const systems = {
+  static final systems = {
     'windows': 'Windows',
     'osx': 'macOS',
     'linux': 'Linux'
   };
-  static const arches = {
+  static final arches = {
     'x86_64': 'x64 (AMD64)',
     'aarch64': 'ARM64 (AArch64)',
     'x86': 'x86 (32-bit)',
@@ -143,8 +145,21 @@ class _DownloadCenterState extends State<DownloadCenter> {
           os = p['os'] as String;
           arch = p['arch'] as String;
         });
-        if (tab == 'game') await loadGames();
+        if (tab == 'game') {
+          await loadGames();
+        } else {
+          await loadJavaReleases();
+        }
       });
+  Future<void> loadJavaReleases() async {
+    final result = (await run({'op': 'java.releases'}) as List).cast<int>();
+    if (!mounted) return;
+    setState(() {
+      javaReleases = result;
+      if (!javaReleases.contains(major)) major = javaReleases.first;
+    });
+  }
+
   Future<void> loadGames() async {
     final result = await run({'op': 'game.versions'}) as Map;
     if (!mounted) return;
@@ -277,8 +292,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
                               Text(result['name'] as String),
                               const SizedBox(height: 12),
                               Text(nativeText(result['scope'] as String),
-                                  style: const TextStyle(
-                                      color: muted, height: 1.6)),
+                                  style: TextStyle(color: muted, height: 1.6)),
                             ])),
                     actions: [
                       TextButton(
@@ -312,14 +326,14 @@ class _DownloadCenterState extends State<DownloadCenter> {
           String label, T value, Map<T, String> choices, ValueChanged<T> change,
           {Key? key}) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: muted)),
+        Text(label, style: TextStyle(fontSize: 12, color: muted)),
         const SizedBox(height: 8),
         DropdownButtonFormField<T>(
             key: key,
             value: choices.containsKey(value) ? value : null,
             isExpanded: true,
             borderRadius: BorderRadius.circular(10),
-            style: const TextStyle(fontSize: 13, color: ink),
+            style: TextStyle(fontSize: 13, color: ink),
             items: choices.entries
                 .map((e) => DropdownMenuItem<T>(
                     value: e.key,
@@ -342,7 +356,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
                   label: Text(e.value),
                   selected: current == e.key,
                   showCheckmark: false,
-                  selectedColor: const Color(0xFFE9F0F6),
+                  selectedColor: seclColor(0xFFE9F0F6),
                   labelStyle: TextStyle(
                       fontSize: 13,
                       color: current == e.key ? accent : muted,
@@ -361,7 +375,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
                 const SizedBox(height: 14),
                 Text(title,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: muted, height: 1.6))
+                    style: TextStyle(color: muted, height: 1.6))
               ])));
   Widget get gameList {
     final visible = games
@@ -415,17 +429,16 @@ class _DownloadCenterState extends State<DownloadCenter> {
                           key: ValueKey('game-${v['id']}'),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 5),
-                          leading: const Icon(Icons.sports_esports_outlined,
+                          leading: Icon(Icons.sports_esports_outlined,
                               color: accent),
                           title: Text(v['id'] as String,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600, fontSize: 14)),
                           subtitle: Text(
                               v['releaseTime'].toString().split('T').first,
-                              style:
-                                  const TextStyle(color: muted, fontSize: 12)),
-                          trailing: const Icon(Icons.chevron_right_rounded,
-                              color: muted),
+                              style: TextStyle(color: muted, fontSize: 12)),
+                          trailing:
+                              Icon(Icons.chevron_right_rounded, color: muted),
                           onTap: locked
                               ? null
                               : () => setState(() {
@@ -498,8 +511,8 @@ class _DownloadCenterState extends State<DownloadCenter> {
           if (loader != 'vanilla' && loaders.isEmpty)
             Padding(
                 padding: const EdgeInsets.only(top: 10),
-                child: Text(tr('该版本没有可用的加载器构建'),
-                    style: const TextStyle(color: muted))),
+                child:
+                    Text(tr('该版本没有可用的加载器构建'), style: TextStyle(color: muted))),
           const SizedBox(height: 20),
           select(
               tr('Java 运行环境'),
@@ -525,13 +538,12 @@ class _DownloadCenterState extends State<DownloadCenter> {
                     ? null
                     : (v) => setState(() => forceJava = v ?? false)),
           const SizedBox(height: 20),
-          Text(tr('游戏目录'), style: const TextStyle(fontSize: 12, color: muted)),
+          Text(tr('游戏目录'), style: TextStyle(fontSize: 12, color: muted)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
                 child: SelectableText(root,
-                    style: const TextStyle(
-                        fontSize: 12, color: ink, height: 1.5))),
+                    style: TextStyle(fontSize: 12, color: ink, height: 1.5))),
             const SizedBox(width: 12),
             OutlinedButton.icon(
                 onPressed: locked ? null : chooseRoot,
@@ -540,7 +552,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
           ]),
           const SizedBox(height: 14),
           Text(tr('存档和设置按实例隔离；游戏文件与依赖下载后进行哈希校验。'),
-              style: const TextStyle(fontSize: 12, color: muted, height: 1.6)),
+              style: TextStyle(fontSize: 12, color: muted, height: 1.6)),
         ])),
       ]));
   Widget get javaPage => SingleChildScrollView(
@@ -555,16 +567,10 @@ class _DownloadCenterState extends State<DownloadCenter> {
                     major,
                     {
                       for (final v in [
-                        25,
-                        21,
-                        17,
-                        16,
-                        11,
-                        8,
-                        ...[
-                          for (int i = 8; i <= 30; i++)
-                            if (![25, 21, 17, 16, 11, 8].contains(i)) i
-                        ]
+                        for (final common in [25, 21, 17, 16, 11, 8])
+                          if (javaReleases.contains(common)) common,
+                        ...javaReleases
+                            .where((v) => ![25, 21, 17, 16, 11, 8].contains(v))
                       ])
                         v: 'Java $v'
                     },
@@ -612,12 +618,13 @@ class _DownloadCenterState extends State<DownloadCenter> {
           Row(children: [
             Expanded(
                 child: Text(tr('自动检测本机系统和架构，可手动更改查询条件。'),
-                    style: const TextStyle(
-                        fontSize: 12, color: muted, height: 1.5))),
+                    style: TextStyle(fontSize: 12, color: muted, height: 1.5))),
             const SizedBox(width: 12),
             FilledButton.icon(
                 key: const Key('queryJavaBuilds'),
-                onPressed: locked || os.isEmpty ? null : queryJava,
+                onPressed: locked || os.isEmpty || !javaReleases.contains(major)
+                    ? null
+                    : queryJava,
                 icon: const Icon(Icons.search_rounded, size: 18),
                 label: Text(tr('查询构建')))
           ]),
@@ -629,10 +636,10 @@ class _DownloadCenterState extends State<DownloadCenter> {
               Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-                  decoration: const BoxDecoration(
-                      color: Color(0xFFEDF1F5),
+                  decoration: BoxDecoration(
+                      color: seclColor(0xFFEDF1F5),
                       borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(9))),
+                          const BorderRadius.vertical(top: Radius.circular(9))),
                   child: Row(children: [
                     Expanded(
                         child: Text(tr('具体构建'),
@@ -678,14 +685,13 @@ class _DownloadCenterState extends State<DownloadCenter> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                   '${vendors[b['provider']]}${(b['distribution_version'] as String? ?? '').isEmpty ? '' : ' ${b['distribution_version']}'} · ${arches[b['arch']] ?? b['arch']} · ${b['type']}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: muted))),
+                                  style:
+                                      TextStyle(fontSize: 12, color: muted))),
                           secondary: Text(
                               (b['size'] as num? ?? -1) > 0
                                   ? byteLabel(b['size'] as num)
                                   : '—',
-                              style:
-                                  const TextStyle(color: muted, fontSize: 12)),
+                              style: TextStyle(color: muted, fontSize: 12)),
                           onChanged: locked
                               ? null
                               : (_) => setState(() => selectedBuild = b),
@@ -706,7 +712,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
     final total = (p['total'] as num? ?? 0).toDouble(),
         done = (p['done'] as num? ?? 0).toDouble();
     return SurfaceCard(
-        color: const Color(0xFFEDF3F8),
+        color: seclColor(0xFFEDF3F8),
         child: Row(children: [
           const SizedBox(
               width: 22,
@@ -728,7 +734,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
                   Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text('${(done / total * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(fontSize: 11, color: muted))),
+                          style: TextStyle(fontSize: 11, color: muted))),
               ])),
           const SizedBox(width: 12),
           TextButton(
@@ -753,7 +759,7 @@ class _DownloadCenterState extends State<DownloadCenter> {
                     key: const Key('downloadSource'),
                     isExpanded: true,
                     value: widget.source,
-                    style: const TextStyle(fontSize: 12, color: ink),
+                    style: TextStyle(fontSize: 12, color: ink),
                     borderRadius: BorderRadius.circular(9),
                     decoration: const InputDecoration(
                         prefixIcon:
@@ -788,6 +794,9 @@ class _DownloadCenterState extends State<DownloadCenter> {
                 notice = null;
               });
               if (v == 'game' && games.isEmpty) unawaited(guard(loadGames));
+              if (v == 'java' && javaReleases.isEmpty) {
+                unawaited(guard(loadJavaReleases));
+              }
             })),
         const SizedBox(height: 18),
         Expanded(

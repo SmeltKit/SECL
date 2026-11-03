@@ -77,6 +77,12 @@ int main() {
                 },
                 [&](std::string s) { steps.push_back(s); });
         };
+        const auto active_skin = "https://textures.minecraft.net/texture/" + std::string(64, 'a');
+        auto profile_fixture = Json::parse(responses[5].body);
+        profile_fixture["skins"] = Json::array({
+            {{"state", "INACTIVE"}, {"url", "https://untrusted.example/old.png"}},
+            {{"state", "ACTIVE"}, {"url", active_skin}, {"variant", "SLIM"}}});
+        responses[5].body = profile_fixture.dump();
         std::vector<std::string> steps;
         auto identity = run(responses, steps);
         require(identity.owned && identity.name == "VerifiedPlayer" &&
@@ -85,6 +91,17 @@ int main() {
         require(steps == std::vector<std::string>{"microsoft", "xbox", "xsts", "minecraft",
                                                   "ownership", "profile"},
                 "authentication stages");
+        require(identity.skin_url == active_skin, "active official skin retained without tokens");
+        auto no_skin = responses;
+        auto cosmetic = profile_fixture;
+        cosmetic["skins"] = nullptr;
+        no_skin[5].body = cosmetic.dump();
+        std::vector<std::string> cosmetic_steps;
+        require(run(no_skin, cosmetic_steps).skin_url.empty(), "missing skin does not block verified sign-in");
+        cosmetic["skins"] = Json::array({{{"state", "ACTIVE"}, {"url", "https://untrusted.example/head.png"}}});
+        no_skin[5].body = cosmetic.dump();
+        cosmetic_steps.clear();
+        require(run(no_skin, cosmetic_steps).skin_url.empty(), "third-party skin URL rejected without failing sign-in");
         auto bad = responses;
         bad[4] = {200, R"({"items":[]})"};
         steps.clear();

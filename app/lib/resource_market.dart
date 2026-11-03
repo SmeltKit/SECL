@@ -1,3 +1,4 @@
+import 'appearance.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'localization.dart';
 import 'dart:async';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import 'app_widgets.dart';
 import 'resource_engine.dart';
+import 'project_description.dart';
 
 typedef Data = Map<String, dynamic>;
 List<Data> maps(dynamic value) => (value as List? ?? [])
@@ -79,7 +81,13 @@ class ResourceMarket extends StatefulWidget {
       required this.kind,
       required this.engine,
       required this.root,
-      required this.selectedVersion});
+      required this.selectedVersion,
+      this.initialTarget,
+      this.initialQuery = '',
+      this.onBack});
+  final Data? initialTarget;
+  final String initialQuery;
+  final VoidCallback? onBack;
   final String kind, root, selectedVersion;
   final ResourceEngine engine;
   @override
@@ -87,6 +95,15 @@ class ResourceMarket extends StatefulWidget {
 }
 
 class _ResourceMarketState extends State<ResourceMarket> {
+  ResourceEngine get engine => widget.engine;
+  @override
+  void initState() {
+    super.initState();
+    query.text = widget.initialQuery;
+    if (widget.root.isNotEmpty) roots.add(widget.root);
+    unawaited(load());
+  }
+
   final states = <String, BrowseState>{};
   final query = TextEditingController();
   final roots = <String>{};
@@ -95,6 +112,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
   List<Data> files = [];
   bool detailsLoading = false;
   String channel = 'release', fileGame = '', fileLoader = '';
+  String detailTab = 'description';
   Data? installedNotice;
   String get notice {
     final result = installedNotice;
@@ -107,15 +125,15 @@ class _ResourceMarketState extends State<ResourceMarket> {
   }
 
   int detailGeneration = 0;
-  BrowseState get browse =>
-      states.putIfAbsent(widget.kind, () => BrowseState());
-  ResourceEngine get engine => widget.engine;
-  @override
-  void initState() {
-    super.initState();
-    if (widget.root.isNotEmpty) roots.add(widget.root);
-    unawaited(load());
-  }
+  BrowseState get browse => states.putIfAbsent(widget.kind, () {
+        final value = BrowseState();
+        value.query = widget.initialQuery;
+        value.game = widget.initialTarget?['version'] as String? ?? '';
+        value.loader = widget.kind == 'mod'
+            ? (widget.initialTarget?['loader'] as String? ?? '')
+            : '';
+        return value;
+      });
 
   @override
   void didUpdateWidget(ResourceMarket old) {
@@ -289,14 +307,17 @@ class _ResourceMarketState extends State<ResourceMarket> {
 
   Future<void> install(Data file) async {
     final kind = widget.kind, info = Map<String, dynamic>.from(project!);
-    final target = await showDialog<Data>(
-        context: context,
-        builder: (_) => TargetPicker(
-            engine: engine,
-            roots: roots,
-            file: file,
-            kind: kind,
-            selectedVersion: widget.selectedVersion));
+    final target = widget.initialTarget != null &&
+            compatible(file, widget.initialTarget!, kind)
+        ? widget.initialTarget
+        : await showDialog<Data>(
+            context: context,
+            builder: (_) => TargetPicker(
+                engine: engine,
+                roots: roots,
+                file: file,
+                kind: kind,
+                selectedVersion: widget.selectedVersion));
     if (target == null || !mounted) return;
     setState(() => installedNotice = null);
     try {
@@ -434,14 +455,12 @@ class _ResourceMarketState extends State<ResourceMarket> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(tr("游戏版本"),
-                  style: const TextStyle(fontSize: 12, color: muted)),
+              Text(tr("游戏版本"), style: TextStyle(fontSize: 12, color: muted)),
               filterButton(
                   browse.game.isEmpty ? tr("全部版本") : browse.game, pickGame,
                   key: const Key('gameFilter')),
               if (widget.kind == 'mod') ...[
-                Text(tr("加载器"),
-                    style: const TextStyle(fontSize: 12, color: muted)),
+                Text(tr("加载器"), style: TextStyle(fontSize: 12, color: muted)),
                 filterButton(
                     browse.loader.isEmpty
                         ? tr("全部加载器")
@@ -470,7 +489,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 10),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.sort, size: 17, color: muted),
+                        Icon(Icons.sort, size: 17, color: muted),
                         const SizedBox(width: 6),
                         Text(
                             {
@@ -479,7 +498,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                               'updated': tr("最近更新"),
                               'newest': tr("最新发布")
                             }[browse.sort]!,
-                            style: const TextStyle(fontSize: 12, color: muted))
+                            style: TextStyle(fontSize: 12, color: muted))
                       ])))
             ]),
         const SizedBox(height: 16),
@@ -502,11 +521,11 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                 ? Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                        const Icon(Icons.cloud_off,
+                                        Icon(Icons.cloud_off,
                                             size: 22, color: muted),
                                         const SizedBox(height: 8),
                                         Text(tr("分类未加载"),
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 12, color: muted)),
                                         TextButton(
                                             onPressed: categories,
@@ -539,8 +558,8 @@ class _ResourceMarketState extends State<ResourceMarket> {
                             ? Center(
                                 child: Text(tr("没有找到匹配的资源\n试试更换关键词或筛选条件"),
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                        color: muted, height: 1.8)))
+                                    style:
+                                        TextStyle(color: muted, height: 1.8)))
                             : ListView.separated(
                                 key: PageStorageKey(
                                     'catalog-${widget.kind}-${browse.offset}'),
@@ -553,7 +572,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
         ]))
       ]);
   IconData categoryIcon(String category) =>
-      const {
+      {
         'optimization': Icons.speed,
         'adventure': Icons.explore_outlined,
         'decoration': Icons.architecture,
@@ -582,9 +601,8 @@ class _ResourceMarketState extends State<ResourceMarket> {
               ? Icons.layers_outlined
               : Icons.extension_outlined);
   Widget categoryRow(String value, String label, IconData icon) => Material(
-      color: browse.category == value
-          ? const Color(0xFFEBF1F7)
-          : Colors.transparent,
+      color:
+          browse.category == value ? seclColor(0xFFEBF1F7) : Colors.transparent,
       borderRadius: BorderRadius.circular(7),
       child: InkWell(
           borderRadius: BorderRadius.circular(7),
@@ -629,8 +647,8 @@ class _ResourceMarketState extends State<ResourceMarket> {
                   Text(hit['description'] as String? ?? '',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12, color: muted, height: 1.5)),
+                      style:
+                          TextStyle(fontSize: 12, color: muted, height: 1.5)),
                   const SizedBox(height: 9),
                   Wrap(spacing: 5, runSpacing: 4, children: [
                     for (final tag in (hit['display_categories'] as List? ??
@@ -648,23 +666,21 @@ class _ResourceMarketState extends State<ResourceMarket> {
                         child: Text(
                             tr("{0} 次下载",
                                 [countLabel(hit['downloads'] as num? ?? 0)]),
-                            style:
-                                const TextStyle(fontSize: 11, color: muted))),
+                            style: TextStyle(fontSize: 11, color: muted))),
                     Text(tr("查看详情"),
                         style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context).colorScheme.primary)),
                     const SizedBox(width: 3),
-                    const Icon(Icons.chevron_right, size: 15, color: accent)
+                    Icon(Icons.chevron_right, size: 15, color: accent)
                   ])
                 ]))
           ])));
   Widget chip(String label) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-          color: const Color(0xFFEEF2F6),
-          borderRadius: BorderRadius.circular(5)),
-      child: Text(label, style: const TextStyle(fontSize: 10, color: accent)));
+          color: seclColor(0xFFEEF2F6), borderRadius: BorderRadius.circular(5)),
+      child: Text(label, style: TextStyle(fontSize: 10, color: accent)));
   List<Data> get matching => files
       .where((f) =>
           (fileGame.isEmpty ||
@@ -725,117 +741,137 @@ class _ResourceMarketState extends State<ResourceMarket> {
                 const SizedBox(height: 5),
                 Text(
                     '${project!['author'] ?? tr("社区项目")} · ${project!['license'] is Map ? (project!['license'] as Map)['id'] ?? tr("作者许可") : 'Modrinth'}',
-                    style: const TextStyle(fontSize: 12, color: muted))
+                    style: TextStyle(fontSize: 12, color: muted))
               ]))
         ]),
         const SizedBox(height: 12),
+        Row(children: [
+          TextButton(
+              onPressed: () => setState(() => detailTab = 'description'),
+              child: Text(tr('介绍'))),
+          TextButton(
+              onPressed: () => setState(() => detailTab = 'files'),
+              child: Text(tr('下载')))
+        ]),
         Expanded(
             child: detailError != null
                 ? ProblemPanel(detailError!, retry: () => openProject(project!))
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                        Flexible(
-                            flex: 0,
-                            child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxHeight: 140),
-                                child: SingleChildScrollView(
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                      Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: SelectableText(
-                                              project!['description']
-                                                      as String? ??
-                                                  '',
+                : detailTab == 'description'
+                    ? ProjectDescription(
+                        body: project!['body'] as String? ??
+                            project!['description'] as String? ??
+                            '',
+                        base: Uri.parse(
+                            'https://modrinth.com/project/${project!['slug'] ?? project!['id']}/'),
+                        open: openLink)
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                            Flexible(
+                                flex: 0,
+                                child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxHeight: 140),
+                                    child: SingleChildScrollView(
+                                        child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                          Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: SelectableText(
+                                                  project!['description']
+                                                          as String? ??
+                                                      '',
+                                                  style: TextStyle(
+                                                      fontSize: 13,
+                                                      height: 1.6,
+                                                      color: muted))),
+                                          if ((project!['gallery'] as List? ?? [])
+                                              .isNotEmpty)
+                                            Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 10),
+                                                child: SizedBox(
+                                                    height: 86,
+                                                    child: ListView.separated(
+                                                        scrollDirection:
+                                                            Axis.horizontal,
+                                                        itemCount: (project!['gallery'] as List)
+                                                            .length
+                                                            .clamp(0, 6),
+                                                        separatorBuilder: (_, __) =>
+                                                            const SizedBox(
+                                                                width: 8),
+                                                        itemBuilder: (_, i) => ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius.circular(7),
+                                                            child: Image.network((project!['gallery'] as List)[i]['url'] as String, width: 150, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox(width: 0))))))
+                                        ])))),
+                            const SizedBox(height: 12),
+                            Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  filterButton(
+                                      fileGame.isEmpty
+                                          ? tr("全部游戏版本")
+                                          : fileGame,
+                                      files.isEmpty ? null : selectFileGame),
+                                  if (widget.kind == 'mod')
+                                    for (final loader in [
+                                      '',
+                                      'forge',
+                                      'neoforge',
+                                      'fabric',
+                                      'quilt'
+                                    ].where((s) =>
+                                        s.isEmpty ||
+                                        files.any((f) => (f['loaders'] as List)
+                                            .contains(s))))
+                                      ChoiceChip(
+                                          label: Text(
+                                              loader.isEmpty
+                                                  ? tr("全部加载器")
+                                                  : tagName(loader),
                                               style: const TextStyle(
-                                                  fontSize: 13,
-                                                  height: 1.6,
-                                                  color: muted))),
-                                      if ((project!['gallery'] as List? ?? [])
-                                          .isNotEmpty)
-                                        Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 10),
-                                            child: SizedBox(
-                                                height: 86,
-                                                child: ListView.separated(
-                                                    scrollDirection:
-                                                        Axis.horizontal,
-                                                    itemCount: (project!['gallery']
-                                                            as List)
-                                                        .length
-                                                        .clamp(0, 6),
-                                                    separatorBuilder: (_, __) =>
-                                                        const SizedBox(
-                                                            width: 8),
-                                                    itemBuilder: (_, i) => ClipRRect(
-                                                        borderRadius:
-                                                            BorderRadius.circular(7),
-                                                        child: Image.network((project!['gallery'] as List)[i]['url'] as String, width: 150, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox(width: 0))))))
-                                    ])))),
-                        const SizedBox(height: 12),
-                        Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              filterButton(
-                                  fileGame.isEmpty ? tr("全部游戏版本") : fileGame,
-                                  files.isEmpty ? null : selectFileGame),
-                              if (widget.kind == 'mod')
-                                for (final loader in [
-                                  '',
-                                  'forge',
-                                  'neoforge',
-                                  'fabric',
-                                  'quilt'
-                                ].where((s) =>
-                                    s.isEmpty ||
-                                    files.any((f) =>
-                                        (f['loaders'] as List).contains(s))))
-                                  ChoiceChip(
-                                      label: Text(
-                                          loader.isEmpty
-                                              ? tr("全部加载器")
-                                              : tagName(loader),
-                                          style: const TextStyle(fontSize: 11)),
-                                      selected: fileLoader == loader,
-                                      onSelected: (_) =>
-                                          setState(() => fileLoader = loader),
-                                      visualDensity: VisualDensity.compact)
+                                                  fontSize: 11)),
+                                          selected: fileLoader == loader,
+                                          onSelected: (_) => setState(
+                                              () => fileLoader = loader),
+                                          visualDensity: VisualDensity.compact)
+                                ]),
+                            const SizedBox(height: 10),
+                            Row(children: [
+                              for (final c in {
+                                'release': tr("正式版"),
+                                'beta': tr("测试版"),
+                                'alpha': tr("预览版")
+                              }.entries)
+                                Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: TextButton(
+                                        onPressed: () =>
+                                            setState(() => channel = c.key),
+                                        style: TextButton.styleFrom(
+                                            foregroundColor: channel == c.key
+                                                ? accent
+                                                : muted,
+                                            backgroundColor: channel == c.key
+                                                ? seclColor(0xFFEBF1F7)
+                                                : null),
+                                        child: Text(
+                                            '${c.value} (${matching.where((f) => f['release_type'] == c.key).length})',
+                                            style:
+                                                const TextStyle(fontSize: 12))))
                             ]),
-                        const SizedBox(height: 10),
-                        Row(children: [
-                          for (final c in {
-                            'release': tr("正式版"),
-                            'beta': tr("测试版"),
-                            'alpha': tr("预览版")
-                          }.entries)
-                            Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: TextButton(
-                                    onPressed: () =>
-                                        setState(() => channel = c.key),
-                                    style: TextButton.styleFrom(
-                                        foregroundColor:
-                                            channel == c.key ? accent : muted,
-                                        backgroundColor: channel == c.key
-                                            ? const Color(0xFFEBF1F7)
-                                            : null),
-                                    child: Text(
-                                        '${c.value} (${matching.where((f) => f['release_type'] == c.key).length})',
-                                        style: const TextStyle(fontSize: 12))))
-                        ]),
-                        const SizedBox(height: 8),
-                        Expanded(
-                            child: detailsLoading
-                                ? const BusyPanel()
-                                : versionList())
-                      ]))
+                            const SizedBox(height: 8),
+                            Expanded(
+                                child: detailsLoading
+                                    ? const BusyPanel()
+                                    : versionList())
+                          ]))
       ]);
   Widget versionList() {
     final versions =
@@ -851,16 +887,17 @@ class _ResourceMarketState extends State<ResourceMarket> {
                 }[channel]
               ]),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: muted, height: 1.8)));
+              style: TextStyle(color: muted, height: 1.8)));
     }
     return SurfaceCard(
         padding: EdgeInsets.zero,
         child: Column(children: [
           Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: const BoxDecoration(
-                  color: Color(0xFFEEF1F5),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(9))),
+              decoration: BoxDecoration(
+                  color: seclColor(0xFFEEF1F5),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(9))),
               child: Row(children: [
                 Expanded(
                     child: Text(tr("版本 / 适用环境"),
@@ -902,8 +939,8 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                     '${(f['game_versions'] as List).take(3).join('、')} · ${(f['loaders'] as List).map((s) => tagName(s.toString())).join(' / ')} · ${byteLabel(f['size'] as num? ?? 0)}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        color: muted, fontSize: 11))
+                                    style:
+                                        TextStyle(color: muted, fontSize: 11))
                               ])),
                           const SizedBox(width: 12),
                           SizedBox(
@@ -951,8 +988,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                   '${byteLabel(engine.progress['done'] as num? ?? 0)} / ${byteLabel(engine.progress['total'] as num)}',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: muted)))
+                                  style: TextStyle(fontSize: 10, color: muted)))
                       ])),
                   const SizedBox(width: 18),
                   TextButton(onPressed: engine.cancel, child: Text(tr("取消")))
@@ -963,7 +999,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                           ? Icons.public
                           : Icons.check_circle_outline,
                       size: 17,
-                      color: notice.isEmpty ? muted : const Color(0xFF367856)),
+                      color: notice.isEmpty ? muted : seclColor(0xFF367856)),
                   const SizedBox(width: 9),
                   Expanded(
                       child: Text(
@@ -981,13 +1017,13 @@ class _ResourceMarketState extends State<ResourceMarket> {
                               fontSize: 12,
                               color: notice.isEmpty
                                   ? muted
-                                  : const Color(0xFF367856)))),
+                                  : seclColor(0xFF367856)))),
                   if (project == null && browse.total > 20) ...[
                     const SizedBox(width: 16),
                     Container(
                         key: const Key('catalogPagination'),
                         decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: panelSurface,
                             border: Border.all(color: line),
                             borderRadius: BorderRadius.circular(8)),
                         padding: const EdgeInsets.symmetric(
@@ -1011,8 +1047,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                   const EdgeInsets.symmetric(horizontal: 10),
                               child: Text(
                                   '${browse.offset ~/ 20 + 1} / ${(browse.total / 20).ceil()}',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: ink))),
+                                  style: TextStyle(fontSize: 12, color: ink))),
                           IconButton(
                               tooltip: tr("下一页"),
                               constraints: const BoxConstraints.tightFor(
@@ -1033,6 +1068,20 @@ class _ResourceMarketState extends State<ResourceMarket> {
   @override
   Widget build(BuildContext context) => Column(children: [
         header(),
+        if (widget.onBack != null)
+          Padding(
+              padding: const EdgeInsets.fromLTRB(28, 0, 28, 12),
+              child: Row(children: [
+                TextButton.icon(
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back_rounded, size: 17),
+                    label: Text(tr('返回实例'))),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Text(
+                        '${tr('安装到')}：${widget.initialTarget?['name'] ?? widget.initialTarget?['id']} · ${widget.initialTarget?['version']} · ${widget.initialTarget?['loader']}',
+                        style: TextStyle(color: muted, fontSize: 12)))
+              ])),
         Expanded(
             child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 0, 28, 18),
@@ -1153,7 +1202,7 @@ class _ChoicePickerState extends State<ChoicePicker> {
                           : matches.isEmpty
                               ? Center(
                                   child: Text(tr("没有匹配的选项"),
-                                      style: const TextStyle(color: muted)))
+                                      style: TextStyle(color: muted)))
                               : ListView.builder(
                                   itemCount: matches.length,
                                   itemBuilder: (_, i) {
@@ -1163,7 +1212,7 @@ class _ChoicePickerState extends State<ChoicePicker> {
                                             vertical: 2),
                                         child: Material(
                                             color: c.value == widget.value
-                                                ? const Color(0xFFEBF1F7)
+                                                ? seclColor(0xFFEBF1F7)
                                                 : Colors.transparent,
                                             borderRadius:
                                                 BorderRadius.circular(7),
@@ -1172,13 +1221,11 @@ class _ChoicePickerState extends State<ChoicePicker> {
                                                 title: Text(c.label,
                                                     style: const TextStyle(
                                                         fontSize: 13)),
-                                                trailing:
-                                                    c.value == widget.value
-                                                        ? const Icon(
-                                                            Icons.check_rounded,
-                                                            size: 18,
-                                                            color: accent)
-                                                        : null,
+                                                trailing: c.value ==
+                                                        widget.value
+                                                    ? Icon(Icons.check_rounded,
+                                                        size: 18, color: accent)
+                                                    : null,
                                                 onTap: () => Navigator.pop(
                                                     context, c.value))));
                                   }))
@@ -1197,7 +1244,13 @@ class TargetPicker extends StatefulWidget {
       required this.roots,
       required this.file,
       required this.kind,
-      required this.selectedVersion});
+      required this.selectedVersion,
+      this.initialTarget,
+      this.initialQuery = '',
+      this.onBack});
+  final Data? initialTarget;
+  final String initialQuery;
+  final VoidCallback? onBack;
   final ResourceEngine engine;
   final Set<String> roots;
   final Data file;
@@ -1256,8 +1309,8 @@ class _TargetPickerState extends State<TargetPicker> {
         compatible(widget.file, i, widget.kind) && i['loader'] != 'conflict';
     return Material(
         color: selected?['path'] == i['path']
-            ? const Color(0xFFEBF1F7)
-            : const Color(0xFFF6F8FA),
+            ? seclColor(0xFFEBF1F7)
+            : seclColor(0xFFF6F8FA),
         borderRadius: BorderRadius.circular(8),
         child: ListTile(
             enabled: can,
@@ -1281,7 +1334,7 @@ class _TargetPickerState extends State<TargetPicker> {
                   child: Text(i['game_directory'] as String,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10, color: muted)))
+                      style: TextStyle(fontSize: 10, color: muted)))
             ]),
             onTap: can ? () => setState(() => selected = i) : null));
   }
@@ -1307,7 +1360,7 @@ class _TargetPickerState extends State<TargetPicker> {
                     const SizedBox(height: 5),
                     Text(
                         '${widget.file['version']} · ${(widget.file['loaders'] as List? ?? []).map((s) => tagName(s.toString())).join(' / ')}',
-                        style: const TextStyle(fontSize: 12, color: muted)),
+                        style: TextStyle(fontSize: 12, color: muted)),
                     const SizedBox(height: 15),
                     Expanded(
                         child: loading
@@ -1319,10 +1372,8 @@ class _TargetPickerState extends State<TargetPicker> {
                                         child: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                            const Icon(
-                                                Icons.folder_open_outlined,
-                                                size: 32,
-                                                color: muted),
+                                            Icon(Icons.folder_open_outlined,
+                                                size: 32, color: muted),
                                             const SizedBox(height: 12),
                                             Text(tr("尚未找到本地实例"),
                                                 style: const TextStyle(
@@ -1330,7 +1381,7 @@ class _TargetPickerState extends State<TargetPicker> {
                                                         FontWeight.w500)),
                                             const SizedBox(height: 6),
                                             Text(tr("选择包含 versions 文件夹的游戏根目录"),
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                     fontSize: 12,
                                                     color: muted)),
                                             const SizedBox(height: 15),
@@ -1472,10 +1523,10 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(children: [
           if (isReuse)
-            const SizedBox(
+            SizedBox(
                 width: 34,
                 child: Icon(Icons.check_circle_outline,
-                    color: Color(0xFF4E7A95), size: 21))
+                    color: seclColor(0xFF4E7A95), size: 21))
           else
             SizedBox(
                 width: 34,
@@ -1501,7 +1552,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                 const SizedBox(height: 5),
                 Text(
                     '${f['version'] ?? ''} · ${isReuse ? existing['embedded'] == true ? tr("已安装（内嵌）") : existing['enabled'] == true ? tr("已安装") : tr("已停用") : root ? tr("主模组") : f['optional'] == true ? tr("可选依赖") : mods ? tr("必需依赖") : widget.kind == 'shader' ? tr("光影包") : tr("材质包")}',
-                    style: const TextStyle(fontSize: 11, color: muted)),
+                    style: TextStyle(fontSize: 11, color: muted)),
                 if (isReuse && existing['enabled'] != true)
                   Row(children: [
                     Checkbox(
@@ -1527,7 +1578,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                     style: const TextStyle(fontSize: 11))),
           if (!isReuse)
             Text(byteLabel(f['size'] as num? ?? 0),
-                style: const TextStyle(fontSize: 11, color: muted))
+                style: TextStyle(fontSize: 11, color: muted))
         ]));
   }
 
@@ -1568,8 +1619,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                const Icon(Icons.sports_esports_outlined,
-                    size: 23, color: accent),
+                Icon(Icons.sports_esports_outlined, size: 23, color: accent),
                 const SizedBox(width: 11),
                 Expanded(
                     child: Column(
@@ -1581,7 +1631,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                       const SizedBox(height: 5),
                       Text(
                           '${target['version']} · ${tagName(target['loader'] as String? ?? 'vanilla')}',
-                          style: const TextStyle(fontSize: 12, color: muted))
+                          style: TextStyle(fontSize: 12, color: muted))
                     ]))
               ]),
               const SizedBox(height: 14),
@@ -1595,17 +1645,17 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                           !mods && widget.plan['reuse'] == true
                               ? tr("已有资源（无需重复下载）")
                               : tr("将添加 · {0} 项", [files.length]),
-                          const Color(0xFFF1F6F9),
+                          seclColor(0xFFF1F6F9),
                           [for (final f in files) component(f)]),
                     if (reuse.isNotEmpty)
                       section(tr("已有组件 · {0} 项", [reuse.length]),
-                          const Color(0xFFEDF4F9), [
+                          seclColor(0xFFEDF4F9), [
                         for (final r in reuse)
                           component(Map<String, dynamic>.from(r['file'] as Map),
                               existing: r)
                       ]),
                     if (conflicts.isNotEmpty)
-                      section(tr("需要处理 · 不兼容组件"), const Color(0xFFFFF7E7), [
+                      section(tr("需要处理 · 不兼容组件"), seclColor(0xFFFFF7E7), [
                         for (final c in conflicts)
                           CheckboxListTile(
                               dense: true,
@@ -1636,14 +1686,14 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                           controlAffinity: ListTileControlAffinity.leading,
                           title: Text(
                               tr("已取消 {0} 项必需依赖，我了解游戏可能无法启动", [omitted]),
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFFAD6342)))),
+                              style: TextStyle(
+                                  fontSize: 12, color: seclColor(0xFFAD6342)))),
                     if (inactive)
                       Padding(
                           padding: const EdgeInsets.all(8),
                           child: Text(tr("所需组件已停用，请明确勾选“同时启用”后安装。"),
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFFAD6342)))),
+                              style: TextStyle(
+                                  fontSize: 12, color: seclColor(0xFFAD6342)))),
                     if (duplicate)
                       CheckboxListTile(
                           value: replace,
@@ -1653,7 +1703,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                           title: Text(tr("替换已有的同名资源文件"),
                               style: const TextStyle(fontSize: 12))),
                     if (shaderMissing)
-                      section(tr("光影支持尚未就绪"), const Color(0xFFFFF7E7), [
+                      section(tr("光影支持尚未就绪"), seclColor(0xFFFFF7E7), [
                         Padding(
                             padding: const EdgeInsets.symmetric(vertical: 7),
                             child: Text(
@@ -1674,8 +1724,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                       Padding(
                           padding: const EdgeInsets.all(8),
                           child: Text(tr("已检测到光影支持组件。在游戏内选择光影并调整画质。"),
-                              style:
-                                  const TextStyle(fontSize: 12, color: muted)))
+                              style: TextStyle(fontSize: 12, color: muted)))
                   ])))
             ])),
         actions: [

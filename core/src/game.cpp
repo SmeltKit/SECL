@@ -201,9 +201,14 @@ Command launch_command(const fs::path &root, const std::string &id, const fs::pa
     auto java = choice.value("mode", "auto") == "fixed" ? fs::u8path(choice.value("path", ""))
                                                         : java_override;
     auto selected = engine::probe_java(java);
-    if (selected.is_null())
-        throw Error("launch", "java_unavailable", "所选 Java 无法运行。");
     auto required = m.value("javaVersion", Json::object()).value("majorVersion", 8);
+    if(choice.value("mode","auto")!="fixed" && (selected.is_null()||selected.value("major",0)<required)) {
+        auto known=engine::java_catalog(Json::object(),{});
+        for(auto &candidate:known)if(candidate.value("major",0)==required&&engine::normalize_arch(candidate.value("arch",""))==host.arch){selected=candidate;break;}
+        if(selected.is_null()||selected.value("major",0)<required)for(auto &candidate:known)if(candidate.value("major",0)>=required){selected=candidate;break;}
+        if(!selected.is_null())java=fs::u8path(selected.at("path").get<std::string>());
+    }
+    if(selected.is_null())throw Error("launch","java_unavailable","所选 Java 无法运行。");
     if (selected.value("major", 0) < required &&
         !choice.value("allow_below_recommended", choice.value("allowBelowRecommended", false)))
         throw Error("launch", "java_too_old", "所选 Java 低于默认版本，请主动确认强制使用后重试。");
@@ -225,6 +230,7 @@ Command launch_command(const fs::path &root, const std::string &id, const fs::pa
         (fs::exists(instance_path / "mods") || fs::exists(instance_path / "saves") ||
          fs::exists(instance_path / "options.txt")))
         directory = instance_path;
+    if(config.contains("isolated")) directory=config.at("isolated").get<bool>()?(fs::weakly_canonical(directory)!=fs::weakly_canonical(root)?directory:instance_path):root;
     if (!fs::is_directory(directory))
         throw Error("launch", "game_directory_missing", "实例游戏目录不存在。");
     auto mods = engine::local_mods(directory, loaders.empty() ? "vanilla" : loaders.begin().key());
@@ -394,6 +400,7 @@ Command launch_command(const fs::path &root, const std::string &id, const fs::pa
     };
     Command result{
         java, directory, {"-Xmx" + std::to_string(memory) + "M", "-Dfile.encoding=UTF-8"}};
+    result.log_file=engine::checked_path(directory,".solar-launch.log");
     if (options.value("min_memory_mib", 0) > 0)
         result.arguments.push_back("-Xms" +
                                    std::to_string(options.at("min_memory_mib").get<int>()) + "M");

@@ -13,6 +13,7 @@ struct Task {
     Cancel cancel = std::make_shared<std::atomic_bool>(false);
     Progress progress;
     std::string source = "auto", time_zone;
+    std::vector<std::string> secrets;
     void check() const;
     void report(const std::string &, std::int64_t = -1, std::int64_t = -1) const;
 };
@@ -79,6 +80,10 @@ Json local_packs(const fs::path &, const std::string &kind);
 void import_pack(const fs::path &game, const std::string &kind, const fs::path &source);
 void remove_pack(const fs::path &game, const std::string &kind, const std::string &name);
 Json shader_support(const Json &instance);
+Json instance_inventory(const Json &, const std::string &kind);
+Json enrich_mod_inventory(const Json &, const Task &task = {});
+Json instance_logs(const Json &, const Task &task = {});
+Json shader_support_plan(const Json &, const Task &task = {});
 Json compatibility_rules(const fs::path &game);
 Json update_compatibility(const fs::path &game, const Task &task = {}, bool force = false);
 Json plan_mod_install(const Json &instance, const Json &file, const Task &task = {});
@@ -87,6 +92,10 @@ Json select_dependencies(const Json &plan, const Json &selected,
                          const Json &enable = Json::array());
 Json apply_mod_plan(const Json &plan, const Task &task = {});
 std::string normalize_java_version(const std::string &);
+Json released_java_versions(const Json &metadata);
+Json java_releases(const Task &task = {});
+Json java_catalog(const Json &, const Task &task = {});
+Json java_scan_roots();
 Json java_builds(int major, const std::string &vendor, const std::string &os,
                  const std::string &arch, const Task &task = {});
 Json java_build_legal(const Json &);

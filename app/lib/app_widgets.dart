@@ -1,11 +1,28 @@
+import 'appearance.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'localization.dart';
 import 'package:flutter/material.dart';
 
-const ink = Color(0xFF243347);
-const muted = Color(0xFF697789);
-const accent = Color(0xFF365F7C);
-const line = Color(0xFFE2E7ED);
+Color get ink => AppAppearance.instance.dark
+    ? const Color(0xffe5ebf1)
+    : const Color(0xff243347);
+Color get muted => AppAppearance.instance.dark
+    ? const Color(0xffa5b3c3)
+    : const Color(0xff697789);
+Color get accent => AppAppearance.instance.tone == 'forest'
+    ? (AppAppearance.instance.dark
+        ? const Color(0xff83d1b0)
+        : const Color(0xff26765c))
+    : AppAppearance.instance.tone == 'violet'
+        ? (AppAppearance.instance.dark
+            ? const Color(0xffc4adf0)
+            : const Color(0xff72549d))
+        : (AppAppearance.instance.dark
+            ? const Color(0xff9fc8e4)
+            : const Color(0xff365f7c));
+Color get line => AppAppearance.instance.dark
+    ? const Color(0xff3a4858)
+    : const Color(0xffe2e7ed);
 
 class FooterBar extends StatelessWidget {
   const FooterBar(
@@ -17,8 +34,8 @@ class FooterBar extends StatelessWidget {
       height: 88,
       alignment: Alignment.center,
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-      decoration: const BoxDecoration(
-          color: Colors.white, border: Border(top: BorderSide(color: line))),
+      decoration: BoxDecoration(
+          color: panelSurface, border: Border(top: BorderSide(color: line))),
       child: child);
 }
 
@@ -27,15 +44,15 @@ class SurfaceCard extends StatelessWidget {
       {super.key,
       required this.child,
       this.padding = const EdgeInsets.all(16),
-      this.color = Colors.white});
+      this.color});
   final Widget child;
   final EdgeInsetsGeometry padding;
-  final Color color;
+  final Color? color;
   @override
   Widget build(BuildContext context) => Container(
       padding: padding,
       decoration: BoxDecoration(
-          color: color,
+          color: color ?? panelSurface,
           border: Border.all(color: line),
           borderRadius: BorderRadius.circular(10)),
       child: child);
@@ -60,7 +77,7 @@ class ResourceImage extends StatelessWidget {
                   errorBuilder: (_, __, ___) => fallback())
               : fallback()));
   Widget fallback() => ColoredBox(
-      color: const Color(0xFFEBF0F5),
+      color: seclColor(0xFFEBF0F5),
       child: Icon(icon, size: size * .45, color: accent));
 }
 
@@ -75,10 +92,10 @@ class ProblemPanel extends StatelessWidget {
           child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: SurfaceCard(
-                  color: const Color(0xFFFFF6F1),
+                  color: seclColor(0xFFFFF6F1),
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.cloud_off_outlined,
-                        color: Color(0xFFAD6342), size: 30),
+                    Icon(Icons.cloud_off_outlined,
+                        color: seclColor(0xFFAD6342), size: 30),
                     const SizedBox(height: 12),
                     Text(errorMessage(error),
                         textAlign: TextAlign.center,
@@ -86,13 +103,12 @@ class ProblemPanel extends StatelessWidget {
                     const SizedBox(height: 8),
                     SelectableText(
                         '${error['code'] ?? ''}${(error['http_status'] as num? ?? 0) > 0 ? ' · HTTP ${error['http_status']}' : ''}',
-                        style: const TextStyle(color: muted, fontSize: 12)),
+                        style: TextStyle(color: muted, fontSize: 12)),
                     if ((error['url'] ?? '').toString().isNotEmpty)
                       Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: SelectableText(error['url'].toString(),
-                              style:
-                                  const TextStyle(color: muted, fontSize: 11))),
+                              style: TextStyle(color: muted, fontSize: 11))),
                     if (retry != null)
                       Padding(
                           padding: const EdgeInsets.only(top: 14),
@@ -115,7 +131,7 @@ class BusyPanel extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2.5)),
         if (label != null) ...[
           const SizedBox(height: 16),
-          Text(label!, style: const TextStyle(color: muted, fontSize: 13))
+          Text(label!, style: TextStyle(color: muted, fontSize: 13))
         ]
       ]));
 }
