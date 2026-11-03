@@ -6,12 +6,12 @@
 
 | 原模块 | SECL 实现 | 界面状态 / 验证边界 |
 | --- | --- | --- |
-| microsoftauth / networkerror | `auth.cpp`、`api.cpp` | PKCE、回调、Xbox、XSTS、资格、角色；合约测试通过，真实账号待新应用授权 |
+| microsoftauth / networkerror | `auth.cpp`、`api.cpp` | PKCE、回调、Xbox、XSTS、资格、角色；2026-11-02 AppID 白名单获准，2026-11-03 真实账号、资格和角色校验通过 |
 | accounts / accountmanager / credentialvault | `accounts.cpp`、`credentialvault.cpp`、原生会话管理 | Microsoft 元数据、严格验证、系统凭据库适配；当前 UI 仅单会话登录，不开放记住账号 |
 | catalog / settings | `runtime.cpp`、`game.cpp` | 本地版本识别、继承、隔离目录、实例 Java 与参数；读取旧实例设置 |
-| java / javaarchive / javaprovider | `runtime.cpp`、`javaprovider.cpp`、`archive.cpp` | 扫描、实际版本探测、发行版/构建查询、校验解压安装、许可路径；下载界面未开放 |
+| java / javaarchive / javaprovider | `runtime.cpp`、`javaprovider.cpp`、`archive.cpp` | 扫描、实际版本探测、发行版/构建查询、校验解压安装、许可路径；三种语言下载页已接入，支持主版本、发行版、具体构建和系统 / 架构选择 |
 | memory / launchoptions / gameplan | `runtime.cpp`、`game.cpp`、`gameinstall.cpp` | 可用内存建议、手动内存、分辨率和参数检查；实例参数参与实际命令生成 |
-| downloadsource / gameinstaller | `downloads.cpp`、`gameinstall.cpp` | 官方/镜像、时区优先级、有限回退、哈希、资源索引、官方运行时；完整联网安装待集成实测 |
+| downloadsource / gameinstaller | `downloads.cpp`、`gameinstall.cpp` | 官方/镜像、时区优先级、有限回退、哈希、资源索引、官方运行时；下载页已接入；保留时区优先级、官方 / BMCLAPI 选择及一次回退，完整安装记录见 testing.md |
 | forgeinstaller | `loaderinstall.cpp` | Fabric / Quilt 配置、Forge / NeoForge 官方处理器、暂存、输出校验；保留原支持格式边界 |
 | optifine | `optifine.cpp` | 内部类常量识别、原版/Forge 精确组合、补丁、移除及还原；完整安装待集成实测 |
 | resources / resourceclient | `resources.cpp`、Flutter 资源市场 | 三类独立入口、中文分类、项目图标、版本/加载器筛选、正式/测试/预览文件分类、底部分页；Modrinth 已实测，未接入 CurseForge |

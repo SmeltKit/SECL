@@ -52,18 +52,18 @@ Json parse_java(const std::string &out) {
             {"vm_name", field("java\\.vm\\.name")},
             {"vendor_version", field("java\\.vendor\\.version")}};
 }
-Json probe_java(const fs::path &p) {
+Json probe_java(const fs::path &p, int timeout_ms) {
     std::error_code ec;
     if (!fs::is_regular_file(p, ec))
         return nullptr;
-    auto properties = run_capture(p, {"-XshowSettings:properties", "-version"});
+    auto properties = run_capture(p, {"-XshowSettings:properties", "-version"}, timeout_ms);
     auto j = parse_java(properties);
     if (!j.is_null())
         j["path"] = java_runtime_executable(p, properties).u8string();
     return j;
 }
 Json scan_java(const std::vector<fs::path> &roots, bool deep, const Task &task, int max_depth,
-               int budget) {
+               int budget, int probe_timeout_ms) {
     Json out = Json::array();
     std::set<fs::path> seen, candidates;
     int directories = 0;
@@ -96,7 +96,7 @@ Json scan_java(const std::vector<fs::path> &roots, bool deep, const Task &task, 
                     break;
                 if (it.depth() > max_depth ||
                     (!deep && (p.filename() == "node_modules" || p.filename() == ".git" ||
-                               p.filename() == ".Trash")))
+                               p.filename() == ".Trash" || p.filename().u8string().rfind(".install-", 0) == 0)))
                     it.disable_recursion_pending();
                 task.report(p.u8string(), directories, budget);
             } else if (p.filename() == (platform().os == "windows" ? "java.exe" : "java"))
@@ -108,7 +108,7 @@ Json scan_java(const std::vector<fs::path> &roots, bool deep, const Task &task, 
     }
     for (auto &p : candidates) {
         task.check();
-        auto j = probe_java(p);
+        auto j = probe_java(p, probe_timeout_ms);
         if (!j.is_null() && seen.insert(fs::u8path(j.at("path").get<std::string>())).second)
             out.push_back(j);
     }

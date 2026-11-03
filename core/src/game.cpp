@@ -119,8 +119,7 @@ Json scan_versions(const fs::path &input) {
     Json result = Json::array();
     auto dir = root / "versions";
     if (!fs::is_directory(dir))
-        throw Error("versions", "versions_missing",
-                    "该目录没有 versions 文件夹，不会自动下载游戏。");
+        return result;
     for (auto &entry : fs::directory_iterator(dir, fs::directory_options::skip_permission_denied)) {
         if (!entry.is_directory(ec))
             continue;
@@ -129,14 +128,18 @@ Json scan_versions(const fs::path &input) {
             continue;
         try {
             auto m = load_version(root, id);
+            auto settings = engine::load_instance_settings(entry.path());
             result.push_back(
-                {{"id", id},
+                {{"java", settings.value("java", Json::object()).value("path", "")},
+                 {"id", id},
                  {"type", m.value("type", "unknown")},
                  {"required_java", m.value("javaVersion", Json::object()).value("majorVersion", 0)},
                  {"available", true}});
         } catch (const Error &e) {
+            auto settings = engine::load_instance_settings(entry.path());
             result.push_back(
-                {{"id", id}, {"type", "invalid"}, {"available", false}, {"reason", e.what()}});
+                {{"java", settings.value("java", Json::object()).value("path", "")},
+                 {"id", id}, {"type", "invalid"}, {"available", false}, {"reason", e.what()}});
         }
     }
     std::sort(result.begin(), result.end(), [](const Json &a, const Json &b) {

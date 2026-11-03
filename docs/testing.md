@@ -1,6 +1,6 @@
 # Test record and limits
 
-Date: 2026-10-31. Host: Apple Silicon macOS, Xcode 27.2.
+Updated: 2026-11-03. Host: Apple Silicon macOS, Xcode 27.2.
 Flutter 3.19.6 (revision `54e66469a933b60ddf175f858f82eaeb97e48c8d`), Dart 3.3.4.
 
 Commands:
@@ -16,7 +16,7 @@ cd app
 /path/to/flutter-3.19.6/bin/flutter build macos --debug
 ```
 
-The latest Release-native test run passes 110 authentication/core checks and 57
+The latest Release-native test run passes 111 authentication/core checks and 64
 engine checks. The earlier baseline (110 core / 47 engine checks) also passed
 AddressSanitizer and UndefinedBehaviorSanitizer in a separate Debug build.
 
@@ -43,7 +43,7 @@ reported runtime home. A real `JAVA_HOME` reproduction returns Java 21 and 26
 once each. The sidebar and launch footer now share the same height and divider;
 the unofficial-project notice remains in About and the README.
 
-Sixteen Flutter tests cover disabled launch without ownership, structured error
+Twenty-two Flutter tests cover disabled launch without ownership, structured error
 presentation, all three markets at 880×640, explicit retry clearing stale errors,
 returning from details with search preserved, loader/version matching, grouped
 game-version selectors and required/optional dependency checkbox defaults. Static
@@ -74,8 +74,7 @@ Qt dependency.
 
 Not yet verified:
 
-- Real Microsoft login / Minecraft Services access using SECL's own approved ID.
-- Real game startup; no installed game is currently available on this host.
+- Real game startup with an authenticated account.
 - Complete online install/upgrade/rollback matrices for all Java vendors, game
   versions, Forge/NeoForge installers and OptiFine builds.
 - System credential persistence with a real account; current UI is session-only.
@@ -141,3 +140,51 @@ English category navigation expands with available width and wraps long labels
 with content-sized rows. A regression test uses a long category label at the
 minimum window size and verifies there is no ellipsis or overflow. Native Release
 size with localization is about 22.7 MB (ZIP 9.1 MB).
+
+
+## 2026-11-03 authentication and downloads
+
+The project AppID was approved for the Minecraft Services API allow list in the
+2026-11-02 review. Real browser PKCE sign-in, Xbox / XSTS exchange, Minecraft
+Services authentication, Java Edition entitlement and player profile checks were
+verified on this macOS ARM64 host on 2026-11-03. No account name, email, token or
+administrative screenshot is published as test evidence. Actual game startup
+has not yet been validated. API allow-list approval is not official endorsement.
+A new CurseForge application was submitted on 2026-11-03 and is awaiting review.
+
+The Downloads UI now calls the migrated Qt-free C++ installers. New checks cover
+three-language minimum-window layouts, grouped game channels, passing nested
+loader version data, install completion, progress / cancellation, HTTP 503
+recovery, an empty game root, duplicate-instance rejection, cancellation before
+metadata publication, and rejecting a Java package for a different OS. The Java
+build list scrolls with filters at smaller window sizes rather than being squeezed
+out by longer English text. Managed Java discovery and download-source settings
+are persisted by the native core. New runtime validation allows up to 10 seconds
+for a first JVM invocation; ordinary Java scans retain their shorter timeout.
+
+Opt-in integration check (downloads into a temporary directory; no account or launch):
+
+```sh
+python3 tools/download_smoke.py build/native/core/libsolar_core.dylib --source auto
+```
+
+For manually resuming a failed network test, pass an isolated `--directory`.
+This retains only test downloads, allowing verified files to be reused; remove
+the directory after testing. No retry loop is added by the script or UI.
+
+Real download validation on 2026-11-03 installed Zulu Java 17.0.21 (macOS
+AArch64), verified repeat-install reuse and managed-runtime discovery, then
+installed Minecraft 1.20.1 with 3,598 asset entries. Every asset size / SHA-1 and
+the client SHA-1 (`0c3ec587af28e5a785c0b4a7b8a30f9a8f78f838`) was checked.
+The installed version was discovered successfully and unauthenticated launch was
+still rejected. Official-only resource downloads hit a real timeout; the
+subsequent automatic-source run completed. Fabric / Quilt / Forge version-list
+queries succeeded; NeoForge metadata timed out and remains unverified in this
+run. This is a download / recognition check, not a real game-launch result.
+
+Zulu Java 8 was also installed from the official distribution, probed as
+`1.8.0_504-b01` on AArch64, discovered, and reused on repeat installation. This
+validates matching legacy JVM version syntax against an `8.0.504+1` package build.
+All Java 8 smoke-test files were removed automatically afterwards.
+
+Downloads Release ARM64: 22,857,345 bytes as an app, 9,154,986 bytes as a ZIP. Ad hoc signature verification passed; Qt is absent from linked dependencies.

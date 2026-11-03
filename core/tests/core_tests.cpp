@@ -127,6 +127,8 @@ int main() {
                 "legacy argument tokenization");
         fails([] { split_arguments("--x \"broken"); }, "unclosed_quote");
         auto folder = fs::temp_directory_path() / ("solar-test-" + random_url_token());
+        fs::create_directories(folder);
+        require(scan_versions(folder).empty(), "empty game root accepted before installation");
         fs::create_directories(folder / "versions/v1");
         std::ofstream(folder / "versions/v1/v1.json")
             << R"({"id":"v1","type":"release","mainClass":"net.minecraft.Main"})";

@@ -79,3 +79,13 @@ The UI `configure` action accepts `language`: `system` (default), `zh_Hans`,
 return `settings / invalid_language`. `login` accepts an effective `locale` for
 the browser completion page. Authentication state, error codes, HTTP status and
 URLs remain language-independent; the Flutter view localizes known core messages.
+
+
+The UI `configure` action also accepts persisted `download_source`: `auto`,
+`official`, or `bmclapi`. Snapshots expose `java_directory` for managed runtimes.
+Discovery includes this directory and official runtimes under the game root.
+`game.install` returns `root`, `id`, `directory`, `java` and `metadata`; the UI
+rescans the returned root after successful installation. A new install cannot
+replace an existing instance unless `replace_existing` is explicitly requested.
+An explicitly fixed install-time Java choice is saved in that instance's settings.
+The home Java selector can update the selected instance via `configure.version`.

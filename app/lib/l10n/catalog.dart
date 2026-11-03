@@ -1,6 +1,100 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
+  "快照 / 测试版": ["快照 / 測試版", "Snapshots"],
+  "历史版本": ["歷史版本", "Historical"],
+  "使用英文字母、数字、空格或 - _ . +": [
+    "使用英文字母、數字、空格或 - _ . +",
+    "Use letters, numbers, spaces or - _ . +"
+  ],
+  "该名称已存在，请换一个名称": [
+    "此名稱已存在，請使用其他名稱",
+    "This name already exists; choose another"
+  ],
+  "游戏已安装，可返回开始页面启动": [
+    "遊戲已安裝，可返回開始頁面啟動",
+    "Game installed. Return to Home to launch."
+  ],
+  "Java 已安装并加入本地列表": [
+    "Java 已安裝並加入本機清單",
+    "Java installed and added to local runtimes"
+  ],
+  "查看许可证": ["檢視授權條款", "View license"],
+  "刷新": ["重新整理", "Refresh"],
+  "特殊版本": ["特殊版本", "Special versions"],
+  "搜索游戏版本": ["搜尋遊戲版本", "Search game versions"],
+  "没有匹配的版本": ["沒有符合的版本", "No matching versions"],
+  "返回版本列表": ["返回版本清單", "Back to versions"],
+  "实例名称": ["實例名稱", "Instance name"],
+  "加载器版本": ["載入器版本", "Loader version"],
+  "该版本没有可用的加载器构建": [
+    "此版本沒有可用的載入器組建",
+    "No loader builds available for this version"
+  ],
+  "Java 运行环境": ["Java 執行環境", "Java runtime"],
+  "自动匹配，缺少时下载官方运行时": [
+    "自動配對，缺少時下載官方執行環境",
+    "Automatic; download official runtime if missing"
+  ],
+  "允许使用低于推荐版本的 Java": [
+    "允許使用低於建議版本的 Java",
+    "Allow Java below the recommended version"
+  ],
+  "游戏目录": ["遊戲目錄", "Game folder"],
+  "更改": ["變更", "Change"],
+  "存档和设置按实例隔离；游戏文件与依赖下载后进行哈希校验。": [
+    "存檔與設定依實例隔離；遊戲與相依檔案下載後會驗證雜湊值。",
+    "Saves and settings are isolated per instance. Downloads are hash-verified."
+  ],
+  "主版本": ["主版本", "Major version"],
+  "发行版": ["發行版", "Distribution"],
+  "操作系统": ["作業系統", "Operating system"],
+  "架构": ["架構", "Architecture"],
+  "自动检测": ["自動偵測", "Detect system"],
+  "自动检测本机系统和架构，可手动更改查询条件。": [
+    "自動偵測本機系統與架構，可手動變更查詢條件。",
+    "System and architecture are detected automatically. You can change them."
+  ],
+  "查询构建": ["查詢組建", "Find builds"],
+  "具体构建": ["具體組建", "Available builds"],
+  "发行版官网": ["發行版官網", "Official website"],
+  "没有匹配的构建，请更改版本、发行版或架构": [
+    "沒有符合的組建，請變更版本、發行版或架構",
+    "No builds found. Try another version, distribution or architecture."
+  ],
+  "点击「查询构建」查看可安装的 Java": [
+    "點選「查詢組建」檢視可安裝的 Java",
+    "Select Find builds to see available Java runtimes"
+  ],
+  "准备下载": ["準備下載", "Preparing download"],
+  "下载": ["下載", "Downloads"],
+  "自动选择源": ["自動選擇來源", "Automatic source"],
+  "官方源": ["官方來源", "Official source"],
+  "游戏安装": ["遊戲安裝", "Install game"],
+  "安装 Java": ["安裝 Java", "Install Java"],
+  "选择版本后安装到独立实例": ["選擇版本後安裝至獨立實例", "Choose a version to create an instance"],
+  "不同构建独立保存，可在开始页面选择": [
+    "不同組建分開儲存，可在開始頁面選擇",
+    "Builds are stored separately and can be selected on Home"
+  ],
+  "构建详情 / 许可证": ["組建詳細資料 / 授權條款", "Build details / license"],
+  "下载并安装": ["下載並安裝", "Download and install"],
+  "仅可安装当前系统的构建": ["僅可安裝目前系統的組建", "Only host OS builds can be installed"],
+  "安装游戏": ["安裝遊戲", "Install game"],
+  "无法读取下载结果，请重试。": [
+    "無法讀取下載結果，請重試。",
+    "Unable to read the download result. Please retry."
+  ],
+  "该名称的实例已存在，请使用其他名称。": [
+    "同名實例已存在，請使用其他名稱。",
+    "An instance with this name already exists. Choose another name."
+  ],
+  "不支持的下载源。": ["不支援的下載來源。", "Unsupported download source."],
+  "选择 Java 运行环境": ["選擇 Java 執行環境", "Selecting Java runtime"],
+  "下载游戏与依赖": ["下載遊戲與相依項目", "Downloading game and libraries"],
+  "下载游戏资源": ["下載遊戲資源", "Downloading game assets"],
+  "解压 Java 运行环境": ["解壓縮 Java 執行環境", "Extracting Java runtime"],
+  "验证 Java 构建": ["驗證 Java 組建", "Verifying Java build"],
   "阴影": ["陰影", "Shadows"],
   "无法加载 C++ 核心，请确认安装包完整，或重新构建本地核心。": [
     "無法載入 C++ 核心，請確認安裝包完整，或重新構建本地核心。",
@@ -60,10 +154,10 @@ const catalog = <String, List<String>>{
   "已安装": ["已安裝", "Installed"],
   "配置需要处理": ["配置需要處理", "Configuration needs attention"],
   "0.1.0 · 开发预览": ["0.1.0 · 開發預覽", "0.1.0 · Development preview"],
-  "Copyright © 2026 ppm203\n基于 M²CL 迁移与重写 · GPL-3.0-only + 第 7 节附加条款\n非官方项目，未经 Mojang 或 Microsoft 批准。":
+  "Copyright © 2026 ppm203\n基于 M²CL 迁移与重写 · GPL-3.0-only + 第 7 节附加条款\n非官方项目，与 Mojang 或 Microsoft 无隶属或背书关系。":
       [
-    "Copyright © 2026 ppm203\n基於 M²CL 遷移與重寫 · GPL-3.0-only + 第 7 節附加條款\n非官方項目，未經 Mojang 或 Microsoft 批准。",
-    "Copyright © 2026 ppm203\nMigrated and rewritten from M²CL · GPL-3.0-only with Section 7 additional terms\nUnofficial project. Not approved by Mojang or Microsoft."
+    "Copyright © 2026 ppm203\n基於 M²CL 遷移與重寫 · GPL-3.0-only + 第 7 節附加條款\n非官方項目，與 Mojang 或 Microsoft 無隸屬或背書關係。",
+    "Copyright © 2026 ppm203\nMigrated and rewritten from M²CL · GPL-3.0-only with Section 7 additional terms\nUnofficial project. Not affiliated with or endorsed by Mojang or Microsoft."
   ],
   "开发预览 0.1.0": ["開發預覽 0.1.0", "Preview 0.1.0"],
   "{0}未完成{1}": ["{0}未完成{1}", "{0} failed{1}"],
@@ -1053,6 +1147,14 @@ const catalog = <String, List<String>>{
   "需要下载的依赖": ["需要下載的依賴", "Dependencies to download"],
 };
 const nativeMessages = <String>{
+  "验证 Java 构建",
+  "解压 Java 运行环境",
+  "下载游戏资源",
+  "下载游戏与依赖",
+  "选择 Java 运行环境",
+  "不支持的下载源。",
+  "该名称的实例已存在，请使用其他名称。",
+  "无法读取下载结果，请重试。",
   "无法保存本地设置。",
   "请先配置 SECL 自己注册的微软 Application（client）ID。",
   "无法初始化本机回调网络。",

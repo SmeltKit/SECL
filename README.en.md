@@ -7,11 +7,12 @@
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
 
 An independent desktop launcher for **Minecraft: Java Edition**, built with a **C++17 core and Flutter UI**.
-Start with locally installed games and Java, then browse separate mod, shader and resource-pack markets.
+Download or select local games and Java, then browse separate mod, shader and resource-pack markets.
 The native core has no Qt dependency. The interface supports Simplified Chinese, Traditional Chinese and English.
 
 > **0.1.0 early development preview.** Intended for development, validation and feedback. The interface, configuration format and platform coverage may change.
-> Microsoft authentication and entitlement checks are implemented, but real sign-in with this project's own application ID and actual game startup have not passed end-to-end validation.
+> This project's AppID was approved for the **Minecraft Services API allow list on 2026-11-02**. Real Microsoft sign-in, Java Edition entitlement and player profile checks passed on **2026-11-03**. Actual game startup still requires validation.
+> A new CurseForge application has been submitted and is awaiting review. Resource markets currently use Modrinth.
 > The primary validated platform is currently macOS on Apple Silicon. Complete application compatibility elsewhere remains unverified.
 
 ## Screenshots
@@ -21,6 +22,10 @@ resource listings come from Modrinth. Click an image for the full-resolution vie
 The account state and local-version list shown here are not evidence of a successful game launch.
 
 <table>
+  <tr>
+    <td width="50%"><a href="docs/screenshots/game-download.png"><img src="docs/screenshots/game-download.png" width="100%" alt="Game downloads"></a><br><strong>Game downloads</strong> · Release / snapshots / special / historical</td>
+    <td width="50%"><a href="docs/screenshots/java-download.png"><img src="docs/screenshots/java-download.png" width="100%" alt="Java downloads"></a><br><strong>Java downloads</strong> · Version, distribution and build</td>
+  </tr>
   <tr>
     <td width="50%"><a href="docs/screenshots/home.png"><img src="docs/screenshots/home.png" width="100%" alt="Chinese home screen showing account status, local versions, Java selection and launch button"></a><br><strong>Home</strong> · Account, local versions and Java</td>
     <td width="50%"><a href="docs/screenshots/mod-market.png"><img src="docs/screenshots/mod-market.png" width="100%" alt="Mod market with category, game-version and loader filters"></a><br><strong>Mods</strong> · Categories and version filters</td>
@@ -35,9 +40,10 @@ The account state and local-version list shown here are not evidence of a succes
 
 | Area | Implemented scope |
 | --- | --- |
-| Authentication | Microsoft browser authorization code + PKCE; Xbox / XSTS, Minecraft Services, Java Edition entitlement and profile checks; real sign-in validation pending |
+| Authentication | Microsoft browser authorization code + PKCE; Xbox / XSTS, Minecraft Services, Java Edition entitlement and profile checks; real account sign-in, entitlement and profile checks verified |
+| Game installation | Release, snapshot, special and historical groups; isolated instances, client / library / asset downloads and official Java runtime when needed; selectable primary loader |
 | Local versions | Discover existing game folders and installed versions, then select a local version to launch |
-| Java | Local runtime detection, version / distribution / architecture identification, canonical-path deduplication and manual executable selection |
+| Java | Local runtime detection, version / distribution / architecture identification, canonical-path deduplication and manual executable selection; download a specific Zulu / Temurin / Microsoft / Oracle OpenJDK build, with automatic OS / architecture detection |
 | Resource markets | Separate Modrinth mod, shader and resource-pack pages; search, categories, game-version and mod-loader filters, sorting and pagination |
 | Project details | Description summaries, galleries, project website links and downloadable files separated into release / beta / alpha channels |
 | Instance installation | Choose a compatible local target; review recursive dependencies, installed components, duplicates and author-declared conflicts before installing |
@@ -49,8 +55,8 @@ Existing components are reused by default; redownloading requires separate confi
 Shader packs are handled separately from Iris / OptiFine support components.
 Static compatibility checks cannot guarantee that every game, loader and mod combination will run.
 
-**Currently available only through the C++ backend:** runtime downloads, game installation, loader installation,
-OptiFine version components and additional per-instance launch settings. These are not all exposed in the current UI.
+**Currently available only through the C++ backend:** OptiFine version components and additional per-instance launch settings.
+Game / Java downloads and loader-build selection are now available in Downloads. Platform and loader combinations still need individual validation.
 See [migration notes](docs/migration.md) and the [core API](docs/core-api.md).
 
 ## Platforms and languages
@@ -90,7 +96,7 @@ The complete application flow above has been validated on macOS ARM64. Windows /
 The macOS app is at `app/build/macos/Build/Products/Release/SECL.app`; native build output is under `build/native/`.
 
 Flutter 3.19.6's macOS Release AOT build tools require Rosetta on Apple Silicon build hosts;
-the resulting app itself runs natively on ARM64. The current local Release is about **22.7 MB**, or **9.1 MB** as a ZIP.
+the resulting app itself runs natively on ARM64. The current local Release is about **22.9 MB**, or **9.2 MB** as a ZIP.
 Signing is ad hoc for local testing. Distribution still requires release signing and notarization.
 
 Build and test only the C++ core:
@@ -101,16 +107,17 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-Currently passing: 110 authentication / core checks, 57 engine checks and 16 Flutter tests.
+Currently passing: 111 authentication / core checks, 64 engine checks and 22 Flutter tests.
 See [test notes](docs/testing.md) for coverage, real resource-download checks and validation limits.
 
 ## Data, services and accounts
 
-- Games use existing local installations. Game files and Java runtimes are not bundled.
-- The resource markets currently use **Modrinth**. CurseForge is not connected and requires the relevant authorization and implementation.
+- Games can be downloaded or selected from existing installations. Game files and Java runtimes are not bundled.
+- Game sources: **Automatic / Official / BMCLAPI**. Automatic mode uses only the local time zone: mirrors first for `Asia/Shanghai`, official first elsewhere, with one fallback to the other source and no endless retries. This is not geographic location detection. Java distributions use their official sources. Mirror service: [BMCLAPI](https://bmclapidoc.bangbang93.com/).
+- The resource markets currently use **Modrinth**. A new CurseForge application was submitted on 2026-11-03; review and integration are pending.
 - Microsoft sign-in requires this project's own public-client Application ID. No client secret is needed.
   Register `http://localhost/oauth/callback` for the Entra desktop application; runtime authorization uses a random loopback port and PKCE S256.
-  Minecraft Services API access needs separate approval; registering an app ID does not grant API access.
+  The project public Client ID is `7ed24288-81a6-4814-8271-25a1529d2e9d` and has API allow-list approval. This does not constitute official endorsement of the launcher.
 - The current UI keeps sign-in sessions in C++ memory. Tokens are not returned to Dart through FFI; restarting the app requires signing in again.
   Authentication or entitlement failures show an error rather than creating an offline account or a successful session.
 - Ordinary settings use the platform application-data folder. Build packages, local settings, account data and signing keys are excluded by `.gitignore`.
@@ -118,8 +125,8 @@ See [test notes](docs/testing.md) for coverage, real resource-download checks an
 
 ## Next steps
 
-- Configure and request project-owned API access, then validate real account sign-in and game startup.
-- Expose migrated Java, game and loader installation through the UI, and add per-instance launch settings.
+- Validate actual game startup and expand the game / Java / loader test matrix.
+- Add per-instance launch settings and more migrated version-component interfaces.
 - Validate Windows / Linux builds, native-library deployment and platform compatibility.
 - Integrate CurseForge after authorization; gradually add world management and further instance features.
 - Continue reviewing terminology, long text and mod / shader compatibility guidance.
@@ -136,5 +143,5 @@ Original code uses **GNU GPL version 3 only with Section 7 additional terms**:
 [full license](LICENSE), [attribution and modified-version terms](ADDITIONAL_TERMS.md), and [copyright / third-party notices](NOTICE).
 Third-party components retain their own licenses. Included licenses are accessible through the application's About screen.
 
-Unofficial project. Not affiliated with, approved by or endorsed by Mojang Studios or Microsoft.
+Unofficial project. Not affiliated with or endorsed by Mojang Studios or Microsoft.
 Minecraft is a trademark of its respective owner.

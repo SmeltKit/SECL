@@ -12,6 +12,14 @@ with tempfile.TemporaryDirectory(prefix='solar-ffi-') as temporary:
   try:return json.loads(ctypes.string_at(ptr))
   finally:native.solar_free(ptr)
  assert native.solar_abi_version()==1
+ for source in ['official','bmclapi','auto']:
+  state=call({'action':'configure','download_source':source})
+  assert state['download_source']==source
+  assert json.loads((pathlib.Path(temporary)/'settings.json').read_text())['download_source']==source
+ invalid=call({'action':'configure','download_source':'unknown'})
+ assert invalid['error']['code']=='invalid_source'
+ assert call({'action':'clear_error'})['download_source']=='auto'
+ assert pathlib.Path(call({'action':'poll'})['java_directory']).parent==pathlib.Path(temporary)
  assert call({'action':'poll'})['account'] is None
  denied=call({'action':'launch','version':'anything','java':'/invalid'})
  assert denied['error']['code']=='login_required'

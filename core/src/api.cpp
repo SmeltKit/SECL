@@ -34,7 +34,7 @@ class Core {
                    {"account", nullptr},   {"versions", Json::array()}, {"javas", Json::array()},
                    {"game_running", false}};
     std::int64_t game_ = 0;
-    std::string root_ = default_game_root(), client_, java_, language_ = "system";
+    std::string root_ = default_game_root(), client_, java_, language_ = "system", source_ = "auto";
     void stage(const std::string &s) {
         std::lock_guard<std::mutex> g(state_mutex_);
         state_["stage"] = s;
@@ -45,8 +45,22 @@ class Core {
         state_["busy"] = false;
         state_["stage"] = "error";
     }
+    Json installed_javas(const std::string &extra = "", const fs::path &game_root = {}) {
+        auto result = detect_javas(extra.empty() ? java_ : extra);
+        auto managed = engine::scan_java(
+            {fs::u8path(user_data_root()) / "java-managed",
+             (game_root.empty() ? fs::u8path(root_) : game_root) / "runtime"},
+            false, {}, 12, 50000).at("runtimes");
+        for (auto &j : managed) {
+            bool seen = false;
+            for (auto &known : result)
+                if (known.at("path") == j.at("path")) seen = true;
+            if (!seen) result.push_back(j);
+        }
+        return result;
+    }
     void save() {
-        Json config{{"client_id", client_}, {"game_root", root_}, {"java", java_}, {"language", language_}};
+        Json config{{"client_id", client_}, {"game_root", root_}, {"java", java_}, {"language", language_}, {"download_source", source_}};
         auto dir = fs::u8path(user_data_root());
         fs::create_directories(dir);
         auto file = dir / "settings.json";
@@ -238,6 +252,8 @@ class Core {
                 client_ = j.value("client_id", "");
                 root_ = j.value("game_root", root_);
                 java_ = j.value("java", "");
+                auto source = j.value("download_source", "auto");
+                if (source == "auto" || source == "official" || source == "bmclapi") source_ = source;
                 auto language = j.value("language", "system");
                 if (language == "system" || language == "en" || language == "zh_Hans" || language == "zh_Hant")
                     language_ = language;
@@ -250,6 +266,8 @@ class Core {
         state_["client_id"] = client_;
         state_["java"] = java_;
         state_["language"] = language_;
+        state_["download_source"] = source_;
+        state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
     }
     ~Core() { cancel(); }
     Json command(const Json &r) {
@@ -272,7 +290,7 @@ class Core {
         } else if (action == "scan") {
             auto candidate = r.value("root", root_);
             auto versions = scan_versions(fs::u8path(candidate));
-            auto javas = detect_javas(java_);
+            auto javas = installed_javas(java_, fs::u8path(candidate));
             root_ = candidate;
             save();
             std::lock_guard<std::mutex> g(state_mutex_);
@@ -281,7 +299,7 @@ class Core {
             state_["javas"] = javas;
             state_["error"] = nullptr;
         } else if (action == "detect_java") {
-            auto j = detect_javas(r.value("java", java_));
+            auto j = installed_javas(r.value("java", java_));
             std::lock_guard<std::mutex> g(state_mutex_);
             state_["javas"] = j;
             state_["error"] = nullptr;
@@ -296,14 +314,33 @@ class Core {
             auto language = r.value("language", language_);
             if (language != "system" && language != "en" && language != "zh_Hans" && language != "zh_Hant")
                 throw Error("settings", "invalid_language", "不支持的界面语言。");
+            auto source = r.value("download_source", source_);
+            if (source != "auto" && source != "official" && source != "bmclapi")
+                throw Error("settings", "invalid_source", "不支持的下载源。");
+            source_ = source;
             language_ = language;
             client_ = next_client;
             java_ = r.value("java", java_);
+            auto instance = r.value("version", "");
+            Json updated_versions;
+            if (!instance.empty()) {
+                auto directory = engine::checked_path(fs::u8path(root_), "versions/" + instance);
+                load_version(fs::u8path(root_), instance);
+                auto runtime = engine::probe_java(fs::u8path(java_));
+                if (runtime.is_null()) throw Error("java", "java_unavailable", "所选 Java 无法运行。");
+                auto settings = engine::load_instance_settings(directory);
+                settings["java"] = {{"mode", "fixed"}, {"path", java_}};
+                engine::save_instance_settings(directory, settings);
+                updated_versions = scan_versions(fs::u8path(root_));
+            }
             save();
             std::lock_guard<std::mutex> g(state_mutex_);
             state_["client_id"] = client_;
             state_["java"] = java_;
+            if (!updated_versions.is_null()) state_["versions"] = updated_versions;
             state_["language"] = language_;
+            state_["download_source"] = source_;
+            state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
             state_["error"] = nullptr;
         } else if (action == "engine") {
             {

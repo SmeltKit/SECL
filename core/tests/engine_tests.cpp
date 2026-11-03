@@ -369,6 +369,21 @@ int main(int argc, char **argv) {
                   std::find(command.arguments.begin(), command.arguments.end(), identity.token) !=
                       command.arguments.end(),
               "verified launch argument expansion fixture");
+        check(normalize_java_version("1.8.0_482-b08") == "8.0.482+8", "legacy Java 8 build normalization");
+        check(normalize_java_version("17.0.17+10-LTS") == "17.0.17+10", "modern Java build normalization");
+        auto record = game / "versions/test/test.json";
+        auto before_install = read_file(record);
+        rejects([&] { install_game({{"root", game.u8string()}, {"id", "test"},
+                                    {"version_entry", Json::object()}}); });
+        check(read_file(record) == before_install, "new install cannot overwrite an existing instance");
+        Task cancelled_install;
+        cancelled_install.cancel->store(true);
+        rejects([&] { install_game({{"root", game.u8string()}, {"id", "cancelled"},
+                                    {"version_entry", {{"url", "https://example.invalid/version"}}}}, cancelled_install); });
+        check(!fs::exists(game / "versions/cancelled/cancelled.json") &&
+                  !fs::exists(game / "versions/cancelled/.solar-install-lock"),
+              "cancelled install publishes no instance and releases lock");
+        rejects([&] { install_java({{"os", "not-this-os"}}, temp / "java"); });
         fs::remove_all(temp);
         std::cout << "PASS: " << n << " engine migration checks\n";
         return 0;

@@ -1,9 +1,11 @@
 # Interface screenshots
 
-Captured from the local SECL 0.1.0 macOS ARM64 Release on 2026-10-31.
+Captured from the local SECL 0.1.0 macOS ARM64 Release. Download screens were captured on 2026-11-03; the home and market baseline screens date from 2026-10-31.
 
 | File | Screen | Interface language |
 | --- | --- | --- |
+| `game-download.png` | Game channels and automatic download source | English |
+| `java-download.png` | Native OS / architecture, provider and Java builds | English |
 | `home.png` | Account state, local versions and Java selector | Simplified Chinese |
 | `mod-market.png` | Modrinth mod market | Simplified Chinese |
 | `shader-market.png` | Modrinth shader market | Simplified Chinese |

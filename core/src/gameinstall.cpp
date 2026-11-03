@@ -75,6 +75,8 @@ static Json choose_java(const Json &r, const Json &m, const Task &t) {
         return validate(probe_java(fs::u8path(selected)));
     require(choice.value("mode", "auto") != "fixed", "java_missing", "固定 Java 尚未选择。");
     auto known = detect_javas();
+    for (auto &j : scan_java({fs::u8path(user_data_root()) / "java-managed", fs::u8path(r.at("root").get<std::string>()) / "runtime"}, false, t, 12, 50000).at("runtimes"))
+        known.push_back(j);
     for (auto &j : known)
         if (j.value("major", 0) == recommended &&
             normalize_arch(j.value("arch", "")) == platform().arch)
@@ -157,6 +159,8 @@ Json install_game(const Json &r, const Task &t) {
     auto document = checked_path(root, "versions/" + target_id + "/" + target_id + ".json");
     Lock lock(document.parent_path());
     auto original = fs::is_regular_file(document) ? read_file(document) : "";
+    require(original.empty() || !r.contains("version_entry") || r.value("replace_existing", false),
+            "instance_exists", "该名称的实例已存在，请使用其他名称。");
     Json m;
     if (r.contains("version_entry"))
         m = version_document(r.at("version_entry"), t);
@@ -208,6 +212,7 @@ Json install_game(const Json &r, const Task &t) {
         }
         m["_solarVanilla"] = base;
     }
+    t.report("选择 Java 运行环境");
     auto java = choose_java(r, m, t);
     auto p = platform();
     p.arch = normalize_arch(java.value("arch", p.arch));
@@ -258,6 +263,7 @@ Json install_game(const Json &r, const Task &t) {
                        .value("file", Json::object());
     if (!logging.empty())
         add(logging, "assets/log_configs/" + logging.at("id").get<std::string>());
+    t.report("下载游戏与依赖");
     files(pending, root, t);
     auto assets = read_json(checked_path(root, "assets/indexes/" + index_id + ".json"));
     pending = Json::array();
@@ -272,6 +278,7 @@ Json install_game(const Json &r, const Task &t) {
              {"size", d.at("size")}},
             "assets/objects/" + hash.substr(0, 2) + "/" + hash);
     }
+    t.report("下载游戏资源");
     files(pending, root, t);
     auto directory = r.value("directory", (root / "instances" / target_id).u8string());
     fs::create_directories(fs::u8path(directory));
@@ -296,7 +303,12 @@ Json install_game(const Json &r, const Task &t) {
     m["_baseId"] = version;
     m["id"] = target_id;
     m["_solarGameDirectory"] = directory;
+    if (r.contains("java_choice") && r.at("java_choice").value("mode", "auto") == "fixed") {
+        auto settings = load_instance_settings(document.parent_path());
+        settings["java"] = r.at("java_choice");
+        save_instance_settings(document.parent_path(), settings);
+    }
     atomic_write(document, m.dump(2));
-    return {{"id", target_id}, {"directory", directory}, {"java", java}, {"metadata", m}};
+    return {{"id", target_id}, {"root", root.u8string()}, {"directory", directory}, {"java", java}, {"metadata", m}};
 }
 } // namespace solar::engine

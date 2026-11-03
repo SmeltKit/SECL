@@ -93,7 +93,15 @@ Json java_builds(int major, const std::string &provider, const std::string &os,
                     version += '.';
                 version += std::to_string(v.get<int>());
             }
-            out.push_back({{"provider", provider},
+            if (p.contains("openjdk_build_number"))
+                version += "+" + std::to_string(p.at("openjdk_build_number").get<int>());
+            std::string distribution;
+            for (auto &v : p.value("distro_version", Json::array())) {
+                if (!distribution.empty()) distribution += '.';
+                distribution += std::to_string(v.get<int>());
+            }
+            out.push_back({{"distribution_version", distribution},
+                           {"provider", provider},
                            {"id", p.value("package_uuid", "")},
                            {"version", version},
                            {"major", major},
@@ -297,6 +305,40 @@ void extract_java_archive(const fs::path &archive, const fs::path &dest, const T
     else
         extract_tar_gz(archive, dest, t);
 }
+std::string normalize_java_version(const std::string &value) {
+    std::smatch match;
+    if (std::regex_match(value, match, std::regex(R"((?:1\.)?8(?:\.0)?[_u.](\d+)(?:[-+]b?(\d+))?.*)")))
+        return "8.0." + std::to_string(std::stoi(match[1])) +
+               (match[2].matched ? "+" + std::to_string(std::stoi(match[2])) : "");
+    if (std::regex_match(value, match, std::regex(R"((\d+(?:\.\d+)*)(?:\+(\d+))?.*)")))
+        return match[1].str() + (match[2].matched ? "+" + std::to_string(std::stoi(match[2])) : "");
+    return value;
+}
+static void validate_runtime(const Json &j, const Json &p) {
+    auto provider = p.value("provider", "");
+    if (j.value("major", 0) != p.value("major", 0) ||
+        normalize_arch(j.value("arch", "")) != normalize_arch(p.value("arch", "")))
+        throw Error("java", "runtime_mismatch", "Java 实际版本或架构与所选构建不匹配。");
+    auto vendor = j.value("vendor", "");
+    std::transform(vendor.begin(), vendor.end(), vendor.begin(), ::tolower);
+    bool vendor_ok = provider == "temurin"          ? (vendor.find("adoptium") != vendor.npos ||
+                                              vendor.find("adoptopenjdk") != vendor.npos)
+                     : provider == "zulu"           ? vendor.find("azul") != vendor.npos
+                     : provider == "microsoft"      ? vendor.find("microsoft") != vendor.npos
+                     : provider == "oracle-openjdk" ? vendor.find("oracle") != vendor.npos
+                                                    : false;
+    if (!vendor_ok)
+        throw Error("java", "vendor_mismatch", "实际 Java 发行版与所选构建不一致。");
+    auto expected = p.value("version", "");
+    auto actual = j.value("runtime_version", j.value("version", ""));
+    auto wanted = normalize_java_version(expected);
+    auto matches = [&](const std::string &value) {
+        auto v = normalize_java_version(value);
+        return v == wanted || (wanted.find('+') == wanted.npos && v.rfind(wanted + "+", 0) == 0);
+    };
+    if (!expected.empty() && !matches(actual) && !matches(j.value("version", "")))
+        throw Error("java", "build_mismatch", "Java 实际版本与所选构建不一致。");
+}
 Json install_java(const Json &input, const fs::path &directory, const Task &t) {
     auto p = input;
     auto provider = p.value("provider", "");
@@ -315,8 +357,10 @@ Json install_java(const Json &input, const fs::path &directory, const Task &t) {
     auto final = checked_path(directory, provider + "-" + fingerprint);
     if (fs::exists(final)) {
         auto scan = scan_java({final}, false, t, 8, 20000);
-        if (scan["runtimes"].size() == 1)
+        if (scan["runtimes"].size() == 1) {
+            validate_runtime(scan["runtimes"][0], p);
             return scan["runtimes"][0];
+        }
         throw Error("java", "incomplete_install", "已有 Java 安装目录不完整。");
     }
     auto stage = checked_path(directory, ".install-" + random_url_token());
@@ -328,33 +372,14 @@ Json install_java(const Json &input, const fs::path &directory, const Task &t) {
         p["size"] = -1;
         download(p, archive, t);
         auto data = stage / "runtime";
+        t.report("解压 Java 运行环境");
         extract_java_archive(archive, data, t);
-        auto runtimes = scan_java({data}, false, t, 10, 30000).at("runtimes");
+        t.report("验证 Java 构建");
+        auto runtimes = scan_java({data}, false, t, 10, 30000, 10000).at("runtimes");
         if (runtimes.size() != 1)
             throw Error("java", "ambiguous_runtime", "压缩包没有唯一可执行的 Java。");
         auto j = runtimes[0];
-        if (j.value("major", 0) != p.value("major", 0) ||
-            normalize_arch(j.value("arch", "")) != normalize_arch(p.value("arch", "")))
-            throw Error("java", "runtime_mismatch", "Java 实际版本或架构与所选构建不匹配。");
-        auto vendor = j.value("vendor", "");
-        std::transform(vendor.begin(), vendor.end(), vendor.begin(), ::tolower);
-        bool vendor_ok = provider == "temurin"          ? (vendor.find("adoptium") != vendor.npos ||
-                                                  vendor.find("adoptopenjdk") != vendor.npos)
-                         : provider == "zulu"           ? vendor.find("azul") != vendor.npos
-                         : provider == "microsoft"      ? vendor.find("microsoft") != vendor.npos
-                         : provider == "oracle-openjdk" ? vendor.find("oracle") != vendor.npos
-                                                        : false;
-        if (!vendor_ok)
-            throw Error("java", "vendor_mismatch", "实际 Java 发行版与所选构建不一致。");
-        auto expected = p.value("version", "");
-        auto actual = j.value("runtime_version", j.value("version", ""));
-        auto simple = [](std::string s) {
-            s = std::regex_replace(s, std::regex("[-+]LTS.*$"), "");
-            return s;
-        };
-        if (!expected.empty() && simple(actual).rfind(simple(expected), 0) != 0 &&
-            simple(j.value("version", "")).rfind(simple(expected), 0) != 0)
-            throw Error("java", "build_mismatch", "Java 实际版本与所选构建不一致。");
+        validate_runtime(j, p);
         auto relative = fs::relative(fs::u8path(j.at("path").get<std::string>()), data);
         atomic_write(data / ".solar-runtime.json", p.dump(2));
         fs::rename(data, final);

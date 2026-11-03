@@ -34,9 +34,9 @@ std::string jar_entry(const fs::path &, const std::string &, size_t limit = 2 * 
 void extract_zip(const fs::path &, const fs::path &, const Task &task = {});
 std::string normalize_arch(std::string);
 Json parse_java(const std::string &);
-Json probe_java(const fs::path &);
+Json probe_java(const fs::path &, int timeout_ms = 2500);
 Json scan_java(const std::vector<fs::path> &, bool deep, const Task &task = {}, int depth = 5,
-               int budget = 12000);
+               int budget = 12000, int probe_timeout_ms = 2500);
 Json java_legal(const fs::path &);
 Json system_memory();
 Json recommend_memory(const Json &, const Json &);
@@ -86,6 +86,7 @@ Json select_dependencies(const Json &plan, const Json &selected,
                          const Json &redownload = Json::array(),
                          const Json &enable = Json::array());
 Json apply_mod_plan(const Json &plan, const Task &task = {});
+std::string normalize_java_version(const std::string &);
 Json java_builds(int major, const std::string &vendor, const std::string &os,
                  const std::string &arch, const Task &task = {});
 Json java_build_legal(const Json &);
