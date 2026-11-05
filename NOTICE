@@ -12,6 +12,9 @@ covered material. No warranty; see LICENSE sections 15 and 16.
 Third-party material retains its own license:
 - nlohmann/json 3.11.3: MIT, core/third_party/JSON-LICENSE.MIT
 - TinyXML2 10.0.0: zlib, core/third_party/TINYXML2-LICENSE.txt
+- toml++ 3.4.0: MIT, copyright Mark Gillard and contributors; the full license
+  is retained in core/third_party/toml.hpp and TOMLPLUSPLUS-LICENSE.MIT.
+  Upstream: https://github.com/marzer/tomlplusplus/tree/v3.4.0
 - QuiltMC incompatibility data: core/src/quilt-compatibility.inc, from the
   QuiltMC/quiltmc.org incompatible-mods data; factual advisory data with source
   attribution. An ID match does not prove a particular file is incompatible.

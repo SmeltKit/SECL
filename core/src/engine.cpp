@@ -29,6 +29,8 @@ Json dispatch(const Json &r, const Task &t) {
                 "memory.snapshot",
                 "memory.recommend",
                 "instances.scan",
+                "worlds.list", "worlds.open", "worlds.import", "worlds.export", "worlds.copy",
+                "worlds.backup", "worlds.backups", "worlds.restore", "worlds.remove",
                 "instance.inventory", "instance.logs", "mods.enrich", "shaders.plan", "path.open",
                 "settings.load",
                 "settings.save",
@@ -41,6 +43,7 @@ Json dispatch(const Json &r, const Task &t) {
                 "resource.projects",
                 "resource.versions",
                 "resource.version_families",
+                "updates.check", "updates.plan", "updates.apply",
                 "mods.list",
                 "mods.inspect",
                 "mods.check",
@@ -99,8 +102,9 @@ Json dispatch(const Json &r, const Task &t) {
         return recommend_memory(r.value("snapshot", system_memory()), r.at("context"));
     if (op == "instances.scan")
         return scan_instances(paths("roots"), r.value("overrides", Json::object()));
+    if (op.rfind("worlds.", 0) == 0) return worlds_command(r,t);
     if (op == "instance.inventory")
-        return instance_inventory(r.at("instance"), r.at("kind"));
+        return instance_inventory(r.at("instance"), r.at("kind"), r.value("fresh", false));
     if (op == "instance.logs")
         return instance_logs(r.at("instance"), t);
     if (op == "mods.enrich")
@@ -157,6 +161,12 @@ Json dispatch(const Json &r, const Task &t) {
         return version_families(r.at("versions"));
     if (op == "mods.list")
         return local_mods(path("directory"), r.value("loader", ""));
+    if (op == "updates.check")
+        return check_resource_updates(r.at("instance"), r.at("kind"), r.value("channel", "release"), t);
+    if (op == "updates.plan")
+        return plan_resource_updates(r.at("report"), r.at("selected"), t);
+    if (op == "updates.apply")
+        return apply_resource_updates(r.at("plan"), t);
     if (op == "mods.inspect")
         return inspect_mod(path("path"), r.value("loader", ""));
     if (op == "mods.check")

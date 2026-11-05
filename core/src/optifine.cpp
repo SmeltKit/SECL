@@ -200,7 +200,9 @@ Json optifine_builds(const std::string &game, const Task &t) {
             t.check();
             errors.push_back(e.json());
         }
-    throw Error("optifine", "list_failed", errors.dump());
+    auto last = errors.empty() ? Json::object() : errors.back();
+    throw Error("optifine", "list_failed", "OptiFine 构建查询失败，请检查网络后重试。",
+                last.value("http_status", 0), last.value("url", ""));
 }
 Json install_optifine(const Json &r, const Task &t) {
     auto root = fs::u8path(r.at("root").get<std::string>());

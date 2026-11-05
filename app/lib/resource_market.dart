@@ -14,6 +14,48 @@ typedef Data = Map<String, dynamic>;
 List<Data> maps(dynamic value) => (value as List? ?? [])
     .map((e) => Map<String, dynamic>.from(e as Map))
     .toList();
+Future<void> enrichModPlanProjects(ResourceEngine engine, Data plan) async {
+  final ids = <String>{
+    for (final f in maps(plan['files'])) f['project_id'] as String,
+    for (final r in maps(plan['reuse'])) r['project_id'] as String,
+    for (final node in maps(plan['marketplace_existing']))
+      node['project_id'] as String
+  }.toList();
+  final projects = <String, Data>{};
+  try {
+    for (var offset = 0; offset < ids.length; offset += 64) {
+      final end = offset + 64 < ids.length ? offset + 64 : ids.length;
+      for (final project in maps(await engine.run(
+          {'op': 'resource.projects', 'ids': ids.sublist(offset, end)},
+          title: tr('正在读取组件信息')))) {
+        projects[project['id'] as String] = project;
+      }
+    }
+  } catch (_) {
+    /* Optional titles and images never invalidate a verified install plan. */
+  }
+  Data enrich(Data file) {
+    final project = projects[file['project_id']];
+    return project == null
+        ? file
+        : {...file, 'title': project['title'], 'icon_url': project['icon_url']};
+  }
+
+  plan['files'] = [for (final file in maps(plan['files'])) enrich(file)];
+  plan['reuse'] = [
+    for (final reuse in maps(plan['reuse']))
+      {
+        ...reuse,
+        'file': enrich(Map<String, dynamic>.from(reuse['file'] as Map))
+      }
+  ];
+  if (plan['marketplace_existing'] is List) {
+    plan['marketplace_existing'] = [
+      for (final node in maps(plan['marketplace_existing'])) enrich(node)
+    ];
+  }
+}
+
 Data problem(Object e) => e is EngineFailure
     ? e.details
     : {'code': 'invalid_response', 'message': "服务返回的数据无法读取，请重试。"};
@@ -337,43 +379,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                   'kind': kind
                 },
           title: tr("正在检查已有组件和依赖")) as Map);
-      if (kind == 'mod') {
-        final ids = <String>{
-          for (final f in maps(plan['files'])) f['project_id'] as String,
-          for (final r in maps(plan['reuse'])) r['project_id'] as String
-        };
-        try {
-          final metadata = maps(await engine.run(
-              {'op': 'resource.projects', 'ids': ids.toList()},
-              title: tr("正在读取组件信息")));
-          for (final entry in maps(plan['files'])) {
-            final meta = metadata
-                .where((m) => m['id'] == entry['project_id'])
-                .firstOrNull;
-            if (meta != null) {
-              entry['title'] = meta['title'];
-              entry['icon_url'] = meta['icon_url'];
-            }
-            final index = (plan['files'] as List).indexWhere(
-                (dynamic f) => f['project_id'] == entry['project_id']);
-            (plan['files'] as List)[index] = entry;
-          }
-          for (final dynamic entry in (plan['reuse'] as List? ?? [])) {
-            final meta = metadata
-                .where((m) => m['id'] == entry['project_id'])
-                .firstOrNull;
-            if (meta != null) {
-              entry['file'] = {
-                ...Map<String, dynamic>.from(entry['file'] as Map),
-                'title': meta['title'],
-                'icon_url': meta['icon_url']
-              };
-            }
-          }
-        } catch (_) {
-          /* Project images are optional; the verified install plan remains usable. */
-        }
-      }
+      if (kind == 'mod') await enrichModPlanProjects(engine, plan);
       if (!mounted) return;
       final choice = await showDialog<Data>(
           context: context,
@@ -384,7 +390,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
       if (kind == 'mod') {
         chosen = Map<String, dynamic>.from(await engine.run({
           'op': 'mods.select',
-          'plan': plan,
+          'plan': {...plan, 'disable_files': choice['disable']},
           'selected': choice['selected'],
           'redownload': choice['redownload'],
           'enable': choice['enable']
@@ -1421,6 +1427,173 @@ class InstallPlanDialog extends StatefulWidget {
   State<InstallPlanDialog> createState() => _InstallPlanDialogState();
 }
 
+// Mirrors mods.select locally so changing a review checkbox never needs a
+// metadata request. Existing files remain active when an optional reuse is
+// omitted; replacing a file removes its old declarations only while selected.
+List<Data> _reviewGraphConflicts(Data plan, Set<String> selected,
+    Set<String> redownload, Set<String> enable, Set<String> disabled) {
+  final needed = <String>{
+    ...selected,
+    if (plan['root_project'] is String) plan['root_project'] as String,
+    for (final id in plan['root_projects'] as List? ?? []) id as String
+  };
+  final files = maps(plan['files'])
+      .where((f) => needed.contains(f['project_id']))
+      .toList();
+  final enabledFiles = <String>{};
+  for (final reuse in maps(plan['reuse'])) {
+    final id = reuse['project_id'] as String? ?? '';
+    if (!needed.contains(id)) continue;
+    if (redownload.contains(id)) {
+      files.add({
+        ...Map<String, dynamic>.from(reuse['file'] as Map),
+        'replaces': reuse,
+        'install_disabled': reuse['enabled'] == false && !enable.contains(id)
+      });
+    } else if (reuse['enabled'] == false && enable.contains(id)) {
+      enabledFiles.add(reuse['filename'] as String);
+    }
+  }
+  final replaced = <String>{
+    for (final file in files)
+      if (file['replaces'] is Map && file['replaces']['embedded'] != true)
+        file['replaces']['filename'] as String
+  };
+  bool existingActive(Data node) {
+    final filename = node['filename'];
+    return !replaced.contains(filename) &&
+        (enabledFiles.contains(filename) ||
+            (node['enabled'] != false && !disabled.contains(filename)));
+  }
+
+  final existing = maps(plan['marketplace_existing'] ??
+      maps(plan['marketplace_graph'])
+          .where((n) => n['source'] == 'existing')
+          .toList());
+  final nodes = <Data>[
+    for (final node in existing)
+      if (existingActive(node)) {...node, 'source': 'existing'},
+    for (final file in files)
+      if (file['install_disabled'] != true)
+        {...file, 'source': 'candidate', 'embedded': false, 'possible': false}
+  ];
+  final conflicts = <Data>[];
+  final seen = <String>{};
+  final byProject = <String, List<Data>>{}, byVersion = <String, List<Data>>{};
+  for (final node in nodes) {
+    byProject
+        .putIfAbsent(node['project_id'] as String? ?? '', () => [])
+        .add(node);
+    byVersion
+        .putIfAbsent(node['version_id'] as String? ?? '', () => [])
+        .add(node);
+  }
+  void add(Data source, Data target, {String? kind, String? filename}) {
+    final uncertain = kind == null &&
+        (source['embedded'] == true || target['embedded'] == true);
+    if (filename == null && !uncertain) {
+      if (target['source'] == 'existing') {
+        filename = target['filename'] as String?;
+      } else if (source['source'] == 'existing') {
+        filename = source['filename'] as String?;
+      }
+    }
+    final key =
+        '${source['project_id']}:${source['version_id']}:${target['project_id']}:${target['version_id']}:$filename:$kind';
+    if (!seen.add(key)) return;
+    conflicts.add({
+      'from_project': source['project_id'],
+      'from_version': source['version_id'],
+      'to_project': target['project_id'],
+      'to_version': target['version_id'],
+      if (filename != null && filename.isNotEmpty) 'filename': filename,
+      if (kind != null) 'kind': kind,
+      if (uncertain) 'uncertain': true,
+      'reason': kind == null ? '作者声明不兼容' : '与所选渲染组件不兼容',
+      'source_node': source,
+      'target_node': target
+    });
+  }
+
+  for (final source in nodes) {
+    for (final dependency in maps(source['dependencies'])) {
+      if (dependency['dependency_type'] != 'incompatible') continue;
+      final project = dependency['project_id'] as String? ?? '';
+      final version = dependency['version_id'] as String? ?? '';
+      if (project.isEmpty && version.isEmpty) continue;
+      final targets =
+          project.isNotEmpty ? byProject[project] : byVersion[version];
+      for (final target in targets ?? <Data>[]) {
+        if ((project.isEmpty || target['project_id'] == project) &&
+            (version.isEmpty || target['version_id'] == version)) {
+          add(source, target);
+        }
+      }
+    }
+    final project = source['project_id'];
+    if (source['embedded'] == true) continue;
+    final iris = project == 'iris' || project == 'YL57xq9U';
+    if (!iris && project != 'sodium' && project != 'AANobbMI') continue;
+    final instance = Map<String, dynamic>.from(plan['target'] as Map);
+    final managed =
+        Map<String, dynamic>.from(instance['optifine'] as Map? ?? {});
+    if (managed.isNotEmpty) {
+      add(
+          source,
+          {
+            'project_id': 'optifine',
+            'title': 'OptiFine',
+            'version':
+                managed['version'] ?? managed['build'] ?? instance['version']
+          },
+          kind: 'managed_optifine',
+          filename: '');
+    }
+    for (final mod in maps(plan['local_graph_files'])) {
+      if (!existingActive(mod)) continue;
+      final ids = (mod['own_ids'] ?? mod['ids']) as List? ?? [];
+      if (!ids.contains('optifine') && !(iris && ids.contains('optifabric'))) {
+        continue;
+      }
+      final filename = mod['filename'] as String? ?? '';
+      final managedFile = managed['modFile'] as String? ?? '';
+      if (managedFile.isNotEmpty &&
+          (filename == managedFile || filename == '$managedFile.disabled')) {
+        continue;
+      }
+      final optifine = ids.contains('optifine');
+      add(
+          source,
+          {
+            ...mod,
+            'project_id': optifine ? 'optifine' : 'optifabric',
+            'title': optifine ? 'OptiFine' : 'OptiFabric',
+          },
+          kind: 'rendering',
+          filename: filename);
+    }
+  }
+  // Older verified plans may carry conflict edges without full declarations.
+  for (final edge in [
+    ...maps(plan['graph_conflicts']),
+    ...maps(plan['graph_warnings'])
+  ]) {
+    if (edge['kind'] == 'managed_optifine' || edge['kind'] == 'rendering') {
+      continue;
+    }
+    for (final source in nodes.where((n) =>
+        n['project_id'] == edge['from_project'] &&
+        n['version_id'] == edge['from_version'])) {
+      for (final target in nodes.where((n) =>
+          n['project_id'] == edge['to_project'] &&
+          n['version_id'] == edge['to_version'])) {
+        add(source, target);
+      }
+    }
+  }
+  return conflicts;
+}
+
 class _InstallPlanDialogState extends State<InstallPlanDialog> {
   final selected = <String>{},
       redownload = <String>{},
@@ -1430,10 +1603,52 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
   bool get mods => widget.kind == 'mod';
   List<Data> get files => mods
       ? maps(widget.plan['files'])
-      : [Map<String, dynamic>.from(widget.plan['file'] as Map)];
+      : widget.plan['files'] is List
+          ? maps(widget.plan['files'])
+          : [Map<String, dynamic>.from(widget.plan['file'] as Map)];
   List<Data> get reuse =>
       maps(widget.plan['reuse'] is List ? widget.plan['reuse'] : []);
-  List<Data> get conflicts => maps(widget.plan['conflicts']);
+  Set<String> get roots => {
+        if (widget.plan['root_project'] is String)
+          widget.plan['root_project'] as String,
+        for (final id in widget.plan['root_projects'] as List? ?? [])
+          id as String,
+        for (final f in files)
+          if (f['root'] == true) f['project_id'] as String,
+        for (final r in reuse)
+          if (r['file']['root'] == true) r['project_id'] as String
+      };
+  List<Data> graphResults(Set<String> disabledFiles) => mods
+      ? _reviewGraphConflicts(
+          widget.plan, selected, redownload, enable, disabledFiles)
+      : [];
+  List<Data> graphConflicts(Set<String> disabledFiles) =>
+      graphResults(disabledFiles)
+          .where((conflict) => conflict['uncertain'] != true)
+          .toList();
+  List<Data> get legacyConflicts => maps(widget.plan['conflicts'])
+      .where((c) => c['marketplace'] != true && c['generated'] != true)
+      .toList();
+  void trimDisableConsent() {
+    final relevant = {
+      for (final conflict in [...legacyConflicts, ...graphConflicts({})])
+        conflict['filename']
+    };
+    disabled.removeWhere((filename) => !relevant.contains(filename));
+  }
+
+  void includeRequired() {
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (final edge in maps(widget.plan['edges'])) {
+        if (selected.contains(edge['from']) && edge['optional'] != true) {
+          changed = selected.add(edge['to'] as String) || changed;
+        }
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1443,21 +1658,15 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
     ]) {
       if (f['optional'] != true) selected.add(f['project_id'] as String);
     }
+    selected.addAll(roots);
+    includeRequired();
   }
 
   void toggle(String id, bool value) {
     setState(() {
       if (value) {
         selected.add(id);
-        bool changed = true;
-        while (changed) {
-          changed = false;
-          for (final e in maps(widget.plan['edges'])) {
-            if (selected.contains(e['from']) && e['optional'] != true) {
-              changed = selected.add(e['to'] as String) || changed;
-            }
-          }
-        }
+        includeRequired();
       } else {
         selected.remove(id);
         bool changed = true;
@@ -1465,7 +1674,8 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
           changed = false;
           for (final e in maps(widget.plan['edges'])) {
             final child = e['to'] as String;
-            if (selected.contains(child) &&
+            if (!roots.contains(child) &&
+                selected.contains(child) &&
                 !maps(widget.plan['edges']).any(
                     (p) => p['to'] == child && selected.contains(p['from']))) {
               selected.remove(child);
@@ -1473,9 +1683,26 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
             }
           }
         }
+        enable.removeWhere((id) => !selected.contains(id));
+        redownload.removeWhere((id) => !selected.contains(id));
       }
+      trimDisableConsent();
       acknowledge = false;
     });
+  }
+
+  Set<String> get requiredProjects {
+    final required = {...roots};
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (final edge in maps(widget.plan['edges'])) {
+        if (required.contains(edge['from']) && edge['optional'] != true) {
+          changed = required.add(edge['to'] as String) || changed;
+        }
+      }
+    }
+    return required;
   }
 
   int get omitted => [
@@ -1483,8 +1710,9 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
         ...reuse.map((r) => Map<String, dynamic>.from(r['file'] as Map))
       ]
           .where((f) =>
-              f['root'] != true &&
-              f['optional'] != true &&
+              !roots.contains(f['project_id']) &&
+              (f['optional'] != true ||
+                  requiredProjects.contains(f['project_id'])) &&
               !selected.contains(f['project_id']))
           .length;
   bool get shaderMissing =>
@@ -1511,18 +1739,24 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                       child: Text(tr("重新下载")))
                 ]));
     if (yes == true && mounted) {
-      setState(() => redownload.add(r['project_id'] as String));
+      setState(() {
+        final id = r['project_id'] as String;
+        redownload.add(id);
+        selected.add(id);
+        includeRequired();
+        trimDisableConsent();
+      });
     }
   }
 
   Widget component(Data f, {Data? existing}) {
     final id = f['project_id'] as String? ?? '',
-        root = f['root'] == true,
+        root = f['root'] == true || roots.contains(f['project_id']),
         isReuse = existing != null;
     return Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(children: [
-          if (isReuse)
+          if (isReuse && !mods)
             SizedBox(
                 width: 34,
                 child: Icon(Icons.check_circle_outline,
@@ -1531,6 +1765,7 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
             SizedBox(
                 width: 34,
                 child: Checkbox(
+                    key: Key('planComponent-$id'),
                     value: !mods || selected.contains(id),
                     onChanged:
                         !mods || root ? null : (v) => toggle(id, v ?? false),
@@ -1551,18 +1786,22 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                         fontSize: 13, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 5),
                 Text(
-                    '${f['version'] ?? ''} · ${isReuse ? existing['embedded'] == true ? tr("已安装（内嵌）") : existing['enabled'] == true ? tr("已安装") : tr("已停用") : root ? tr("主模组") : f['optional'] == true ? tr("可选依赖") : mods ? tr("必需依赖") : widget.kind == 'shader' ? tr("光影包") : tr("材质包")}',
+                    '${f['previous_version'] == null ? '' : '${f['previous_version']} → '}${f['version'] ?? ''} · ${isReuse ? existing['embedded'] == true ? tr("已安装（内嵌）") : existing['enabled'] == true ? tr("已安装") : tr("已停用") : f['install_disabled'] == true ? tr("更新后保持禁用") : root ? tr("主模组") : f['optional'] == true ? tr("可选依赖") : mods ? tr("必需依赖") : widget.kind == 'shader' ? tr("光影包") : tr("材质包")}',
                     style: TextStyle(fontSize: 11, color: muted)),
                 if (isReuse && existing['enabled'] != true)
                   Row(children: [
                     Checkbox(
+                        key: Key('enableComponent-$id'),
                         value: enable.contains(id),
                         onChanged: (v) => setState(() {
                               if (v == true) {
                                 enable.add(id);
+                                selected.add(id);
+                                includeRequired();
                               } else {
                                 enable.remove(id);
                               }
+                              trimDisableConsent();
                             }),
                         visualDensity: VisualDensity.compact),
                     Text(tr("同时启用"), style: const TextStyle(fontSize: 11))
@@ -1571,7 +1810,10 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
           if (isReuse && existing['embedded'] != true)
             TextButton(
                 onPressed: () => redownload.contains(id)
-                    ? setState(() => redownload.remove(id))
+                    ? setState(() {
+                        redownload.remove(id);
+                        trimDisableConsent();
+                      })
                     : askRedownload(existing),
                 child: Text(
                     redownload.contains(id) ? tr("取消重新下载") : tr("重新下载…"),
@@ -1595,10 +1837,42 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
             const SizedBox(height: 4),
             ...children
           ])));
+  String graphLabel(Data node) {
+    final project = node['project_id'] as String? ?? '';
+    final matches = [
+      ...files,
+      ...reuse.map((r) => Map<String, dynamic>.from(r['file'] as Map))
+    ].where((file) => file['project_id'] == project);
+    final known = matches.firstOrNull;
+    final title = node['title'] ??
+        node['name'] ??
+        known?['title'] ??
+        known?['name'] ??
+        project;
+    final version =
+        node['version_number'] ?? node['version'] ?? node['version_id'] ?? '';
+    return '$title${version.toString().isEmpty ? '' : ' · $version'}';
+  }
+
+  String graphConflictLabel(Data conflict) => tr('{0} 与 {1} 不兼容', [
+        graphLabel(Map<String, dynamic>.from(conflict['source_node'] as Map)),
+        graphLabel(Map<String, dynamic>.from(conflict['target_node'] as Map))
+      ]);
   @override
   Widget build(BuildContext context) {
     final target = Map<String, dynamic>.from(widget.plan['target'] as Map);
-    final unresolved = conflicts.any((c) => !disabled.contains(c['filename']));
+    final currentGraph = graphResults(disabled);
+    final graph = currentGraph.where((c) => c['uncertain'] != true).toList();
+    final graphWarnings =
+        currentGraph.where((c) => c['uncertain'] == true).toList();
+    final conflictFiles = <String, Data>{
+      for (final c in [...legacyConflicts, ...graphConflicts({})])
+        if ((c['filename'] as String? ?? '').isNotEmpty)
+          c['filename'] as String: c
+    };
+    final blockingGraph = graph.where((c) => c['filename'] == null).toList();
+    final unresolved = graph.isNotEmpty ||
+        legacyConflicts.any((c) => !disabled.contains(c['filename']));
     final inactive = reuse.any((r) =>
         selected.contains(r['project_id']) &&
         r['enabled'] != true &&
@@ -1611,7 +1885,8 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
         (!shaderMissing || shaderAcknowledged);
     return AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(tr("确认安装方案"),
+        title: Text(
+            tr(widget.plan['update_kind'] != null ? "确认更新方案" : "确认安装方案"),
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
         content: SizedBox(
             width: 600,
@@ -1644,7 +1919,11 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                       section(
                           !mods && widget.plan['reuse'] == true
                               ? tr("已有资源（无需重复下载）")
-                              : tr("将添加 · {0} 项", [files.length]),
+                              : tr(
+                                  widget.plan['update_kind'] != null
+                                      ? "将更新或添加 · {0} 项"
+                                      : "将添加 · {0} 项",
+                                  [files.length]),
                           seclColor(0xFFF1F6F9),
                           [for (final f in files) component(f)]),
                     if (reuse.isNotEmpty)
@@ -1654,10 +1933,31 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                           component(Map<String, dynamic>.from(r['file'] as Map),
                               existing: r)
                       ]),
-                    if (conflicts.isNotEmpty)
+                    if (conflictFiles.isNotEmpty || blockingGraph.isNotEmpty)
                       section(tr("需要处理 · 不兼容组件"), seclColor(0xFFFFF7E7), [
-                        for (final c in conflicts)
+                        for (final c in blockingGraph)
+                          Padding(
+                              key: Key(
+                                  'graphConflict-${c['from_project']}-${c['to_project']}'),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(graphConflictLabel(c),
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                        c['kind'] == 'managed_optifine'
+                                            ? nativeText(
+                                                '请先在版本组件中移除 OptiFine，再安装 Iris / Sodium。')
+                                            : tr('取消选择冲突组件，或返回选择其他版本。'),
+                                        style: const TextStyle(fontSize: 11))
+                                  ])),
+                        for (final c in conflictFiles.values)
                           CheckboxListTile(
+                              key: Key('disableGraph-${c['filename']}'),
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               controlAffinity: ListTileControlAffinity.leading,
@@ -1672,9 +1972,31 @@ class _InstallPlanDialogState extends State<InstallPlanDialog> {
                               title: Text(tr("停用 {0}", [c['filename']]),
                                   style: const TextStyle(fontSize: 12)),
                               subtitle: Text(
-                                  nativeText(
-                                      c['reason'] as String? ?? '作者声明不兼容'),
+                                  c['source_node'] is Map
+                                      ? graphConflictLabel(c)
+                                      : nativeText(
+                                          c['reason'] as String? ?? '作者声明不兼容'),
                                   style: const TextStyle(fontSize: 11)))
+                      ]),
+                    if (graphWarnings.isNotEmpty)
+                      section(tr('内嵌组件选择待确认'), seclColor(0xFFFFF7E7), [
+                        for (final warning in graphWarnings)
+                          Padding(
+                            key: Key(
+                                'graphWarning-${warning['from_project']}-${warning['from_version']}-${warning['to_project']}-${warning['to_version']}'),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                                tr(
+                                    '内嵌组件的加载选择尚未确定：{0} 与 {1} 的网站不兼容声明需由实际加载器确认。',
+                                    [
+                                      graphLabel(Map<String, dynamic>.from(
+                                          warning['source_node'] as Map)),
+                                      graphLabel(Map<String, dynamic>.from(
+                                          warning['target_node'] as Map))
+                                    ]),
+                                style:
+                                    const TextStyle(fontSize: 12, height: 1.5)),
+                          )
                       ]),
                     if (omitted > 0)
                       CheckboxListTile(

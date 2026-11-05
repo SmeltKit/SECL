@@ -88,4 +88,21 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+      'ordinary settings no longer expose Microsoft application configuration',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(SeclApp(core: TestCore()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.byKey(const Key('settingsButton')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('languageSelector')), findsOneWidget);
+    expect(find.byKey(const Key('appConfiguration')), findsNothing);
+    expect(find.byKey(const Key('clientIdField')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

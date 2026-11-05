@@ -1,6 +1,6 @@
 # Test record and limits
 
-Updated: 2026-11-03. Host: Apple Silicon macOS, Xcode 27.2.
+Updated: 2026-11-05. Host: Apple Silicon macOS, Xcode 27.2.
 Flutter 3.19.6 (revision `54e66469a933b60ddf175f858f82eaeb97e48c8d`), Dart 3.3.4.
 
 Commands:
@@ -43,7 +43,7 @@ reported runtime home. A real `JAVA_HOME` reproduction returns Java 21 and 26
 once each. The sidebar and launch footer now share the same height and divider;
 the unofficial-project notice remains in About and the README.
 
-Thirty-six Flutter tests cover disabled launch without ownership, structured error
+Fifty-five Flutter tests cover disabled launch without ownership, structured error
 presentation, all three markets at 880×640, explicit retry clearing stale errors,
 returning from details with search preserved, loader/version matching, grouped
 game-version selectors and required/optional dependency checkbox defaults. Static
@@ -265,3 +265,159 @@ key churn before the fix, verifies stable keys afterwards and checks malformed
 metadata fallback. All 36 Flutter tests and static analysis passed. The updated
 ARM64 Release was opened on the real four-mod inventory; ad hoc signature
 verification passed.
+
+## World management acceptance — 2026-11-04
+
+The first world-management UI uses the shared management table, checkboxes,
+image caching and dialogs. All 43 Flutter tests and static analysis pass,
+including compact Simplified Chinese / Traditional Chinese / English layouts,
+loading inside the list, error retry, restore-as-copy and cross-instance warnings.
+The existing 144 core / 75 engine checks remain passing; the new native world
+suite adds 41 checks. These use generated temporary fixtures, not real player saves.
+
+World tests cover compressed and uncompressed NBT, Java modified-UTF8 emoji,
+metadata failure with raw export retained, nested folders and ZIPs, independent
+ZIP decoding, CRC errors, traversal, duplicate paths, symlinks, collisions,
+cancellation cleanup, source changes, native active-game state and an external
+Java-style byte-range lock. Source files remain unchanged.
+
+Run the local-only integration check with:
+
+```sh
+python3 tools/worlds_smoke.py build/native/core/libsolar_core.dylib
+```
+
+The real FFI acceptance exercised list, ZIP export and Python zipfile validation,
+import of a Python-created nested ZIP, copying, backup, restore and moving a
+disposable generated fixture to the macOS Trash. No network, sign-in or real
+player world is needed. Temporary directories are cleaned automatically; the
+Trash test intentionally leaves a small recoverable test copy in the OS Trash.
+
+Limits: restore never overwrites an existing world; no ZIP64, automatic backups,
+data-pack management or in-game world loading was tested or added in this pass.
+Windows/Linux runtime and their OS lock/Trash behavior remain unverified.
+
+The final macOS UI check also created a backup and restored it to a separate copy through the actual shipped interface. UI-only fixture worlds and their backup records were removed afterwards.
+
+
+## Installed updates and component-query fixes (2026-11-04)
+
+- Native update tests cover hash association, primary artifacts, ambiguous files,
+  release/beta/alpha filtering, no automatic downgrades, wrong loader/game/project,
+  per-item unknown/error status, bounded partial network failures and HTTP codes,
+  selected roots sharing a graph, channel conflicts, stale plans, and rollback.
+- All 55 Flutter tests pass. New cases exercise selection and explicit review,
+  cancellation without mutation, channel changes, unknown/error checkboxes,
+  release defaults, disabled-state labels, three-language compact layouts,
+  in-list loading, clearing stale errors, and reuse of the install dialog.
+- Real network acceptance via `tools/updates_smoke.py` uses disposable instances:
+  AppleSkin 2.5.1+mc1.20 → 2.5.2+mc1.20.1 (kept disabled), Complementary
+  Reimagined r5.9.2 → r5.9.3, and Fresh Animations 1.11.1 → 1.11.2.
+  Each new payload hash was verified, superseded files removed, and repeat checks
+  returned current. User instances and accounts were not modified by this test.
+- Shader/resource-pack selection still happens in the game. If an update changes
+  its filename, the result explicitly asks the user to select the new file again.
+- OptiFine query previously treated `{builds, source, warnings}` as a bare array,
+  causing `invalid_result` even on successful lookup. The UI now reads the envelope,
+  keeps loading/errors inside its own card, clears errors on retry, shows fallback
+  source information, and resets the selected build when changing channels.
+  Tests include valid, malformed and HTTP-failed responses.
+- Ordinary settings no longer expose a Microsoft registration/redirect editor;
+  fresh data defaults to SECL's approved public Client ID. Authentication and
+  ownership gates remain enforced; no sign-in is faked by these tests.
+- Runtime compatibility between arbitrary mods and Windows/Linux behavior remain
+  outside this acceptance. No automatic update or scheduled checker is enabled.
+
+- Final macOS Release was opened through the native UI. The Acceptance test
+  instance's update query showed Sodium 0.5.13 as a newer candidate, while three
+  other items had no newer release. This was a query only; no live-instance update
+  was applied. The actual OptiFine query displayed HD_U_I5 / Forge 47.0.35 and
+  HD_U_I6 / Forge 47.2.18 from BMCLAPI, with the component cards still visible.
+- Final four native CTest suites pass, static analysis reports no issues, and
+  the packaged app passes ad-hoc signature verification. The app remains open.
+
+## 2026-11-04 combined installed-mod detection
+
+- Five native CTest suites pass. The new inventory suite has 86 assertions for
+  cached and fresh reads, same-size replacement with a restored modification
+  time, enable/disable renames, multi-loader metadata, source-index changes,
+  duplicate / missing / nested dependency attribution, unknown Java, malformed
+  source records and corrupt archives beside healthy files.
+- All 72 Flutter tests pass and static analysis reports no issues. Added coverage
+  checks independent local/source/compatibility states, failed source enrichment
+  without losing rows, manual retry, and English / Traditional Chinese diagnostic
+  translation while preserving dependency identifiers.
+- `python3 tools/inventory_smoke.py build/native/core/libsolar_core.dylib` is an
+  opt-in network check. It downloads a real Fabric AppleSkin file and verifies its
+  SHA-512 identity through Modrinth. A synthetic JAR remains source-unmatched while
+  still reporting its missing dependency. An intentionally unreachable local
+  proxy then verifies failure recovery: local rows and verified identities remain,
+  with no source-index mutation. Changing bytes invalidates the old source match.
+  All settings and files are isolated in a temporary directory and removed.
+- The real C ABI smoke check also passes authentication gates and local Java
+  detection. No game account, game installation or live-instance mod file is
+  changed by these checks. Arbitrary runtime compatibility and the new cache's
+  Windows/Linux behavior still require testing on those platforms.
+
+- Final macOS ARM64 Release UI inspection: four installed mods (Comforts, Fabric
+  API, Sodium and Iris) matched their Modrinth identities through the source
+  action. Returning to the list retained those identities. Status phrases now
+  wrap as whole labels rather than leaving a single Chinese character on a line.
+  Shader support still detects the installed Iris/Sodium combination. The app is
+  left open on the mod list. The final bundle passes strict ad-hoc signature
+  validation; its ZIP is 10,491,544 bytes. This is not a notarized distribution.
+
+
+## Dependency-selection and metadata completion (2026-11-05)
+
+- All nine native CTest suites pass. New focused suites contain 183 joint
+  constraint checks, 128 marketplace-graph checks, 61 metadata-parser checks,
+  and 151 dialect-specific version checks. Constraint cases include 147
+  exhaustive two-version comparisons against a brute-force oracle, mutually
+  inconsistent consumers, versioned aliases, Quilt groups and conditional
+  exceptions, inactive candidates, runtime aliases and unknown bundled libraries,
+  language loaders, JarJar coordinates, independent missing dependencies, and
+  bounded analysis. Other enabled rows cannot be labeled fully checked when the
+  joint graph is unresolved.
+- Metadata coverage includes multiline and escaped TOML, multiple mod sections,
+  manifest versions, repeated requirements, client/server dependency sides,
+  recursive nested archives and plain JarJar libraries. Unsupported declarations
+  remain review warnings. Fabric, Quilt and Maven predicates retain separate
+  semantics; malformed or unsupported comparisons do not become false mismatches.
+- Marketplace tests cover transitive and reverse existing-file exclusions,
+  shared mandatory reachability independent of traversal order, optional
+  deselection, disable consent, disabled updates, hash-bound identities, stale
+  and caller-edited plans, and fresh revalidation before applying. Recursive
+  candidates with the same ID retain separate hashes. Website-only exclusions
+  involving a possibly inactive nested candidate are visible nonblocking
+  warnings, including both source and target directions; direct-file exclusions
+  still block. The exact nested candidate's website version is shown.
+- All 88 Flutter tests pass; full static analysis reports no issues. New
+  graph-review tests cover checkbox changes, mandatory descendants, reverse
+  conflicts, consent removal, managed OptiFine, and multiple nested-version
+  warnings without duplicate widget keys. English and Traditional Chinese
+  diagnostics preserve literal names, IDs, paths, and placeholder-like text.
+- The three new metadata/graph/constraint suites also pass with AddressSanitizer
+  and UndefinedBehaviorSanitizer enabled.
+- Real-network `tools/updates_smoke.py` passes with disposable AppleSkin,
+  Complementary Reimagined and Fresh Animations files, including preservation of
+  a disabled mod. `tools/inventory_smoke.py` passes against the new C ABI: real
+  SHA-512 association, multiple independent missing dependencies, unreachable
+  proxy recovery, unchanged source index on failure, and invalidation after file
+  changes. Account/ownership gates and local Java detection also pass the C ABI
+  smoke. These fixtures do not alter user game files or accounts.
+- The actual macOS Release interface was opened. Four installed mods retained
+  icons, local/source recognition and known-conflict status. The update query
+  and Sodium update review loaded successfully; the review was canceled, so no
+  live-instance payload was changed.
+
+Limits: this is static preflight, not execution of the loader resolver or a
+promise of runtime compatibility. Custom Quilt plugins, exact JarJar classloading
+policy, unverified language-loader internals, Mixin/API/rendering interactions,
+and Windows/Linux runtime behavior still need real game acceptance. The native
+core remains Qt-free. toml++ 3.4.0 is pinned with its MIT notice included in the
+repository and the app's third-party license list.
+
+The final rebuilt macOS ARM64 Release was reopened after the last graph-warning
+fix and verified on the four-mod instance list. Strict ad-hoc signature validation
+passed; the ZIP is 10,683,325 bytes. This is not a notarized distribution.

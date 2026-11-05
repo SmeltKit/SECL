@@ -40,7 +40,7 @@ class Core {
                    {"account", nullptr},   {"versions", Json::array()}, {"javas", Json::array()},
                    {"game_running", false}};
     std::int64_t game_ = 0;
-    std::string root_ = default_game_root(), client_, java_, language_ = "system", source_ = "auto", appearance_="system", tone_="blue";
+    std::string root_ = default_game_root(), client_ = "7ed24288-81a6-4814-8271-25a1529d2e9d", java_, language_ = "system", source_ = "auto", appearance_="system", tone_="blue";
     void stage(const std::string &s) {
         std::lock_guard<std::mutex> g(state_mutex_);
         state_["stage"] = s;
@@ -354,7 +354,7 @@ class Core {
             auto p = fs::u8path(user_data_root()) / "settings.json";
             if (fs::is_regular_file(p)) {
                 auto j = Json::parse(read_file(p, 16384));
-                client_ = j.value("client_id", "");
+                // Client identity belongs to this application, not an end-user setting.
                 root_ = j.value("game_root", root_);
                 java_ = j.value("java", "");
                 appearance_=j.value("appearance","system");tone_=j.value("tone","blue");
@@ -389,6 +389,7 @@ class Core {
                     game_ = 0;
                     std::lock_guard<std::mutex> g(state_mutex_);
                     state_["game_running"] = false;
+                    state_["running_game_directory"] = "";
                     if (exit != 0)
                         state_["error"] = Error("launch", "game_exit_" + std::to_string(exit),
                                                 "游戏进程退出，代码 " + std::to_string(exit) +
@@ -478,6 +479,7 @@ class Core {
                     task.cancel = engine::Cancel(&cancelled_, [](std::atomic_bool *) {});
                     task.source = request.value("source", source_);
                     { std::lock_guard<std::mutex> g(state_mutex_); for(auto &entry:sessions_){task.secrets.push_back(entry.second.token);task.secrets.push_back(entry.second.refresh_token);} }
+                    { std::lock_guard<std::mutex> g(state_mutex_); task.active_game_directory=state_.value("running_game_directory", ""); }
                     task.time_zone = request.value("time_zone", "");
                     task.progress = [this](const std::string &message, std::int64_t done,
                                            std::int64_t total) {
@@ -535,6 +537,7 @@ class Core {
             game_ = spawn_game(c);
             std::lock_guard<std::mutex> g(state_mutex_);
             state_["game_running"] = true;
+            state_["running_game_directory"] = c.directory.u8string();
             state_["error"] = nullptr;
         } else
             throw Error("ffi", "unknown_action", "不支持的核心操作。");

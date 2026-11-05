@@ -23,7 +23,10 @@ with tempfile.TemporaryDirectory(prefix='solar-ffi-') as temporary:
  assert call({'action':'poll'})['account'] is None
  denied=call({'action':'launch','version':'anything','java':'/invalid'})
  assert denied['error']['code']=='login_required'
+ assert call({'action':'poll'})['client_id']=='7ed24288-81a6-4814-8271-25a1529d2e9d'
+ call({'action':'configure','client_id':''})
  denied=call({'action':'login'});assert denied['error']['code']=='client_id_missing'
+ call({'action':'configure','client_id':'7ed24288-81a6-4814-8271-25a1529d2e9d'})
  state=call({'action':'engine','request':{'op':'capabilities'}})
  deadline=time.monotonic()+5
  while state['busy'] and time.monotonic()<deadline:

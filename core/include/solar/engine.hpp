@@ -12,7 +12,7 @@ using Progress = std::function<void(const std::string &, std::int64_t, std::int6
 struct Task {
     Cancel cancel = std::make_shared<std::atomic_bool>(false);
     Progress progress;
-    std::string source = "auto", time_zone;
+    std::string source = "auto", time_zone, active_game_directory;
     std::vector<std::string> secrets;
     void check() const;
     void report(const std::string &, std::int64_t = -1, std::int64_t = -1) const;
@@ -50,6 +50,7 @@ std::string clean_log(const std::string &, const std::vector<std::string> &);
 std::vector<std::string> download_candidates(const std::string &, const Task &task = {});
 std::string fetch_data(const std::string &, const Task &task = {}, size_t limit = 32 * 1024 * 1024);
 Json fetch_json(const std::string &, const Task &task = {});
+Json post_json(const std::string &, const Json &, const Task &task = {});
 void download(const Json &descriptor, const fs::path &target, const Task &task = {});
 Json resource_search(const Json &, const Task &task = {});
 Json resource_tags(const std::string &type, const Task &task = {});
@@ -68,8 +69,11 @@ Json inspect_mod(const fs::path &, const std::string &loader = {});
 Json inspect_mod_bytes(const std::string &, const std::string &file_name,
                        const std::string &loader = {}, int depth = 0);
 Json mod_inventory(const fs::path &);
-Json local_mods(const fs::path &game_directory, const std::string &loader = {});
+Json local_mods(const fs::path &game_directory, const std::string &loader = {}, bool use_cache = false,
+                bool tolerate_errors = false);
 int version_matches(const std::string &range, const std::string &version);
+int mod_version_matches(const std::string &range, const std::string &version,
+                        const std::string &dialect);
 Json check_mods(const Json &instance, const Json &mods, bool allow_unknown = false,
                 bool allow_missing = false);
 void import_mods(const Json &instance, const std::vector<fs::path> &, bool allow_unknown = false);
@@ -80,17 +84,28 @@ Json local_packs(const fs::path &, const std::string &kind);
 void import_pack(const fs::path &game, const std::string &kind, const fs::path &source);
 void remove_pack(const fs::path &game, const std::string &kind, const std::string &name);
 Json shader_support(const Json &instance);
-Json instance_inventory(const Json &, const std::string &kind);
+Json shader_support(const Json &instance, const Json &mods);
+Json worlds_command(const Json &, const Task &task = {});
+Json instance_inventory(const Json &, const std::string &kind, bool fresh = false);
 Json enrich_mod_inventory(const Json &, const Task &task = {});
 Json instance_logs(const Json &, const Task &task = {});
 Json shader_support_plan(const Json &, const Task &task = {});
 Json compatibility_rules(const fs::path &game);
 Json update_compatibility(const fs::path &game, const Task &task = {}, bool force = false);
-Json plan_mod_install(const Json &instance, const Json &file, const Task &task = {});
+Json plan_mod_install(const Json &instance, const Json &file, const Task &task = {},
+                      const Transport &transport = {});
+Json plan_mod_installs(const Json &instance, const Json &files, const Task &task = {},
+                       const std::string &channel = "", const Transport &transport = {});
+Json evaluate_resource_update(const Json &, const std::string &kind, const std::string &channel,
+                              const Json &local, const Json &current, const Json &candidate);
+Json check_resource_updates(const Json &, const std::string &kind, const std::string &channel,
+                            const Task &task = {}, const Transport &transport = {});
+Json plan_resource_updates(const Json &report, const Json &selected, const Task &task = {});
+Json apply_resource_updates(const Json &plan, const Task &task = {});
 Json select_dependencies(const Json &plan, const Json &selected,
                          const Json &redownload = Json::array(),
                          const Json &enable = Json::array());
-Json apply_mod_plan(const Json &plan, const Task &task = {});
+Json apply_mod_plan(const Json &plan, const Task &task = {}, const Transport &transport = {});
 std::string normalize_java_version(const std::string &);
 Json released_java_versions(const Json &metadata);
 Json java_releases(const Task &task = {});

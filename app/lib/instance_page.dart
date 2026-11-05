@@ -6,6 +6,7 @@ import 'resource_engine.dart';
 import 'instance_resources.dart';
 import 'instance_settings.dart';
 import 'instance_logs.dart';
+import 'instance_worlds.dart';
 import 'version_components.dart';
 
 class InstancePage extends StatefulWidget {
@@ -51,6 +52,7 @@ class _InstancePageState extends State<InstancePage> {
                 'mod': tr('模组'),
                 'shader': tr('光影'),
                 'resourcepack': tr('材质包'),
+                'worlds': tr('存档'),
                 'settings': tr('实例设置'),
                 'components': tr('版本组件'),
                 'logs': tr('日志')
@@ -77,28 +79,35 @@ class _InstancePageState extends State<InstancePage> {
             ])),
         const SizedBox(height: 18),
         Expanded(
-            child: tab == 'settings'
-                ? InstanceSettings(
-                    key: ValueKey('${widget.instance['id']}-settings'),
+            child: tab == 'worlds'
+                ? InstanceWorlds(
+                    key: ValueKey('${widget.instance['id']}-worlds'),
                     engine: widget.engine,
-                    instance: widget.instance,
-                    javas: widget.javas,
-                    onSaved: widget.onChanged)
-                : tab == 'components'
-                    ? VersionComponents(
-                        key: ValueKey('${widget.instance['id']}-components'),
+                    instance: widget.instance)
+                : tab == 'settings'
+                    ? InstanceSettings(
+                        key: ValueKey('${widget.instance['id']}-settings'),
                         engine: widget.engine,
                         instance: widget.instance,
                         javas: widget.javas,
-                        onChanged: widget.onChanged)
-                    : tab == 'logs'
-                        ? InstanceLogs(
-                            engine: widget.engine, instance: widget.instance)
-                        : InstanceResources(
-                            key: ValueKey('${widget.instance['id']}-$tab'),
+                        onSaved: widget.onChanged)
+                    : tab == 'components'
+                        ? VersionComponents(
+                            key:
+                                ValueKey('${widget.instance['id']}-components'),
                             engine: widget.engine,
                             instance: widget.instance,
-                            kind: tab,
-                            onBrowse: widget.onBrowse))
+                            javas: widget.javas,
+                            onChanged: widget.onChanged)
+                        : tab == 'logs'
+                            ? InstanceLogs(
+                                engine: widget.engine,
+                                instance: widget.instance)
+                            : InstanceResources(
+                                key: ValueKey('${widget.instance['id']}-$tab'),
+                                engine: widget.engine,
+                                instance: widget.instance,
+                                kind: tab,
+                                onBrowse: widget.onBrowse))
       ]));
 }

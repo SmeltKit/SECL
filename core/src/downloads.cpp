@@ -152,6 +152,29 @@ Json fetch_json(const std::string &url, const Task &task) {
         throw Error("download", "invalid_json", "服务返回的元数据无法解析。", 0, url);
     return j;
 }
+Json post_json(const std::string &url, const Json &body, const Task &task) {
+    // The same cancellable HTTPS transport as downloads, with one attempt and a
+    // bounded response. No OAuth bearer tokens are sent to metadata services.
+    download_candidates(url, task);
+    Curl c;
+    std::string bytes, payload = body.dump();
+    auto headers = curl_slist_append(nullptr, "Content-Type: application/json");
+    struct Headers { curl_slist *p; ~Headers() { curl_slist_free_all(p); } } guard{headers};
+    curl_easy_setopt(c.c, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(c.c, CURLOPT_POSTFIELDS, payload.c_str());
+    curl_easy_setopt(c.c, CURLOPT_POSTFIELDSIZE_LARGE, curl_off_t(payload.size()));
+    curl_easy_setopt(c.c, CURLOPT_TIMEOUT_MS, 30000L);
+    curl_easy_setopt(c.c, CURLOPT_WRITEDATA, &bytes);
+    curl_easy_setopt(c.c, CURLOPT_WRITEFUNCTION, +[](char *p, size_t a, size_t b, void *ctx) -> size_t {
+        auto &out = *static_cast<std::string *>(ctx); auto count = a * b;
+        if (count > 32 * 1024 * 1024 || out.size() > 32 * 1024 * 1024 - count) return 0;
+        out.append(p, count); return count;
+    });
+    perform(c, url, task);
+    auto result = Json::parse(bytes, nullptr, false);
+    if (!result.is_object()) throw Error("updates", "invalid_response", "更新服务返回格式无效。", 0, url);
+    return result;
+}
 void download(const Json &d, const fs::path &target, const Task &task) {
     auto url = d.value("url", "");
     std::string algorithm, expected;

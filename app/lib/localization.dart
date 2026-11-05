@@ -11,7 +11,7 @@ class AppLanguage extends ChangeNotifier with WidgetsBindingObserver {
   static const supported = [
     Locale('zh', 'CN'),
     Locale('zh', 'TW'),
-    Locale('en')
+    Locale('en'),
   ];
   static const preferences = ['system', 'zh_Hans', 'zh_Hant', 'en'];
   String _preference = 'system';
@@ -69,16 +69,80 @@ String tr(String source, [List<Object?> args = const []]) {
   });
 }
 
-final _nativePattern = RegExp((nativeMessages.toList()
-      ..sort((a, b) => b.length.compareTo(a.length)))
-    .map(RegExp.escape)
-    .join('|'));
+final _nativePattern = RegExp(
+  (nativeMessages.toList()..sort((a, b) => b.length.compareTo(a.length)))
+      .map(RegExp.escape)
+      .join('|'),
+);
+
+// Native diagnostics ending in a colon append IDs, paths, field names, or other
+// literal data. Translate their prefix once, without translating the payload.
+final _nativeLiteralPrefixes = nativeMessages
+    .where(
+      (message) =>
+          message.endsWith('：') &&
+          !message.startsWith(' ') &&
+          !message.startsWith('：'),
+    )
+    .toList()
+  ..sort((a, b) => b.length.compareTo(a.length));
+
+const _nativeLiteralSeparators = [
+  ' 缺少前置：',
+  ' 前置版本不符合：',
+  ' 依赖组合无法同时满足：',
+  ' 语言加载器版本不符合：',
+  ' 仍依赖所选模组，请一起选择或先禁用依赖者。',
+];
+
+final _nativeParameterizedMessages = <RegExp, String>{
+  RegExp(r'^内嵌组件的加载选择尚未确定：(.*) 与 (.*) 的网站不兼容声明需由实际加载器确认。$'):
+      '内嵌组件的加载选择尚未确定：{0} 与 {1} 的网站不兼容声明需由实际加载器确认。',
+  RegExp(r'^(.*)：加载器不匹配（(.*)）。$'): '{0}：加载器不匹配（{1}）。',
+  RegExp(r'^(.*) 与 (.*) 不兼容。$'): '{0} 与 {1} 不兼容。',
+  RegExp(r'^(.*) 与 (.*) 不能同时启用。$'): '{0} 与 {1} 不能同时启用。',
+  RegExp(r'^Quilt 官方兼容性提醒：(.*)。未提供精确文件哈希，需核对具体构建。$'):
+      'Quilt 官方兼容性提醒：{0}。未提供精确文件哈希，需核对具体构建。',
+};
 
 /// Translates only messages emitted by our native core, retaining diagnostic
 /// codes, server details, and interpolated filenames without changing them.
 String nativeText(String source) {
   if (AppLanguage.instance.code == 'zh_Hans') return source;
   if (catalog.containsKey(source)) return tr(source);
+  for (final entry in _nativeParameterizedMessages.entries) {
+    final match = entry.key.firstMatch(source);
+    if (match != null) {
+      return tr(entry.value, [
+        for (var index = 1; index <= match.groupCount; ++index) match[index],
+      ]);
+    }
+  }
+  for (final prefix in _nativeLiteralPrefixes) {
+    if (source.startsWith(prefix)) {
+      return '${tr(prefix)}${source.substring(prefix.length)}';
+    }
+  }
+  for (final separator in _nativeLiteralSeparators) {
+    final index = source.lastIndexOf(separator);
+    if (index >= 0) {
+      return '${source.substring(0, index)}${tr(separator)}${source.substring(index + separator.length)}';
+    }
+  }
+  // An unknown-metadata diagnostic can prefix a complete core problem with a
+  // mod display name. Keep the name literal, including Chinese UI-like text.
+  var separator = source.indexOf('：');
+  while (separator >= 0) {
+    final problem = source.substring(separator + 1);
+    if (nativeMessages.contains(problem) ||
+        _nativeLiteralPrefixes.any(problem.startsWith)) {
+      return '${source.substring(0, separator + 1)}${nativeText(problem)}';
+    }
+    separator = source.indexOf('：', separator + 1);
+  }
+  // Unrecognized details (for example a JSON parser's exception) can contain
+  // quoted user metadata. There is no safe substring translation for that data.
+  if (source.contains('：')) return source;
   return source.replaceAllMapped(_nativePattern, (m) => tr(m[0]!));
 }
 

@@ -33,6 +33,12 @@ class _VersionComponentsState extends State<VersionComponents>
       localFile = '',
       javaPath = '';
   bool queried = false;
+  bool querying = false;
+  Data? queryProblem;
+  String buildSource = '';
+  List<Data> sourceWarnings = [];
+  @override
+  bool get locked => super.locked || querying;
   @override
   void initState() {
     super.initState();
@@ -40,18 +46,60 @@ class _VersionComponentsState extends State<VersionComponents>
     javaPath = widget.javas.firstOrNull?['path'] as String? ?? '';
   }
 
-  Future<void> query() => perform(() async {
-        final response = dataRows(await rpc(
-            {'op': 'optifine.builds', 'game': widget.instance['version']}));
-        if (mounted) {
-          setState(() {
-            builds = response;
-            queried = true;
-            selected =
-                response.where((b) => b['preview'] != true).firstOrNull ??
-                    response.firstOrNull;
-            localFile = '';
-          });
+  Future<void> query() async {
+    if (locked) return;
+    setState(() {
+      querying = true;
+      queryProblem = null;
+      sourceWarnings = [];
+      builds = [];
+      selected = null;
+      queried = false;
+    });
+    try {
+      final response = await rpc(
+          {'op': 'optifine.builds', 'game': widget.instance['version']});
+      if (response is! Map || response['builds'] is! List) {
+        throw const EngineFailure({
+          'code': 'invalid_optifine_response',
+          'message': 'OptiFine 构建列表格式异常，请重试。'
+        });
+      }
+      final list = dataRows(response['builds']);
+      if (mounted) {
+        setState(() {
+          builds = list;
+          queried = true;
+          selected = list
+              .where((b) =>
+                  (b['preview'] == true ? 'preview' : 'release') == channel)
+              .firstOrNull;
+          buildSource = response['source'] as String? ?? '';
+          sourceWarnings = dataRows(response['warnings']);
+          localFile = '';
+        });
+      }
+    } on EngineFailure catch (e) {
+      if (mounted) setState(() => queryProblem = e.details);
+    } catch (_) {
+      if (mounted) {
+        setState(() => queryProblem = {
+              'code': 'invalid_optifine_response',
+              'message': 'OptiFine 构建列表格式异常，请重试。'
+            });
+      }
+    } finally {
+      if (mounted) setState(() => querying = false);
+    }
+  }
+
+  void selectChannel(String value) => setState(() {
+        channel = value;
+        if (localFile.isEmpty) {
+          selected = builds
+              .where((b) =>
+                  (b['preview'] == true ? 'preview' : 'release') == channel)
+              .firstOrNull;
         }
       });
   Future<void> queryLoader() => perform(() async {
@@ -84,6 +132,7 @@ class _VersionComponentsState extends State<VersionComponents>
         if (mounted) {
           setState(() {
             localFile = file.path;
+            queryProblem = null;
             selected = {...?known, ...info};
           });
         }
@@ -282,11 +331,13 @@ class _VersionComponentsState extends State<VersionComponents>
                     ChoiceChip(
                         label: Text(tr('正式版')),
                         selected: channel == 'release',
-                        onSelected: (v) => setState(() => channel = 'release')),
+                        onSelected:
+                            locked ? null : (v) => selectChannel('release')),
                     ChoiceChip(
                         label: Text(tr('预览版')),
                         selected: channel == 'preview',
-                        onSelected: (v) => setState(() => channel = 'preview')),
+                        onSelected:
+                            locked ? null : (v) => selectChannel('preview')),
                     OutlinedButton.icon(
                         onPressed: locked ? null : query,
                         icon: const Icon(Icons.refresh_rounded, size: 17),
@@ -297,38 +348,59 @@ class _VersionComponentsState extends State<VersionComponents>
                         label: Text(tr('选择本地安装包')))
                   ]),
                   const SizedBox(height: 14),
-                  if (!queried && localFile.isEmpty)
-                    Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(tr('查询构建，或选择本地 OptiFine 安装包。'),
-                            style: TextStyle(color: muted)))
-                  else if (shown.isEmpty && localFile.isEmpty)
-                    Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(tr('没有符合条件的构建'))),
-                  if (shown.isNotEmpty)
-                    ManagementTable(headers: [
-                      Text(tr('选择')),
-                      Text(tr('版本')),
-                      const Text('Forge')
-                    ], widths: const {
-                      0: FixedColumnWidth(64)
-                    }, rows: [
-                      for (final b in shown)
-                        [
-                          Radio<String>(
-                              value: b['version'] as String,
-                              groupValue: selected?['version'] as String?,
-                              onChanged: locked
-                                  ? null
-                                  : (v) => setState(() {
-                                        selected = b;
-                                        localFile = '';
-                                      })),
-                          Text(b['version'] as String),
-                          Text(b['forge'] as String? ?? '—')
-                        ]
-                    ]),
+                  if (querying)
+                    const SizedBox(height: 180, child: BusyPanel())
+                  else if (queryProblem != null)
+                    ProblemPanel(queryProblem!, retry: query)
+                  else ...[
+                    if (buildSource.isNotEmpty && queried)
+                      Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                              tr('构建来源：{0}', [
+                                tr(buildSource == 'bmclapi'
+                                    ? 'BMCLAPI 镜像'
+                                    : 'OptiFine 官网')
+                              ]),
+                              style: TextStyle(color: muted, fontSize: 12))),
+                    if (sourceWarnings.isNotEmpty)
+                      Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(tr('首选来源不可用，已使用备用来源。'),
+                              style: TextStyle(color: muted, fontSize: 12))),
+                    if (!queried && localFile.isEmpty)
+                      Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(tr('查询构建，或选择本地 OptiFine 安装包。'),
+                              style: TextStyle(color: muted)))
+                    else if (shown.isEmpty && localFile.isEmpty)
+                      Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(tr('没有符合条件的构建'))),
+                    if (shown.isNotEmpty)
+                      ManagementTable(headers: [
+                        Text(tr('选择')),
+                        Text(tr('版本')),
+                        const Text('Forge')
+                      ], widths: const {
+                        0: FixedColumnWidth(64)
+                      }, rows: [
+                        for (final b in shown)
+                          [
+                            Radio<String>(
+                                value: b['version'] as String,
+                                groupValue: selected?['version'] as String?,
+                                onChanged: locked
+                                    ? null
+                                    : (v) => setState(() {
+                                          selected = b;
+                                          localFile = '';
+                                        })),
+                            Text(b['version'] as String),
+                            Text(b['forge'] as String? ?? '—')
+                          ]
+                      ]),
+                  ],
                   if (localFile.isNotEmpty)
                     Padding(
                         padding: const EdgeInsets.symmetric(vertical: 14),

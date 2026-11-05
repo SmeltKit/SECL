@@ -8,13 +8,9 @@ import 'skin_avatar.dart';
 
 class AccountManager extends StatefulWidget {
   const AccountManager(
-      {super.key,
-      required this.snapshot,
-      required this.action,
-      required this.onConfigure});
+      {super.key, required this.snapshot, required this.action});
   final Data snapshot;
   final Future<void> Function(Data) action;
-  final VoidCallback onConfigure;
   @override
   State<AccountManager> createState() => _AccountManagerState();
 }
@@ -23,10 +19,6 @@ class _AccountManagerState extends State<AccountManager> {
   bool remember = false;
   bool get busy => widget.snapshot['busy'] == true;
   Future<void> login([Data? account]) async {
-    if ((widget.snapshot['client_id'] as String? ?? '').isEmpty) {
-      widget.onConfigure();
-      return;
-    }
     await widget.action({
       'action': 'login',
       'locale': AppLanguage.instance.code,

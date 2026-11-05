@@ -9,11 +9,17 @@ import 'localization.dart';
 import 'management_widgets.dart';
 import 'install_workflow.dart';
 import 'resource_engine.dart';
+import 'resource_detection.dart';
+import 'resource_updates.dart';
 
 class LocalResourceIcon extends StatefulWidget {
-  const LocalResourceIcon(this.row, {super.key, this.size = 42});
+  const LocalResourceIcon(this.row,
+      {super.key,
+      this.size = 42,
+      this.fallbackIcon = Icons.inventory_2_outlined});
   final Data row;
   final double size;
+  final IconData fallbackIcon;
   @override
   State<LocalResourceIcon> createState() => _LocalResourceIconState();
 }
@@ -62,9 +68,11 @@ class _LocalResourceIconState extends State<LocalResourceIcon> {
               cacheWidth: (size * 2).round(),
               errorBuilder: (_, __, ___) => ResourceImage(
                   widget.row['icon_url'] as String?,
+                  icon: widget.fallbackIcon,
                   size: size)));
     }
-    return ResourceImage(widget.row['icon_url'] as String?, size: size);
+    return ResourceImage(widget.row['icon_url'] as String?,
+        icon: widget.fallbackIcon, size: size);
   }
 }
 
@@ -89,8 +97,10 @@ class _InstanceResourcesState extends State<InstanceResources>
   ResourceEngine get engine => widget.engine;
   List<Data> rows = [];
   Data checks = {}, support = {};
+  Data? sourceError;
   String query = '', filter = 'all';
   Set<String> selected = {};
+  bool updatesOpen = false;
   bool get mods => widget.kind == 'mod';
   String get label => tr(mods
       ? '模组'
@@ -108,23 +118,37 @@ class _InstanceResourcesState extends State<InstanceResources>
     load();
   }
 
-  Future<void> read() async {
+  Future<void> read({bool fresh = false}) async {
     final response = await rpc({
       'op': 'instance.inventory',
       'instance': widget.instance,
-      'kind': widget.kind
+      'kind': widget.kind,
+      if (fresh) 'fresh': true
     }) as Map;
+    applyInventory(response);
+  }
+
+  void applyInventory(Map response) {
     if (mounted) {
       setState(() {
         rows = dataRows(response['items']);
-        checks = Map<String, dynamic>.from(response['checks'] as Map);
-        support = Map<String, dynamic>.from(response['support'] as Map);
+        checks = Map<String, dynamic>.from(response['checks'] as Map? ?? {});
+        support = Map<String, dynamic>.from(response['support'] as Map? ?? {});
+        sourceError = response['source_error'] is Map
+            ? Map<String, dynamic>.from(response['source_error'] as Map)
+            : null;
         selected.removeWhere((n) => !rows.any((r) => r['filename'] == n));
       });
     }
   }
 
-  Future<void> load() => perform(read);
+  Future<void> load({bool fresh = false}) => perform(() => read(fresh: fresh));
+  Widget inventoryResult(Widget child) => rows.isEmpty || problem != null
+      ? result(child)
+      : Column(children: [
+          if (loading) const LinearProgressIndicator(),
+          Expanded(child: child)
+        ]);
   Future<void> importLocal() => perform(() async {
         if (mods) {
           final files = await openFiles(acceptedTypeGroups: [
@@ -189,8 +213,19 @@ class _InstanceResourcesState extends State<InstanceResources>
         await read();
       });
   Future<void> enrich() => perform(() async {
-        await rpc({'op': 'mods.enrich', 'instance': widget.instance});
-        await read();
+        try {
+          final response =
+              await rpc({'op': 'mods.enrich', 'instance': widget.instance})
+                  as Map;
+          if (response['items'] is List) {
+            applyInventory(response);
+          } else {
+            // Older cores return only an enrichment summary.
+            await read();
+          }
+        } on EngineFailure catch (e) {
+          if (mounted) setState(() => sourceError = e.details);
+        }
       });
   Future<void> compatibility() => perform(() async {
         final result = await rpc({
@@ -251,6 +286,16 @@ class _InstanceResourcesState extends State<InstanceResources>
 
   @override
   Widget build(BuildContext context) {
+    if (updatesOpen) {
+      return ResourceUpdates(
+          engine: engine,
+          instance: widget.instance,
+          kind: widget.kind,
+          onBack: () {
+            setState(() => updatesOpen = false);
+            load();
+          });
+    }
     final visible = rows
         .where((r) =>
             '${r['name']} ${r['id']} ${r['filename']}'
@@ -259,7 +304,7 @@ class _InstanceResourcesState extends State<InstanceResources>
             (filter == 'all' ||
                 filter == 'enabled' && r['enabled'] != false ||
                 filter == 'disabled' && r['enabled'] == false ||
-                filter == 'problem' && (r['errors'] as List? ?? []).isNotEmpty))
+                filter == 'problem' && ResourceDetection(r).needsAttention))
         .toList();
     final allSelected = visible.isNotEmpty &&
         visible.every((r) => selected.contains(r['filename']));
@@ -309,6 +354,11 @@ class _InstanceResourcesState extends State<InstanceResources>
                         icon: const Icon(Icons.add_rounded, size: 18),
                         label: Text('${tr('添加')}$label ▾')))),
             OutlinedButton.icon(
+                onPressed:
+                    locked ? null : () => setState(() => updatesOpen = true),
+                icon: const Icon(Icons.system_update_alt_rounded, size: 18),
+                label: Text(tr('检查更新'))),
+            OutlinedButton.icon(
                 onPressed: locked
                     ? null
                     : () => perform(() async {
@@ -331,6 +381,10 @@ class _InstanceResourcesState extends State<InstanceResources>
                   child: Text(tr('更新兼容提醒')))
           ]),
       const SizedBox(height: 14),
+      if (sourceError != null) ...[
+        ResourceSourceFailure(sourceError!, retry: locked ? null : enrich),
+        const SizedBox(height: 12)
+      ],
       Row(children: [
         Expanded(
             child: TextField(
@@ -343,6 +397,7 @@ class _InstanceResourcesState extends State<InstanceResources>
           SizedBox(
               width: 130,
               child: DropdownButtonFormField<String>(
+                  key: const Key('resourceStatusFilter'),
                   value: filter,
                   isExpanded: true,
                   items: [
@@ -362,7 +417,7 @@ class _InstanceResourcesState extends State<InstanceResources>
         const SizedBox(width: 8),
         IconButton(
             tooltip: tr('刷新'),
-            onPressed: locked ? null : load,
+            onPressed: locked ? null : () => load(fresh: true),
             icon: const Icon(Icons.refresh_rounded))
       ]),
       const SizedBox(height: 12),
@@ -376,7 +431,7 @@ class _InstanceResourcesState extends State<InstanceResources>
           style: TextStyle(color: muted, fontSize: 12)),
       const SizedBox(height: 10),
       Expanded(
-          child: result(visible.isEmpty
+          child: inventoryResult(visible.isEmpty
               ? Center(child: Text(tr('尚未添加资源，从本地导入或浏览资源市场。')))
               : LayoutBuilder(builder: (context, bounds) {
                   final compact = bounds.maxWidth < 780;
@@ -462,28 +517,33 @@ class _InstanceResourcesState extends State<InstanceResources>
                                 maxLines: 2, overflow: TextOverflow.ellipsis)),
                         if (mods && !compact)
                           Text(row['loader'] as String? ?? '—'),
-                        Tooltip(
-                            message: [
-                              ...row['errors'] as List? ?? [],
-                              ...row['warnings'] as List? ?? [],
-                              row['problem'] ?? ''
-                            ].join('\n'),
-                            child: Text(
-                                (row['errors'] as List? ?? []).isNotEmpty
-                                    ? tr('需要处理')
-                                    : (row['problem'] as String? ?? '')
-                                            .isNotEmpty
-                                        ? tr('未识别')
-                                        : row['enabled'] == false
-                                            ? tr('已禁用')
-                                            : tr(mods ? '已识别' : '已安装'),
-                                style: TextStyle(
-                                    color: (row['errors'] as List? ?? [])
-                                            .isNotEmpty
-                                        ? seclColor(0xFFB66C23)
-                                        : row['enabled'] == false
-                                            ? muted
-                                            : seclColor(0xFF2F7C55)))),
+                        if (mods)
+                          ResourceDetectionStatus(row)
+                        else
+                          Tooltip(
+                              message: [
+                                ...row['errors'] as List? ?? [],
+                                ...row['warnings'] as List? ?? [],
+                                row['problem'] ?? ''
+                              ]
+                                  .map((value) => nativeText(value.toString()))
+                                  .join('\n'),
+                              child: Text(
+                                  (row['errors'] as List? ?? []).isNotEmpty
+                                      ? tr('需要处理')
+                                      : (row['problem'] as String? ?? '')
+                                              .isNotEmpty
+                                          ? tr('未识别')
+                                          : row['enabled'] == false
+                                              ? tr('已禁用')
+                                              : tr('已安装'),
+                                  style: TextStyle(
+                                      color: (row['errors'] as List? ?? [])
+                                              .isNotEmpty
+                                          ? seclColor(0xFFB66C23)
+                                          : row['enabled'] == false
+                                              ? muted
+                                              : seclColor(0xFF2F7C55)))),
                         if (mods)
                           Switch(
                               value: row['enabled'] != false,

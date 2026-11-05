@@ -209,6 +209,9 @@ void remove_pack(const fs::path &game, const std::string &kind, const std::strin
 Json shader_support(const Json &i) {
     auto mods =
         local_mods(fs::u8path(i.at("game_directory").get<std::string>()), i.value("loader", ""));
+    return shader_support(i, mods);
+}
+Json shader_support(const Json &i, const Json &mods) {
     bool iris = false, oculus = false, optifine = !i.value("optifine", Json::object()).empty();
     Json components = Json::array();
     for (auto &m : mods)

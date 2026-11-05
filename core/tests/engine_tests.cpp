@@ -191,7 +191,8 @@ int main(int argc, char **argv) {
 #endif
         check(version_matches(">=1.2.0 <2.0.0", "1.2.3") == 1, "Fabric range");
         check(version_matches("[1.0,2.0)", "2.0") == 0, "Maven upper bound");
-        check(version_matches("^0.2.3", "0.3.0") == 0, "caret zero major");
+        // Fabric's caret predicate accepts the same major, including major zero.
+        check(version_matches("^0.2.3", "0.3.0") == 1, "Fabric caret zero major");
         auto mem = recommend_memory(
             {{"total_mib", 16384}, {"available_mib", 10000}},
             {{"game_version", "1.20.1"}, {"enabled_mods", 80}, {"java_arch", "x64"}});

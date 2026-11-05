@@ -1,7 +1,306 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
- "皮肤加载失败，点击重试":["皮膚載入失敗，點擊重試","Skin unavailable. Click to retry"],"皮肤头像":["皮膚頭像","Skin avatar"],
+  "文件名已变化，请在游戏内重新选择更新后的光影或材质包。": [
+    "檔名已變更，請在遊戲內重新選擇更新後的光影或材質包。",
+    "Filenames changed. Select the updated shader or resource pack again in the game.",
+  ],
+  "OptiFine 构建列表格式异常，请重试。": [
+    "OptiFine 建置清單格式異常，請重試。",
+    "The OptiFine build list has an unexpected format. Retry the query.",
+  ],
+  "OptiFine 构建查询失败，请检查网络后重试。": [
+    "OptiFine 建置查詢失敗，請檢查網路後重試。",
+    "OptiFine build lookup failed. Check your network and retry.",
+  ],
+  "构建来源：{0}": ["建置來源：{0}", "Build source: {0}"],
+  "BMCLAPI 镜像": ["BMCLAPI 鏡像", "BMCLAPI mirror"],
+  "OptiFine 官网": ["OptiFine 官網", "OptiFine website"],
+  "首选来源不可用，已使用备用来源。": [
+    "首選來源無法使用，已使用備用來源。",
+    "The preferred source is unavailable; a fallback source was used.",
+  ],
+  "候选版本包含多个文件，请手动选择。": [
+    "候選版本包含多個檔案，請手動選擇。",
+    "The candidate version has multiple artifacts. Choose one manually.",
+  ],
+  "检查更新": ["檢查更新", "Check updates"],
+  "资源更新": ["資源更新", "Resource updates"],
+  "返回资源列表": ["返回資源清單", "Back to resources"],
+  "仅正式版": ["僅正式版", "Releases only"],
+  "包含测试版": ["包含測試版", "Include beta releases"],
+  "包含预览版": ["包含預覽版", "Include alpha releases"],
+  "重新检查": ["重新檢查", "Check again"],
+  "当前 → 新版本": ["目前 → 新版本", "Current → New version"],
+  "可更新": ["可更新", "Update available"],
+  "暂无更新": ["暫無更新", "No newer version"],
+  "无法确认": ["無法確認", "Unconfirmed"],
+  "查询失败": ["查詢失敗", "Check failed"],
+  "没有匹配版本": ["沒有符合的版本", "No matching version"],
+  "环境不匹配": ["環境不符", "Environment mismatch"],
+  "重复副本": ["重複副本", "Duplicate copies"],
+  "需手动处理": ["需手動處理", "Needs manual action"],
+  "更新后保持禁用": ["更新後保持停用", "Will remain disabled"],
+  "按文件哈希识别来源，并筛选适配当前游戏版本和加载器的新版。网站标签及静态检查无法保证所有模组组合兼容。": [
+    "依檔案雜湊識別來源，篩選符合目前遊戲版本與載入器的新版。網站標籤及靜態檢查無法保證所有模組組合相容。",
+    "Files are identified by hash and filtered for this game version and loader. Website tags and static checks cannot guarantee compatibility between all mods.",
+  ],
+  "发现 {0} 项更新，另有 {1} 项无更新或需要确认。": [
+    "發現 {0} 項更新，另有 {1} 項無更新或需要確認。",
+    "Found {0} updates; {1} other items have no update or need review.",
+  ],
+  "已选择 {0} 项（最多 128 项）": ["已選取 {0} 項（最多 128 項）", "{0} selected (up to 128)"],
+  "查看更新方案": ["檢視更新方案", "Review updates"],
+  "确认更新方案": ["確認更新方案", "Confirm update plan"],
+  "将更新或添加 · {0} 项": ["將更新或新增 · {0} 項", "Update or add · {0} items"],
+  "更新已完成": ["更新已完成", "Updates complete"],
+  "请启动游戏验证。未发现静态冲突不代表所有组合都兼容。": [
+    "請啟動遊戲驗證。未發現靜態衝突不代表所有組合皆相容。",
+    "Launch the game to verify. Passing static checks does not guarantee compatibility.",
+  ],
+  "正在检查资源更新": ["正在檢查資源更新", "Checking resource updates"],
+  "正在检查依赖与冲突": ["正在檢查相依與衝突", "Checking dependencies and conflicts"],
+  "正在更新资源": ["正在更新資源", "Updating resources"],
+  "正在安装资源": ["正在安裝資源", "Installing resources"],
+  "文件夹资源暂不支持自动更新。": [
+    "資料夾資源暫不支援自動更新。",
+    "Folder resources cannot be updated automatically yet.",
+  ],
+  "网站未识别此文件，无法确认更新。": [
+    "網站未識別此檔案，無法確認更新。",
+    "The website did not recognize this file; updates are unknown.",
+  ],
+  "网站返回的文件身份无法校验。": [
+    "無法驗證網站傳回的檔案身分。",
+    "The returned file identity could not be verified.",
+  ],
+  "当前文件与实例环境不匹配，请先处理。": [
+    "目前檔案與實例環境不符，請先處理。",
+    "This file does not match the instance environment. Resolve it first.",
+  ],
+  "所选频道没有匹配此实例的版本。": [
+    "所選頻道沒有符合此實例的版本。",
+    "No version in this channel matches the instance.",
+  ],
+  "候选版本的项目、频道或环境无法校验。": [
+    "候選版本的專案、頻道或環境無法驗證。",
+    "The candidate project, channel or environment could not be verified.",
+  ],
+  "所选频道内暂无更新。": [
+    "所選頻道內暫無更新。",
+    "No newer version is available in this channel.",
+  ],
+  "发布时间未知，无法确认这是更新。": [
+    "發佈時間未知，無法確認這是更新。",
+    "Publication dates are unknown; a newer version cannot be confirmed.",
+  ],
+  "候选版本没有可校验的下载文件。": [
+    "候選版本沒有可驗證的下載檔案。",
+    "The candidate version has no verifiable download file.",
+  ],
+  "候选文件格式暂不支持自动更新。": [
+    "候選檔案格式暫不支援自動更新。",
+    "This candidate file format cannot be updated automatically yet.",
+  ],
+  "仅通过网站环境筛选，仍需检查依赖和实际兼容性。": [
+    "僅通過網站環境篩選，仍需檢查相依與實際相容性。",
+    "Matches website environment filters; dependencies and runtime compatibility still need checking.",
+  ],
+  "更新查询失败，请检查网络后重试。": [
+    "更新查詢失敗，請檢查網路後重試。",
+    "Update lookup failed. Check your network and retry.",
+  ],
+  "更新服务返回格式无效。": [
+    "更新服務傳回格式無效。",
+    "The update service returned an invalid response.",
+  ],
+  "请在版本组件中更新 OptiFine。": [
+    "請在版本元件中更新 OptiFine。",
+    "Update OptiFine from version components.",
+  ],
+  "文件夹或无法读取的资源暂不支持自动更新。": [
+    "資料夾或無法讀取的資源暫不支援自動更新。",
+    "Folders and unreadable resources cannot be updated automatically.",
+  ],
+  "此资源的更新信息格式异常。": [
+    "此資源的更新資訊格式異常。",
+    "The update metadata for this resource is malformed.",
+  ],
+  "网络查询已停止，请稍后手动重试。": [
+    "網路查詢已停止，請稍後手動重試。",
+    "Network lookup stopped. Retry manually later.",
+  ],
+  "检测到同一项目的多个副本，请先处理。": [
+    "偵測到同一專案的多個副本，請先處理。",
+    "Multiple copies of this project were found. Resolve them first.",
+  ],
+  "资源文件已变化，请重新检查更新。": [
+    "資源檔案已變更，請重新檢查更新。",
+    "Resource files changed. Check for updates again.",
+  ],
+  "请先退出此实例的游戏，再更新资源。": [
+    "請先退出此實例的遊戲，再更新資源。",
+    "Close this instance’s game before updating resources.",
+  ],
+  "请选择 1 至 128 项更新。": ["請選取 1 至 128 項更新。", "Select between 1 and 128 updates."],
+  "更新选择已失效，请重新检查。": [
+    "更新選擇已失效，請重新檢查。",
+    "The update selection is stale. Check again.",
+  ],
+  "已有资源更新操作正在进行。": ["已有資源更新操作正在進行。", "Another resource update is in progress."],
+  "更新目标文件名重复。": ["更新目標檔案名稱重複。", "Update target filenames are duplicated."],
+  "更新目标已存在，请先处理重复文件。": [
+    "更新目標已存在，請先處理重複檔案。",
+    "The update target already exists. Resolve duplicate files first.",
+  ],
+  "所需依赖超出所选更新频道，请检查后重新选择。": [
+    "所需相依超出所選更新頻道，請檢查後重新選擇。",
+    "A dependency is outside the selected update channel. Review your selection.",
+  ],
+  "所选更新之间存在作者声明的不兼容关系。": [
+    "所選更新之間存在作者聲明的不相容關係。",
+    "The author declares an incompatibility between selected updates.",
+  ],
+  "存档": ["存檔", "Worlds"],
+  "存档管理": ["存檔管理", "World management"],
+  "未知": ["未知", "Unknown"],
+  "从 ZIP 导入": ["從 ZIP 匯入", "Import ZIP"],
+  "从文件夹导入": ["從資料夾匯入", "Import folder"],
+  "导入存档": ["匯入存檔", "Import world"],
+  "存档文件夹名称": ["存檔資料夾名稱", "World folder name"],
+  "使用新名称，原有存档不会被覆盖。": [
+    "使用新名稱，原有存檔不會被覆蓋。",
+    "Use a new name. Existing worlds are never overwritten.",
+  ],
+  "存档已导出": ["存檔已匯出", "World exported"],
+  "备份": ["備份", "Back up"],
+  "备份已完成": ["備份已完成", "Backup complete"],
+  "移除存档": ["移除存檔", "Remove world"],
+  "将「{0}」移到系统废纸篓，可从废纸篓恢复。": [
+    "將「{0}」移至系統垃圾桶，可從垃圾桶還原。",
+    "Move “{0}” to the system Trash, where it can be restored.",
+  ],
+  "复制到其他实例": ["複製到其他實例", "Copy to instance"],
+  "没有其他可用实例": ["沒有其他可用實例", "No other instances available"],
+  "确认复制存档": ["確認複製存檔", "Confirm world copy"],
+  "目标：{0}。游戏版本或模组环境可能不同，降级可能损坏世界；复制不会改变原存档，也不保证兼容。": [
+    "目標：{0}。遊戲版本或模組環境可能不同，降級可能損壞世界；複製不會改變原存檔，也不保證相容。",
+    "Target: {0}. Game versions or mods may differ; downgrades can damage worlds. The original is retained, and compatibility is not guaranteed.",
+  ],
+  "复制存档": ["複製存檔", "Copy world"],
+  "存档已复制": ["存檔已複製", "World copied"],
+  "备份记录": ["備份紀錄", "Backups"],
+  "暂无备份，选中存档后点击备份。": [
+    "尚無備份，選取存檔後點擊備份。",
+    "No backups yet. Select a world and choose Back up.",
+  ],
+  "恢复副本": ["還原副本", "Restore copy"],
+  "恢复为新存档": ["還原為新存檔", "Restore as a new world"],
+  "备份已恢复为副本": ["備份已還原為副本", "Backup restored as a copy"],
+  "极限": ["極限", "Hardcore"],
+  "生存": ["生存", "Survival"],
+  "创造": ["創造", "Creative"],
+  "旁观": ["旁觀", "Spectator"],
+  "搜索存档名称或文件夹": ["搜尋存檔名稱或資料夾", "Search world name or folder"],
+  "最后游玩": ["上次遊玩", "Last played"],
+  "占用空间": ["使用空間", "Size"],
+  "模式": ["模式", "Mode"],
+  "尚未找到存档": ["尚未找到存檔", "No worlds found"],
+  "没有匹配的存档": ["沒有符合的存檔", "No matching worlds"],
+  "导入已有世界，或在游戏中创建世界。": [
+    "匯入已有世界，或在遊戲中建立世界。",
+    "Import an existing world or create one in the game.",
+  ],
+  "信息读取异常": ["資訊讀取異常", "Metadata unavailable"],
+  "导出 ZIP": ["匯出 ZIP", "Export ZIP"],
+  "修改、导出和备份前请退出该实例的游戏。恢复会创建新副本。": [
+    "修改、匯出和備份前請退出該實例的遊戲。還原會建立新副本。",
+    "Close this instance’s game before modifying, exporting or backing up worlds. Restore creates a new copy.",
+  ],
+  "存档文件夹名称无效。": ["存檔資料夾名稱無效。", "Invalid world folder name."],
+  "游戏目录不存在。": ["遊戲目錄不存在。", "The game directory does not exist."],
+  "存档正在使用或无法锁定，请关闭游戏后重试。": [
+    "存檔正在使用或無法鎖定，請關閉遊戲後重試。",
+    "The world is in use or cannot be locked. Close the game and retry.",
+  ],
+  "该实例的游戏正在运行，请退出游戏后管理存档。": [
+    "該實例的遊戲正在執行，請退出遊戲後管理存檔。",
+    "This instance is running. Close the game before managing worlds.",
+  ],
+  "存档信息无法读取，仍可导出原始文件。": [
+    "無法讀取存檔資訊，仍可匯出原始檔案。",
+    "World metadata could not be read. You can still export the original files.",
+  ],
+  "存档中含符号链接，操作已停止。": [
+    "存檔含有符號連結，操作已停止。",
+    "The world contains symbolic links. Operation stopped.",
+  ],
+  "存档中含特殊文件，操作已停止。": [
+    "存檔含有特殊檔案，操作已停止。",
+    "The world contains special files. Operation stopped.",
+  ],
+  "存档体积或文件数量超过当前支持范围。": [
+    "存檔大小或檔案數量超過目前支援範圍。",
+    "The world exceeds the supported size or file-count limit.",
+  ],
+  "存档文件发生变化，请退出游戏后重试。": [
+    "存檔檔案發生變更，請退出遊戲後重試。",
+    "World files changed during the operation. Close the game and retry.",
+  ],
+  "磁盘空间不足。": ["磁碟空間不足。", "Not enough disk space."],
+  "存档文件写入失败。": ["存檔檔案寫入失敗。", "Could not write world files."],
+  "存档文件读取失败。": ["存檔檔案讀取失敗。", "Could not read world files."],
+  "未找到 Java 版存档的 level.dat。": [
+    "未找到 Java 版存檔的 level.dat。",
+    "No Java Edition world level.dat was found.",
+  ],
+  "请选择只包含一个世界的存档目录或 ZIP。": [
+    "請選擇只包含一個世界的存檔目錄或 ZIP。",
+    "Select a folder or ZIP containing exactly one world.",
+  ],
+  "同名存档已存在，请换一个文件夹名称。": [
+    "同名存檔已存在，請更換資料夾名稱。",
+    "A world with that folder name already exists. Choose another name.",
+  ],
+  "不能把存档复制到自身目录中。": [
+    "不能將存檔複製到自身目錄中。",
+    "A world cannot be copied into its own directory.",
+  ],
+  "导出文件已存在，请选择其他文件名。": [
+    "匯出檔案已存在，請選擇其他檔名。",
+    "The export file already exists. Choose another filename.",
+  ],
+  "请选择存档目录以外的有效导出位置。": [
+    "請選擇存檔目錄之外的有效匯出位置。",
+    "Choose a valid export location outside the world folder.",
+  ],
+  "不支持的存档操作。": ["不支援的存檔操作。", "Unsupported world operation."],
+  "此存档需要 ZIP64，当前请使用文件夹复制。": [
+    "此存檔需要 ZIP64，目前請使用資料夾複製。",
+    "This world requires ZIP64. Use folder copy for now.",
+  ],
+  "存档压缩失败。": ["存檔壓縮失敗。", "World compression failed."],
+  "存档 ZIP 损坏或不受支持。": [
+    "存檔 ZIP 損壞或不受支援。",
+    "The world ZIP is damaged or unsupported.",
+  ],
+  "存档压缩包包含不安全的条目。": [
+    "存檔壓縮檔包含不安全的項目。",
+    "The world archive contains unsafe entries.",
+  ],
+  "存档压缩包含重复路径。": [
+    "存檔壓縮檔包含重複路徑。",
+    "The world archive contains duplicate paths.",
+  ],
+  "存档 ZIP 校验失败，未导入任何世界。": [
+    "存檔 ZIP 驗證失敗，未匯入任何世界。",
+    "World ZIP verification failed. No world was imported.",
+  ],
+  "正在复制存档": ["正在複製存檔", "Copying world"],
+  "正在导出存档": ["正在匯出存檔", "Exporting world"],
+  "正在导入存档": ["正在匯入存檔", "Importing world"],
+  "皮肤加载失败，点击重试": ["皮膚載入失敗，點擊重試", "Skin unavailable. Click to retry"],
+  "皮肤头像": ["皮膚頭像", "Skin avatar"],
   "浅色": ["淺色", "Light"],
   "深色": ["深色", "Dark"],
   "蓝色": ["藍色", "Blue"],
@@ -16,7 +315,7 @@ const catalog = <String, List<String>>{
   "下载任务": ["下載任務", "Downloads"],
   "不同主加载器请使用独立实例。已有 OptiFine 时，须先移除再更改加载器。": [
     "不同主增載器請使用獨立例項。已有 確pPiFin) 時，須先移除再更改增載器。",
-    "Use separate instances for different loaders. Remove OptiFine before changing the loader."
+    "Use separate instances for different loaders. Remove OptiFine before changing the loader.",
   ],
   "主加载器": ["主載入器", "Primary loader"],
   "仅当前会话": ["僅當前會話", "This session only"],
@@ -25,7 +324,7 @@ const catalog = <String, List<String>>{
   "以全屏模式启动": ["以全屏模式啟動", "Launch in fullscreen"],
   "低版本 Java 可能无法运行此游戏或加载器。": [
     "低版字 J(v( 權能無法執行此遊戲或增載器。",
-    "Older Java may not run this game or loader."
+    "Older Java may not run this game or loader.",
   ],
   "使用推荐设置": ["使用推薦設定", "Use recommended settings"],
   "使用此账号": ["使用此帳號", "Use this account"],
@@ -36,7 +335,7 @@ const catalog = <String, List<String>>{
   "关闭": ["關閉", "Close"],
   "内存、账号、主类和游戏目录由启动器管理；保存时会检查参数冲突。": [
     "內言、帳號、主類和遊戲案錄由啟動器管理；儲言時會檢檢引數衝突。",
-    "Memory, account, main class and game directory are managed by the launcher. Arguments are validated when saved."
+    "Memory, account, main class and game directory are managed by the launcher. Arguments are validated when saved.",
   ],
   "初始内存": ["初始記憶體", "Initial memory"],
   "取消当前任务": ["取消當前任服", "Cancel current task"],
@@ -48,12 +347,12 @@ const catalog = <String, List<String>>{
   "启用": ["啟用", "Enable"],
   "启用后请求离线访问权限，用于刷新微软登录；不提供离线账号。": [
     "啟用後請求離線訪問權限，用於刷新微軟登錄；不提供離線帳號。",
-    "Allow session refresh using the system credential store."
+    "Allow session refresh using the system credential store.",
   ],
   "固定使用某个 Java": ["固定使用某個 Java", "Use a fixed Java runtime"],
   "图片加载失败，可重试或打开项目主页。": [
     "圖片增載設敗，權重試或開開專案主頁。",
-    "Image unavailable. Retry or open the project website."
+    "Image unavailable. Retry or open the project website.",
   ],
   "基础信息": ["基礎資訊", "General"],
   "复制日志": ["復製日誌", "Copy log"],
@@ -63,35 +362,35 @@ const catalog = <String, List<String>>{
   "安装器使用的 Java": ["安裝器使用的 J(v(", "Installer Java"],
   "官方列表没有精确文件哈希，提醒不代表当前构建必然受影响。": [
     "官方列表沒有精確檔案雜湊，提醒不代表當前組立必然受影響。",
-    "The official list has no exact file hashes. A warning does not confirm that this build is affected."
+    "The official list has no exact file hashes. A warning does not confirm that this build is affected.",
   ],
   "实例设置": ["例項設定", "Instance settings"],
   "实例设置已保存": ["例項設定已儲言", "Instance settings saved"],
   "宽度": ["寬度", "Width"],
   "将所选资源移到系统废纸篓；可从废纸篓恢复。": [
     "將所選資源移到係統廢紙簍；權從廢紙簍恢復。",
-    "Move selected resources to the system Trash, where they can be restored."
+    "Move selected resources to the system Trash, where they can be restored.",
   ],
   "将按所选构建校验游戏、Forge 版本和本地冲突组件，再安装 OptiFine。": [
     "將按所選組立驗證遊戲、Forg) 版字和字機衝突元案，再安裝 確pPiFin)。",
-    "Check the game, Forge version and local conflicts before installing OptiFine."
+    "Check the game, Forge version and local conflicts before installing OptiFine.",
   ],
   "将移除此设备保存的账号记录和系统凭据，不会删除微软账号。": [
     "將移除此設備儲言的帳號記錄和係統憑據，不會刪除微軟帳號。",
-    "Remove this device's account record and saved credentials. Your Microsoft account is unaffected."
+    "Remove this device's account record and saved credentials. Your Microsoft account is unaffected.",
   ],
   "尚无游戏日志，启动游戏后可在这里查看。": [
     "尚無遊戲日誌，啟動遊戲後權線這裡檢視。",
-    "No game logs yet. Launch a game to view its logs here."
+    "No game logs yet. Launch a game to view its logs here.",
   ],
   "尚未找到游戏实例，安装游戏或添加已有目录。": [
     "尚未詢到遊戲例項，安裝遊戲或新增已有案錄。",
-    "No instances found. Install a game or add an existing directory."
+    "No instances found. Install a game or add an existing directory.",
   ],
   "尚未添加微软账号。": ["尚未新增微軟帳號。", "No Microsoft accounts added."],
   "尚未添加资源，从本地导入或浏览资源市场。": [
     "尚未新增資源，從字機匯入或瀏覽資源市場。",
-    "No resources yet. Import files or browse the resource market."
+    "No resources yet. Import files or browse the resource market.",
   ],
   "尚未配置可用的光影支持": ["尚未配置可用的光影支援", "No usable shader support is configured"],
   "已启用": ["已啟用", "Enabled"],
@@ -103,13 +402,13 @@ const catalog = <String, List<String>>{
   "当前角色": ["當前角色", "Current profile"],
   "微软账号与游戏资格分别验证，凭据保存在系统凭据库。": [
     "微軟帳號與遊戲資格分別證證，憑據儲言線係統憑據庫。",
-    "Microsoft sign-in and game ownership are verified separately. Credentials stay in the system vault."
+    "Microsoft sign-in and game ownership are verified separately. Credentials stay in the system vault.",
   ],
   "快速检测常见目录": ["快速檢測常見目錄", "Quick scan of common folders"],
   "恢复默认封面": ["恢復預設封面", "Reset cover"],
   "所选 Java 低于默认版本，请主动确认强制使用后重试。": [
     "所選 J(v( 低於預設版字，請主動確設強製使用後重試。",
-    "Selected Java is older than recommended. Confirm the override to continue."
+    "Selected Java is older than recommended. Confirm the override to continue.",
   ],
   "手动指定": ["手動指定", "Manual"],
   "打开位置": ["開啟位置", "Show in folder"],
@@ -120,44 +419,44 @@ const catalog = <String, List<String>>{
   "收藏实例": ["收藏例項", "Favorite instance"],
   "无法读取操作结果，请重试。": [
     "無法讀取操作結果，請重試。",
-    "Unable to read the result. Please retry."
+    "Unable to read the result. Please retry.",
   ],
   "日志": ["日誌", "Logs"],
   "显示最近的日志内容；认证令牌已脱敏。": [
     "顯示最近的日誌內容；設證令牌已脱敏。",
-    "Recent log output; authentication tokens are redacted."
+    "Recent log output; authentication tokens are redacted.",
   ],
   "更多操作": ["更多操作", "More actions"],
   "更换封面": ["更換封面", "Change cover"],
   "更改此项不会移动已有存档、模组或设置，请确认目标目录。": [
     "更改此專不會移動已有言件、模元或設定，請確設案標案錄。",
-    "This does not move existing worlds, mods or settings. Check the destination directory."
+    "This does not move existing worlds, mods or settings. Check the destination directory.",
   ],
   "更新主加载器后将保留实例目录、存档和模组，并重新校验安装输出。": [
     "更新主增載器後將儲留例項案錄、言件和模元，並重新驗證安裝輸出。",
-    "Update the loader while keeping the instance directory, worlds and mods. Installation outputs will be verified again."
+    "Update the loader while keeping the instance directory, worlds and mods. Installation outputs will be verified again.",
   ],
   "更新兼容提醒": ["更新相容提醒", "Update compatibility rules"],
   "最大内存": ["最大記憶體", "Maximum memory"],
   "未找到单独的许可证文件，请查看运行时目录。": [
     "未詢到單獨的許權證檔案，請檢視執行時案錄。",
-    "No separate license file found. Open the runtime directory."
+    "No separate license file found. Open the runtime directory.",
   ],
   "未检测到 Java，可扫描、导入或下载安装。": [
     "未檢測到 J(v(，權掃描、匯入或下載安裝。",
-    "No Java found. Scan, import or download a runtime."
+    "No Java found. Scan, import or download a runtime.",
   ],
   "未识别": ["未識別", "Unidentified"],
   "来源": ["來源", "Source"],
   "查找适配版本": ["查詢適配版本", "Find compatible version"],
   "查询构建，或选择本地 OptiFine 安装包。": [
     "檢詢組立，或選擇字機 確pPiFin) 安裝包。",
-    "Search builds or select a local OptiFine installer."
+    "Search builds or select a local OptiFine installer.",
   ],
   "正在扫描可访问目录": ["正線掃描權訪問案錄", "Scanning accessible locations"],
   "正在验证微软账号，请在浏览器中完成授权。": [
     "正線證證微軟帳號，請線瀏覽器中完成授權。",
-    "Verifying your Microsoft account. Complete authorization in your browser."
+    "Verifying your Microsoft account. Complete authorization in your browser.",
   ],
   "没有符合条件的构建": ["沒有元合條案的組立", "No matching builds"],
   "浏览": ["瀏覽", "Browse"],
@@ -171,7 +470,7 @@ const catalog = <String, List<String>>{
   "游戏资格已验证": ["遊戲資格已證證", "Ownership verified"],
   "游戏默认 Java {0}，可手动选择更高版本。": [
     "遊戲預設 J(v( {0}，權手動選擇更高版字。",
-    "Game default: Java {0}. You can select a newer version."
+    "Game default: Java {0}. You can select a newer version.",
   ],
   "版本": ["版本", "Version"],
   "版本 / 构建": ["版本 / 構建", "Version / build"],
@@ -188,7 +487,7 @@ const catalog = <String, List<String>>{
   "移除": ["移除", "Remove"],
   "移除 OptiFine 并恢复安装前的版本配置，保留存档和设置。": [
     "移除 確pPiFin) 並恢復安裝前的版字配定，儲留言件和設定。",
-    "Remove OptiFine and restore the previous version configuration, keeping worlds and settings."
+    "Remove OptiFine and restore the previous version configuration, keeping worlds and settings.",
   ],
   "移除微软账号": ["移除微軟帳號", "Remove Microsoft account"],
   "移除所选资源": ["移除所選資源", "Remove selected resources"],
@@ -196,7 +495,7 @@ const catalog = <String, List<String>>{
   "管理实例": ["管理例項", "Manage instance"],
   "管理本机运行环境；每个实例独立选择 Java。": [
     "管理字機執行環境；每個例項獨立選擇 J(v(。",
-    "Manage local runtimes. Each instance chooses its own Java."
+    "Manage local runtimes. Each instance chooses its own Java.",
   ],
   "自动分配（推荐）": ["自動分配（推薦）", "Automatic (recommended)"],
   "自动刷新": ["自動刷新", "Auto refresh"],
@@ -229,19 +528,19 @@ const catalog = <String, List<String>>{
   "历史版本": ["歷史版本", "Historical"],
   "使用英文字母、数字、空格或 - _ . +": [
     "使用英文字母、數字、空格或 - _ . +",
-    "Use letters, numbers, spaces or - _ . +"
+    "Use letters, numbers, spaces or - _ . +",
   ],
   "该名称已存在，请换一个名称": [
     "此名稱已存在，請使用其他名稱",
-    "This name already exists; choose another"
+    "This name already exists; choose another",
   ],
   "游戏已安装，可返回开始页面启动": [
     "遊戲已安裝，可返回開始頁面啟動",
-    "Game installed. Return to Home to launch."
+    "Game installed. Return to Home to launch.",
   ],
   "Java 已安装并加入本地列表": [
     "Java 已安裝並加入本機清單",
-    "Java installed and added to local runtimes"
+    "Java installed and added to local runtimes",
   ],
   "查看许可证": ["檢視授權條款", "View license"],
   "刷新": ["重新整理", "Refresh"],
@@ -253,22 +552,22 @@ const catalog = <String, List<String>>{
   "加载器版本": ["載入器版本", "Loader version"],
   "该版本没有可用的加载器构建": [
     "此版本沒有可用的載入器組建",
-    "No loader builds available for this version"
+    "No loader builds available for this version",
   ],
   "Java 运行环境": ["Java 執行環境", "Java runtime"],
   "自动匹配，缺少时下载官方运行时": [
     "自動配對，缺少時下載官方執行環境",
-    "Automatic; download official runtime if missing"
+    "Automatic; download official runtime if missing",
   ],
   "允许使用低于推荐版本的 Java": [
     "允許使用低於建議版本的 Java",
-    "Allow Java below the recommended version"
+    "Allow Java below the recommended version",
   ],
   "游戏目录": ["遊戲目錄", "Game folder"],
   "更改": ["變更", "Change"],
   "存档和设置按实例隔离；游戏文件与依赖下载后进行哈希校验。": [
     "存檔與設定依實例隔離；遊戲與相依檔案下載後會驗證雜湊值。",
-    "Saves and settings are isolated per instance. Downloads are hash-verified."
+    "Saves and settings are isolated per instance. Downloads are hash-verified.",
   ],
   "主版本": ["主版本", "Major version"],
   "发行版": ["發行版", "Distribution"],
@@ -277,18 +576,18 @@ const catalog = <String, List<String>>{
   "自动检测": ["自動偵測", "Detect system"],
   "自动检测本机系统和架构，可手动更改查询条件。": [
     "自動偵測本機系統與架構，可手動變更查詢條件。",
-    "System and architecture are detected automatically. You can change them."
+    "System and architecture are detected automatically. You can change them.",
   ],
   "查询构建": ["查詢組建", "Find builds"],
   "具体构建": ["具體組建", "Available builds"],
   "发行版官网": ["發行版官網", "Official website"],
   "没有匹配的构建，请更改版本、发行版或架构": [
     "沒有符合的組建，請變更版本、發行版或架構",
-    "No builds found. Try another version, distribution or architecture."
+    "No builds found. Try another version, distribution or architecture.",
   ],
   "点击「查询构建」查看可安装的 Java": [
     "點選「查詢組建」檢視可安裝的 Java",
-    "Select Find builds to see available Java runtimes"
+    "Select Find builds to see available Java runtimes",
   ],
   "准备下载": ["準備下載", "Preparing download"],
   "下载": ["下載", "Downloads"],
@@ -299,7 +598,7 @@ const catalog = <String, List<String>>{
   "选择版本后安装到独立实例": ["選擇版本後安裝至獨立實例", "Choose a version to create an instance"],
   "不同构建独立保存，可在开始页面选择": [
     "不同組建分開儲存，可在開始頁面選擇",
-    "Builds are stored separately and can be selected on Home"
+    "Builds are stored separately and can be selected on Home",
   ],
   "构建详情 / 许可证": ["組建詳細資料 / 授權條款", "Build details / license"],
   "下载并安装": ["下載並安裝", "Download and install"],
@@ -307,11 +606,11 @@ const catalog = <String, List<String>>{
   "安装游戏": ["安裝遊戲", "Install game"],
   "无法读取下载结果，请重试。": [
     "無法讀取下載結果，請重試。",
-    "Unable to read the download result. Please retry."
+    "Unable to read the download result. Please retry.",
   ],
   "该名称的实例已存在，请使用其他名称。": [
     "同名實例已存在，請使用其他名稱。",
-    "An instance with this name already exists. Choose another name."
+    "An instance with this name already exists. Choose another name.",
   ],
   "不支持的下载源。": ["不支援的下載來源。", "Unsupported download source."],
   "选择 Java 运行环境": ["選擇 Java 執行環境", "Selecting Java runtime"],
@@ -322,32 +621,32 @@ const catalog = <String, List<String>>{
   "阴影": ["陰影", "Shadows"],
   "无法加载 C++ 核心，请确认安装包完整，或重新构建本地核心。": [
     "無法載入 C++ 核心，請確認安裝包完整，或重新構建本地核心。",
-    "Unable to load the C++ core. Check the installation or rebuild the native core."
+    "Unable to load the C++ core. Check the installation or rebuild the native core.",
   ],
   "选择游戏目录": ["選擇遊戲目錄", "Choose game folder"],
   "选择 Java": ["選擇 Java", "Choose Java"],
   "微软应用配置": ["微軟應用配置", "Microsoft app configuration"],
   "SECL 自己注册的公共客户端应用 ID": [
     "SECL 自己註冊的公共用戶端應用 ID",
-    "The public client ID registered for SECL"
+    "The public client ID registered for SECL",
   ],
   "桌面应用回调地址": ["桌面應用回呼地址", "Desktop app redirect URI"],
   "个人 Microsoft 账号 · 授权码 + PKCE\n无需 Client Secret。API 访问仍须由应用自身获准。": [
     "個人 Microsoft 帳號 · 授權碼 + PKCE\n不需要 Client Secret。此應用程式仍須取得 API 存取核准。",
-    "Personal Microsoft account · Authorization code + PKCE\nNo client secret is needed. This app must have its own API approval."
+    "Personal Microsoft account · Authorization code + PKCE\nNo client secret is needed. This app must have its own API approval.",
   ],
   "取消": ["取消", "Cancel"],
   "保存": ["保存", "Save"],
   "在浏览器中完成微软授权": [
     "在瀏覽器中完成微軟授權",
-    "Complete Microsoft authorization in your browser"
+    "Complete Microsoft authorization in your browser",
   ],
   "验证 Microsoft 登录": ["驗證 Microsoft 登入", "Verifying Microsoft sign-in"],
   "验证 Xbox 账号": ["驗證 Xbox 帳號", "Verifying Xbox account"],
   "验证 Xbox 服务权限": ["驗證 Xbox 服務權限", "Verifying Xbox service access"],
   "验证 Minecraft Services": [
     "驗證 Minecraft Services",
-    "Verifying Minecraft Services"
+    "Verifying Minecraft Services",
   ],
   "检查 Java 版游戏资格": ["檢查 Java 版遊戲資格", "Checking Java Edition ownership"],
   "读取游戏角色": ["讀取遊戲角色", "Loading player profile"],
@@ -373,7 +672,7 @@ const catalog = <String, List<String>>{
   "刷新本地版本": ["刷新本地版本", "Refresh local versions"],
   "尚未识别本地版本\n选择已安装的游戏目录": [
     "尚未識別本地版本\n選擇已安裝的遊戲目錄",
-    "No local versions found\nChoose an installed game folder"
+    "No local versions found\nChoose an installed game folder",
   ],
   "已安装": ["已安裝", "Installed"],
   "配置需要处理": ["配置需要處理", "Configuration needs attention"],
@@ -381,7 +680,7 @@ const catalog = <String, List<String>>{
   "Copyright © 2026 ppm203\n基于 M²CL 迁移与重写 · GPL-3.0-only + 第 7 节附加条款\n非官方项目，与 Mojang 或 Microsoft 无隶属或背书关系。":
       [
     "Copyright © 2026 ppm203\n基於 M²CL 遷移與重寫 · GPL-3.0-only + 第 7 節附加條款\n非官方項目，與 Mojang 或 Microsoft 無隸屬或背書關係。",
-    "Copyright © 2026 ppm203\nMigrated and rewritten from M²CL · GPL-3.0-only with Section 7 additional terms\nUnofficial project. Not affiliated with or endorsed by Mojang or Microsoft."
+    "Copyright © 2026 ppm203\nMigrated and rewritten from M²CL · GPL-3.0-only with Section 7 additional terms\nUnofficial project. Not affiliated with or endorsed by Mojang or Microsoft.",
   ],
   "开发预览 0.1.0": ["開發預覽 0.1.0", "Preview 0.1.0"],
   "{0}未完成{1}": ["{0}未完成{1}", "{0} failed{1}"],
@@ -389,11 +688,11 @@ const catalog = <String, List<String>>{
   "关闭提示": ["關閉提示", "Dismiss"],
   "选择一个本地版本，开始你的旅程。": [
     "選擇一個本地版本，開始你的旅程。",
-    "Choose a local version to begin your journey."
+    "Choose a local version to begin your journey.",
   ],
   "Java Edition · 本地已安装": [
     "Java Edition · 本地已安裝",
-    "Java Edition · Installed locally"
+    "Java Edition · Installed locally",
   ],
   "尚未选择游戏目录": ["尚未選擇遊戲目錄", "No game folder selected"],
   "未检测到 Java": ["未檢測到 Java", "No Java detected"],
@@ -405,14 +704,14 @@ const catalog = <String, List<String>>{
   "启动所选本地游戏": ["啓動所選本地遊戲", "Launch the selected local game"],
   "需要登录、有效游戏资格、本地版本与可用 Java": [
     "需要登入、有效遊戲資格、本地版本與可用 Java",
-    "Requires sign-in, verified ownership, a local version, and working Java"
+    "Requires sign-in, verified ownership, a local version, and working Java",
   ],
   "启动游戏": ["啓動遊戲", "Launch game"],
   "请求未完成": ["請求未完成", "Request failed"],
   "重试": ["重試", "Retry"],
   "服务返回的数据无法读取，请重试。": [
     "服務返回的數據無法讀取，請重試。",
-    "The service response could not be read. Please retry."
+    "The service response could not be read. Please retry.",
   ],
   "原版": ["原版", "Vanilla"],
   "冒险": ["冒險", "Adventure"],
@@ -460,7 +759,7 @@ const catalog = <String, List<String>>{
   "正在打开项目网页": ["正在打開項目網頁", "Opening project website"],
   "正在检查已有组件和依赖": [
     "正在檢查已有組件和依賴",
-    "Checking installed components and dependencies"
+    "Checking installed components and dependencies",
   ],
   "正在读取组件信息": ["正在讀取組件資訊", "Loading component information"],
   "正在确认依赖选择": ["正在確認依賴選擇", "Confirming dependency selection"],
@@ -479,7 +778,7 @@ const catalog = <String, List<String>>{
   "分类未加载": ["分類未載入", "Categories unavailable"],
   "没有找到匹配的资源\n试试更换关键词或筛选条件": [
     "沒有找到匹配的資源\n試試更換關鍵詞或篩選條件",
-    "No matching resources\nTry different keywords or filters"
+    "No matching resources\nTry different keywords or filters",
   ],
   "{0} 次下载": ["{0} 次下載", "{0} downloads"],
   "查看详情": ["查看詳情", "View details"],
@@ -492,14 +791,14 @@ const catalog = <String, List<String>>{
   "预览版": ["預覽版", "Alpha"],
   "没有匹配的{0}文件\n可切换分类或调整游戏版本、加载器": [
     "沒有匹配的{0}檔案\n可切換分類或調整遊戲版本、載入器",
-    "No matching {0} files\nTry another channel, game version, or loader"
+    "No matching {0} files\nTry another channel, game version, or loader",
   ],
   "版本 / 适用环境": ["版本 / 適用環境", "Version / environment"],
   "安装": ["安裝", "Install"],
   "共 {0} 个项目 · Modrinth": ["共 {0} 個項目 · Modrinth", "{0} projects · Modrinth"],
   "来源：Modrinth · 下载时选择目标实例": [
     "來源：Modrinth · 下載時選擇目標實例",
-    "Source: Modrinth · Choose an instance when installing"
+    "Source: Modrinth · Choose an instance when installing",
   ],
   "上一页": ["上一頁", "Previous page"],
   "下一页": ["下一頁", "Next page"],
@@ -512,14 +811,14 @@ const catalog = <String, List<String>>{
   "尚未找到本地实例": ["尚未找到本地實例", "No local instances found"],
   "选择包含 versions 文件夹的游戏根目录": [
     "選擇包含 versions 資料夾的遊戲根目錄",
-    "Choose a game root folder containing a versions folder"
+    "Choose a game root folder containing a versions folder",
   ],
   "添加游戏目录": ["添加遊戲目錄", "Add game folder"],
   "继续": ["繼續", "Continue"],
   "重新下载已有组件？": ["重新下載已有組件？", "Download this component again?"],
   "将校验并替换已有副本，不会额外保留一个重复 JAR。": [
     "將驗證並替換已有副本，不會額外保留一個重復 JAR。",
-    "The existing copy will be verified and replaced. No duplicate JAR will be kept."
+    "The existing copy will be verified and replaced. No duplicate JAR will be kept.",
   ],
   "重新下载": ["重新下載", "Download again"],
   "组件": ["組件", "Component"],
@@ -542,28 +841,28 @@ const catalog = <String, List<String>>{
   "作者声明不兼容": ["作者聲明不兼容", "Declared incompatible by the author"],
   "已取消 {0} 项必需依赖，我了解游戏可能无法启动": [
     "已取消 {0} 項必需依賴，我瞭解遊戲可能無法啓動",
-    "I skipped {0} required dependencies and understand the game may not launch"
+    "I skipped {0} required dependencies and understand the game may not launch",
   ],
   "所需组件已停用，请明确勾选“同时启用”后安装。": [
     "所需組件已停用，請明確勾選“同時啓用”後安裝。",
-    "A required component is disabled. Select “Also enable” to proceed."
+    "A required component is disabled. Select “Also enable” to proceed.",
   ],
   "替换已有的同名资源文件": [
     "替換已有的同名資源檔案",
-    "Replace the existing resource file with the same name"
+    "Replace the existing resource file with the same name",
   ],
   "光影支持尚未就绪": ["光影支援尚未就緒", "Shader support is not ready"],
   "此步骤只安装光影包。仍需在该实例中安装兼容的 Iris 或 OptiFine，并在游戏内选择启用。": [
     "此步驟只安裝光影包。仍需在該實例中安裝兼容的 Iris 或 OptiFine，並在遊戲內選擇啓用。",
-    "This installs only the shader pack. Install compatible Iris or OptiFine in this instance, then enable the pack in game."
+    "This installs only the shader pack. Install compatible Iris or OptiFine in this instance, then enable the pack in game.",
   ],
   "先安装光影包，稍后配置支持组件": [
     "先安裝光影包，稍後配置支援組件",
-    "Install the pack now; configure shader support later"
+    "Install the pack now; configure shader support later",
   ],
   "已检测到光影支持组件。在游戏内选择光影并调整画质。": [
     "已檢測到光影支援組件。在遊戲內選擇光影並調整畫質。",
-    "Shader support detected. Select the pack and adjust graphics in game."
+    "Shader support detected. Select the pack and adjust graphics in game.",
   ],
   "完成": ["完成", "Done"],
   "确认并安装": ["確認並安裝", "Confirm and install"],
@@ -572,158 +871,158 @@ const catalog = <String, List<String>>{
   "操作已取消": ["操作已取消", "Operation cancelled"],
   "无法读取 C++ 核心返回的结果。": [
     "無法讀取 C++ 核心返回的結果。",
-    "Unable to read the C++ core response."
+    "Unable to read the C++ core response.",
   ],
   "无法保存本地设置。": ["無法保存本地設置。", "Unable to save local settings."],
   "请先配置 SECL 自己注册的微软 Application（client）ID。": [
     "請先配置 SECL 自己註冊的微軟 Application（client）ID。",
-    "Configure the Microsoft Application (client) ID registered for SECL first."
+    "Configure the Microsoft Application (client) ID registered for SECL first.",
   ],
   "无法初始化本机回调网络。": [
     "無法初始化本機回呼網路。",
-    "Unable to initialize the local callback network."
+    "Unable to initialize the local callback network.",
   ],
   "无法创建本机回调端口。": ["無法建立本機回呼連接埠。", "Unable to create a local callback port."],
   "无法监听本机登录回调。": [
     "無法監聽本機登入回呼。",
-    "Unable to listen for the local sign-in callback."
+    "Unable to listen for the local sign-in callback.",
   ],
   "无法获取本机回调端口。": [
     "無法獲取本機回呼連接埠。",
-    "Unable to determine the local callback port."
+    "Unable to determine the local callback port.",
   ],
   "回调过大。": ["回呼過大。", "The callback is too large."],
   "已收到授权结果": ["已收到授權結果", "Authorization result received"],
   "此回调无效或授权未完成": [
     "此回呼無效或授權未完成",
-    "This callback is invalid or authorization is incomplete"
+    "This callback is invalid or authorization is incomplete",
   ],
   "</h2><p>请返回 SECL 查看验证结果。</p>": [
     "</h2><p>請返回 SECL 查看驗證結果。</p>",
-    "</h2><p>Return to SECL to view the verification result.</p>"
+    "</h2><p>Return to SECL to view the verification result.</p>",
   ],
   "等待浏览器授权超时，请重新开始。": [
     "等待瀏覽器授權超時，請重新開始。",
-    "Timed out waiting for browser authorization. Start sign-in again."
+    "Timed out waiting for browser authorization. Start sign-in again.",
   ],
   "登录已取消。": ["登入已取消。", "Sign-in cancelled."],
   "认证数据格式异常，登录未完成。": [
     "認證數據格式異常，登入未完成。",
-    "Authentication data is invalid. Sign-in did not complete."
+    "Authentication data is invalid. Sign-in did not complete.",
   ],
   "本地设置无法读取，已使用默认值。": [
     "本地設置無法讀取，已使用預設值。",
-    "Unable to read local settings. Defaults are being used."
+    "Unable to read local settings. Defaults are being used.",
   ],
   "游戏进程退出，代码 ": ["遊戲程序退出，代碼 ", "The game exited with code "],
   "。可查看游戏目录下的 logs/latest.log。": [
     "。可查看遊戲目錄下的 logs/latest.log。",
-    ". See logs/latest.log in the game folder."
+    ". See logs/latest.log in the game folder.",
   ],
   "另一个核心操作正在进行。": ["另一個核心操作正在進行。", "Another core operation is in progress."],
   "核心操作失败，配置或服务响应无效。": [
     "核心操作失敗，配置或服務響應無效。",
-    "The core operation failed because the configuration or service response is invalid."
+    "The core operation failed because the configuration or service response is invalid.",
   ],
   "本次启动的游戏仍在运行。": [
     "本次啓動的遊戲仍在執行。",
-    "The game launched by this session is still running."
+    "The game launched by this session is still running.",
   ],
   "不支持的核心操作。": ["不支援的核心操作。", "Unsupported core operation."],
   "核心请求无效。": ["核心請求無效。", "Invalid core request."],
   "本地配置或服务数据格式无效，操作未完成。": [
     "本地配置或服務數據格式無效，操作未完成。",
-    "Invalid local configuration or service data. The operation did not complete."
+    "Invalid local configuration or service data. The operation did not complete.",
   ],
   "游戏版本列表格式无效。": ["遊戲版本列表格式無效。", "Invalid game version list."],
   "游戏元数据 SHA-1 不匹配。": [
     "遊戲中繼資料 SHA-1 不匹配。",
-    "The game metadata SHA-1 does not match."
+    "The game metadata SHA-1 does not match.",
   ],
   "游戏元数据 ID 不匹配。": ["遊戲中繼資料 ID 不匹配。", "The game metadata ID does not match."],
   "下载并校验文件": ["下載並驗證檔案", "Downloading and verifying files"],
   "所选 Java 无法运行。": ["所選 Java 無法執行。", "The selected Java cannot run."],
   "所选 Java 低于默认版本；请先明确启用强制使用。": [
     "所選 Java 低於預設版本；請先明確啓用強制使用。",
-    "The selected Java is older than recommended. Explicitly enable the override first."
+    "The selected Java is older than recommended. Explicitly enable the override first.",
   ],
   "固定 Java 的构建、发行版或架构已变化。": [
     "固定 Java 的構建、發行版或架構已變化。",
-    "The pinned Java build, distribution, or architecture has changed."
+    "The pinned Java build, distribution, or architecture has changed.",
   ],
   "固定 Java 尚未选择。": ["固定 Java 尚未選擇。", "No Java runtime has been pinned."],
   "未找到匹配 Java，请手动安装。": [
     "未找到匹配 Java，請手動安裝。",
-    "No matching Java found. Install one manually."
+    "No matching Java found. Install one manually.",
   ],
   "此平台未提供官方 Java 运行时，请手动选择发行版。": [
     "此平台未提供官方 Java 執行環境，請手動選擇發行版。",
-    "No official Java runtime is available for this platform. Choose a distribution manually."
+    "No official Java runtime is available for this platform. Choose a distribution manually.",
   ],
   "此平台未提供该 Java 运行时，请手动安装。": [
     "此平台未提供該 Java 執行環境，請手動安裝。",
-    "This Java runtime is unavailable for the platform. Install Java manually."
+    "This Java runtime is unavailable for the platform. Install Java manually.",
   ],
   "Java 运行时元数据校验失败。": [
     "Java 執行環境中繼資料驗證失敗。",
-    "Java runtime metadata verification failed."
+    "Java runtime metadata verification failed.",
   ],
   "Java 运行时链接无法解析。": [
     "Java 執行環境連結無法解析。",
-    "Unable to resolve the Java runtime link."
+    "Unable to resolve the Java runtime link.",
   ],
   "Java 运行时缺少执行文件。": [
     "Java 執行環境缺少執行檔案。",
-    "The Java runtime executable is missing."
+    "The Java runtime executable is missing.",
   ],
   "下载的 Java 无法运行或版本、架构不匹配。": [
     "下載的 Java 無法執行或版本、架構不匹配。",
-    "The downloaded Java cannot run or its version or architecture does not match."
+    "The downloaded Java cannot run or its version or architecture does not match.",
   ],
   "实例 ID 无效。": ["實例 ID 無效。", "Invalid instance ID."],
   "需要已有版本或官方版本条目。": [
     "需要已有版本或官方版本條目。",
-    "An installed version or an official version entry is required."
+    "An installed version or an official version entry is required.",
   ],
   "不能同时使用多个主加载器。": [
     "不能同時使用多個主載入器。",
-    "Multiple primary loaders cannot be used together."
+    "Multiple primary loaders cannot be used together.",
   ],
   "该加载器尚未接入。": ["該載入器尚未接入。", "This loader is not supported yet."],
   "请为其他主加载器创建独立实例。": [
     "請為其他主載入器建立獨立實例。",
-    "Create a separate instance for another primary loader."
+    "Create a separate instance for another primary loader.",
   ],
   "请先移除 OptiFine 再更新主加载器。": [
     "請先移除 OptiFine 再更新主載入器。",
-    "Remove OptiFine before updating the primary loader."
+    "Remove OptiFine before updating the primary loader.",
   ],
   "外部加载器配置缺少原版元数据，不能直接覆盖。": [
     "外部載入器配置缺少原版中繼資料，不能直接覆蓋。",
-    "This external loader configuration has no vanilla metadata and cannot be overwritten."
+    "This external loader configuration has no vanilla metadata and cannot be overwritten.",
   ],
   "加载器启动配置与游戏版本不匹配。": [
     "載入器啓動配置與遊戲版本不匹配。",
-    "The loader launch configuration does not match the game version."
+    "The loader launch configuration does not match the game version.",
   ],
   "加载器构建不匹配。": ["載入器構建不匹配。", "The loader build does not match."],
   "该平台的原生运行库不存在。": [
     "該平台的原生執行階段程式庫不存在。",
-    "Native libraries are unavailable for this platform."
+    "Native libraries are unavailable for this platform.",
   ],
   "缺少官方客户端信息。": ["缺少官方用戶端資訊。", "Official client information is missing."],
   "缺少官方资源索引。": ["缺少官方資源索引。", "The official asset index is missing."],
   "资源哈希无效。": ["資源雜湊無效。", "Invalid asset hash."],
   "安装期间版本配置已变化，请重新确认。": [
     "安裝期間版本配置已變化，請重新確認。",
-    "The version configuration changed during installation. Confirm it again."
+    "The version configuration changed during installation. Confirm it again.",
   ],
   "账号列表格式无效。": ["帳號列表格式無效。", "Invalid account list."],
   "账号记录无效或重复。": ["帳號記錄無效或重復。", "An account entry is invalid or duplicated."],
   "选中的账号不存在。": ["選中的帳號不存在。", "The selected account does not exist."],
   "账号列表格式无效，原文件未覆盖。": [
     "帳號列表格式無效，原檔案未覆蓋。",
-    "Invalid account list. The original file has not been overwritten."
+    "Invalid account list. The original file has not been overwritten.",
   ],
   "资源项目标识无效。": ["資源項目標識無效。", "Invalid resource project ID."],
   "音效": ["音效", "Audio"],
@@ -757,170 +1056,170 @@ const catalog = <String, List<String>>{
   "资源类型无效。": ["資源類型無效。", "Invalid resource type."],
   "无法读取 Java 正式版版本清单。": [
     "無法讀取 Java 正式版版本清單。",
-    "Unable to read the Java general-availability release catalogue."
+    "Unable to read the Java general-availability release catalogue.",
   ],
   "发行源没有提供有效的 SHA-256。": [
     "發行源沒有提供有效的 SHA-256。",
-    "The distribution source did not provide a valid SHA-256."
+    "The distribution source did not provide a valid SHA-256.",
   ],
   "未知 Java 发行版。": ["未知 Java 發行版。", "Unknown Java distribution."],
   "许可摘要仅供说明；完整许可与第三方声明以所选构建包内 LICENSE 和 legal/ 为准。": [
     "許可摘要僅供說明；完整許可與第三方聲明以所選構建包內 LICENSE 和 legal/ 為準。",
-    "This license summary is informational. The LICENSE and legal/ files in the selected build contain the full terms and third-party notices."
+    "This license summary is informational. The LICENSE and legal/ files in the selected build contain the full terms and third-party notices.",
   ],
   "Java 版本或操作系统无效。": [
     "Java 版本或操作系統無效。",
-    "Invalid Java version or operating system."
+    "Invalid Java version or operating system.",
   ],
   "仅接受有效的 HTTPS 下载地址。": [
     "僅接受有效的 HTTPS 下載地址。",
-    "Only valid HTTPS download URLs are accepted."
+    "Only valid HTTPS download URLs are accepted.",
   ],
   "网络初始化失败。": ["網路初始化失敗。", "Network initialization failed."],
   "下载文件": ["下載檔案", "Downloading file"],
   "网络请求超时，请手动重试。": [
     "網路請求超時，請手動重試。",
-    "The network request timed out. Retry manually."
+    "The network request timed out. Retry manually.",
   ],
   "下载失败：": ["下載失敗：", "Download failed: "],
   "下载服务返回 HTTP ": ["下載服務返回 HTTP ", "The download service returned HTTP "],
   "服务返回的元数据无法解析。": ["服務返回的中繼資料無法解析。", "Unable to parse the service metadata."],
   "文件必须提供有效的 SHA 校验值。": [
     "檔案必須提供有效的 SHA 驗證值。",
-    "A valid SHA checksum is required."
+    "A valid SHA checksum is required.",
   ],
   "下载文件大小无效。": ["下載檔案大小無效。", "Invalid download size."],
   "无法创建下载暂存文件。": ["無法建立下載暫存檔案。", "Unable to create a temporary download file."],
   "下载文件大小或哈希校验失败。": [
     "下載檔案大小或雜湊驗證失敗。",
-    "The downloaded file size or hash does not match."
+    "The downloaded file size or hash does not match.",
   ],
   "无法提交已验证的下载文件。": ["無法提交已驗證的下載檔案。", "Unable to commit the verified download."],
   "凭据标识或长度无效。": ["憑據標識或長度無效。", "Invalid credential ID or length."],
   "凭据标识编码无效。": ["憑據標識編碼無效。", "Invalid credential ID encoding."],
   "无法访问系统钥匙串；可仅在本次会话中登录。": [
     "無法訪問系統鑰匙串；可僅在本次會話中登入。",
-    "Unable to access the system keychain. You can sign in for this session only."
+    "Unable to access the system keychain. You can sign in for this session only.",
   ],
   "凭据超过系统凭据库限制。": [
     "憑據超過系統憑據庫限制。",
-    "The credential exceeds the system credential store limit."
+    "The credential exceeds the system credential store limit.",
   ],
   "无法访问系统凭据管理器；可仅在本次会话中登录。": [
     "無法訪問系統憑據管理器；可僅在本次會話中登入。",
-    "Unable to access the system credential manager. You can sign in for this session only."
+    "Unable to access the system credential manager. You can sign in for this session only.",
   ],
   "无法访问系统 Secret Service；可仅在本次会话中登录。": [
     "無法訪問系統 Secret Service；可僅在本次會話中登入。",
-    "Unable to access the system Secret Service. You can sign in for this session only."
+    "Unable to access the system Secret Service. You can sign in for this session only.",
   ],
   "未找到有效的已保存凭据，请重新登录。": [
     "未找到有效的已保存憑據，請重新登入。",
-    "No valid saved credentials found. Sign in again."
+    "No valid saved credentials found. Sign in again.",
   ],
   "模组依赖层级或数量超过限制。": [
     "模組依賴層級或數量超過限制。",
-    "The mod dependency depth or count exceeds the limit."
+    "The mod dependency depth or count exceeds the limit.",
   ],
   "资源缺少项目标识。": ["資源缺少項目標識。", "The resource has no project ID."],
   "模组文件与目标游戏版本或加载器不匹配。": [
     "模組檔案與目標遊戲版本或載入器不匹配。",
-    "The mod does not match the target game version or loader."
+    "The mod does not match the target game version or loader.",
   ],
   "同一依赖被要求安装不同版本。": [
     "同一依賴被要求安裝不同版本。",
-    "Different versions of the same dependency are required."
+    "Different versions of the same dependency are required.",
   ],
   "依赖版本没有可安装文件。": [
     "依賴版本沒有可安裝檔案。",
-    "The dependency version has no installable file."
+    "The dependency version has no installable file.",
   ],
   "依赖版本与项目不一致。": [
     "依賴版本與項目不一致。",
-    "The dependency version belongs to a different project."
+    "The dependency version belongs to a different project.",
   ],
   "没有匹配文件": ["沒有匹配檔案", "No matching file"],
   "没有找到适配的前置模组文件。": ["沒有找到適配的前置模組檔案。", "No compatible dependency file found."],
   "内嵌依赖不能单独覆盖，需更新其所属模组。": [
     "內嵌依賴不能單獨覆蓋，需更新其所屬模組。",
-    "A bundled dependency cannot be replaced separately. Update its parent mod."
+    "A bundled dependency cannot be replaced separately. Update its parent mod.",
   ],
   "请先确认停用作者声明不兼容的组件。": [
     "請先確認停用作者聲明不兼容的組件。",
-    "Confirm that incompatible components declared by the author will be disabled first."
+    "Confirm that incompatible components declared by the author will be disabled first.",
   ],
   "模组目录正在被其他安装操作使用。": [
     "模組目錄正在被其他安裝操作使用。",
-    "Another installation is using the mods folder."
+    "Another installation is using the mods folder.",
   ],
   "确认后模组目录发生变化，请重新生成安装计划。": [
     "確認後模組目錄發生變化，請重新生成安裝計劃。",
-    "The mods folder changed after confirmation. Generate a new installation plan."
+    "The mods folder changed after confirmation. Generate a new installation plan.",
   ],
   "模组索引发生变化，请重新确认。": [
     "模組索引發生變化，請重新確認。",
-    "The mod index changed. Confirm the plan again."
+    "The mod index changed. Confirm the plan again.",
   ],
   "模组文件名无效。": ["模組檔名無效。", "Invalid mod filename."],
   "下载的模组缺少可确认的元数据。": [
     "下載的模組缺少可確認的中繼資料。",
-    "The downloaded mod has no verifiable metadata."
+    "The downloaded mod has no verifiable metadata.",
   ],
   "待替换文件发生变化。": ["待替換檔案發生變化。", "The file to replace has changed."],
   "目标模组文件已存在，不能静默覆盖。": [
     "目標模組檔案已存在，不能靜默覆蓋。",
-    "The target mod file already exists and cannot be overwritten silently."
+    "The target mod file already exists and cannot be overwritten silently.",
   ],
   "停用目标已存在。": ["停用目標已存在。", "The disable target already exists."],
   "启用计划的文件名无效。": ["啓用計劃的檔名無效。", "Invalid filename in the enable plan."],
   "启用目标已存在。": ["啓用目標已存在。", "The enable target already exists."],
   "用户取消选择了部分前置，游戏可能无法启动。": [
     "用戶取消選擇了部分前置，遊戲可能無法啓動。",
-    "Some dependencies were deselected. The game may not launch."
+    "Some dependencies were deselected. The game may not launch.",
   ],
   "不支持此主加载器。": ["不支援此主載入器。", "This primary loader is unsupported."],
   "无效的 Maven 坐标。": ["無效的 Maven 坐標。", "Invalid Maven coordinates."],
   "游戏版本无效。": ["遊戲版本無效。", "Invalid game version."],
   "加载器版本列表 XML 无效。": [
     "載入器版本列表 XML 無效。",
-    "Invalid XML in the loader version list."
+    "Invalid XML in the loader version list.",
   ],
   "加载器列表缺少版本数据。": ["載入器列表缺少版本數據。", "The loader list contains no version data."],
   "此加载器缺少校验记录，请重新安装。": [
     "此載入器缺少驗證記錄，請重新安裝。",
-    "This loader has no verification record. Reinstall it."
+    "This loader has no verification record. Reinstall it.",
   ],
   "加载器文件缺失或损坏：": ["載入器檔案缺失或損壞：", "Loader file missing or damaged: "],
   "加载器构建无效。": ["載入器構建無效。", "Invalid loader build."],
   "NeoForge 构建与游戏版本不匹配。": [
     "NeoForge 構建與遊戲版本不匹配。",
-    "The NeoForge build does not match the game version."
+    "The NeoForge build does not match the game version.",
   ],
   "此安装器格式或游戏版本尚未接入。": [
     "此安裝器格式或遊戲版本尚未接入。",
-    "This installer format or game version is not supported yet."
+    "This installer format or game version is not supported yet.",
   ],
   "安装器启动配置不匹配。": [
     "安裝器啓動配置不匹配。",
-    "The installer launch configuration does not match."
+    "The installer launch configuration does not match.",
   ],
   "安装变量存在循环引用。": [
     "安裝變量存在循環引用。",
-    "Installation variables contain a circular reference."
+    "Installation variables contain a circular reference.",
   ],
   "安装参数包含未知或循环变量。": [
     "安裝參數包含未知或循環變量。",
-    "Installation arguments contain unknown or circular variables."
+    "Installation arguments contain unknown or circular variables.",
   ],
   "安装参数无法解析。": ["安裝參數無法解析。", "Unable to parse installation arguments."],
   "安装库格式不支持。": ["安裝庫格式不支援。", "Unsupported installation library format."],
   "安装库校验声明冲突。": [
     "安裝庫驗證聲明衝突。",
-    "Installation library checksum declarations conflict."
+    "Installation library checksum declarations conflict.",
   ],
   "安装器内置库校验失败。": [
     "安裝器內置庫驗證失敗。",
-    "A library bundled with the installer failed verification."
+    "A library bundled with the installer failed verification.",
   ],
   "处理客户端补丁": ["處理用戶端補丁", "Applying client patches"],
   "补丁输出校验值无效。": ["補丁輸出驗證值無效。", "Invalid patch output checksum."],
@@ -928,18 +1227,18 @@ const catalog = <String, List<String>>{
   "映射下载缺少输出路径。": ["映射下載缺少輸出路徑。", "The mapping download has no output path."],
   "补丁工具未在校验清单中声明。": [
     "補丁工具未在驗證清單中聲明。",
-    "The patch tool is not declared in the verification list."
+    "The patch tool is not declared in the verification list.",
   ],
   "补丁工具没有有效主类。": ["補丁工具沒有有效主類別。", "The patch tool has no valid main class."],
   "补丁工具依赖未声明。": ["補丁工具依賴未聲明。", "A patch tool dependency is not declared."],
   "客户端补丁输出文件缺失。": ["用戶端補丁輸出檔案缺失。", "A client patch output file is missing."],
   "安装器生成了不支持的符号链接。": [
     "安裝器生成了不支援的符號連結。",
-    "The installer generated an unsupported symbolic link."
+    "The installer generated an unsupported symbolic link.",
   ],
   "加载器未生成运行库。": [
     "載入器未生成執行階段程式庫。",
-    "The loader did not generate runtime libraries."
+    "The loader did not generate runtime libraries.",
   ],
   "无法读取本地文件：": ["無法讀取本地檔案：", "Unable to read local file: "],
   "本地文件超过大小限制。": ["本地檔案超過大小限制。", "The local file exceeds the size limit."],
@@ -950,129 +1249,129 @@ const catalog = <String, List<String>>{
   "进程参数编码无效。": ["程序參數編碼無效。", "Invalid process argument encoding."],
   "无法创建游戏进程，系统代码 ": [
     "無法建立遊戲程序，系統代碼 ",
-    "Unable to create the game process. System code "
+    "Unable to create the game process. System code ",
   ],
   "无法打开浏览器。": ["無法打開瀏覽器。", "Unable to open the browser."],
   "无法准备启动进程。": ["無法準備啓動程序。", "Unable to prepare the launch process."],
   "无法创建游戏进程。": ["無法建立遊戲程序。", "Unable to create the game process."],
   "无法执行 Java，系统代码 ": [
     "無法執行 Java，系統代碼 ",
-    "Unable to execute Java. System code "
+    "Unable to execute Java. System code ",
   ],
   "无法移到系统回收站，文件未删除。": [
     "無法移到系統回收站，檔案未刪除。",
-    "Unable to move the file to the Recycle Bin. It was not deleted."
+    "Unable to move the file to the Recycle Bin. It was not deleted.",
   ],
   "无法移到系统废纸篓，文件未删除。": [
     "無法移到系統廢紙簍，檔案未刪除。",
-    "Unable to move the file to the Trash. It was not deleted."
+    "Unable to move the file to the Trash. It was not deleted.",
   ],
   "资源包不能是符号链接。": ["資源包不能是符號連結。", "A resource pack cannot be a symbolic link."],
   "资源目录包含符号链接。": [
     "資源目錄包含符號連結。",
-    "The resource folder contains symbolic links."
+    "The resource folder contains symbolic links.",
   ],
   "资源目录超过限制。": ["資源目錄超過限制。", "The resource folder exceeds the limit."],
   "资源包解压体积超过限制。": [
     "資源包解壓體積超過限制。",
-    "The unpacked resource size exceeds the limit."
+    "The unpacked resource size exceeds the limit.",
   ],
   "没有找到 shaders/ 目录下的着色器。": [
     "沒有找到 shaders/ 目錄下的著色器。",
-    "No shaders were found in the shaders/ folder."
+    "No shaders were found in the shaders/ folder.",
   ],
   "资源包缺少有效的 pack.mcmeta。": [
     "資源包缺少有效的 pack.mcmeta。",
-    "The resource pack has no valid pack.mcmeta."
+    "The resource pack has no valid pack.mcmeta.",
   ],
   "资源文件必须是有效的 ZIP 文件名。": [
     "資源檔案必須是有效的 ZIP 檔名。",
-    "The resource filename must be a valid ZIP filename."
+    "The resource filename must be a valid ZIP filename.",
   ],
   "资源文件缺少有效的 SHA-512 校验值。": [
     "資源檔案缺少有效的 SHA-512 驗證值。",
-    "The resource has no valid SHA-512 checksum."
+    "The resource has no valid SHA-512 checksum.",
   ],
   "资源文件不支持目标实例的游戏版本。": [
     "資源檔案不支援目標實例的遊戲版本。",
-    "The resource does not support the target instance's game version."
+    "The resource does not support the target instance's game version.",
   ],
   "同名目标不是普通文件，不能替换。": [
     "同名目標不是普通檔案，不能替換。",
-    "The existing target is not a regular file and cannot be replaced."
+    "The existing target is not a regular file and cannot be replaced.",
   ],
   "资源目录在确认后发生变化，请重新确认。": [
     "資源目錄在確認後發生變化，請重新確認。",
-    "The resource folder changed after confirmation. Confirm the plan again."
+    "The resource folder changed after confirmation. Confirm the plan again.",
   ],
   "已有同名资源，请明确确认替换。": [
     "已有同名資源，請明確確認替換。",
-    "A resource with this name already exists. Explicitly confirm replacement."
+    "A resource with this name already exists. Explicitly confirm replacement.",
   ],
   "下载期间资源目录发生变化，请重新确认。": [
     "下載期間資源目錄發生變化，請重新確認。",
-    "The resource folder changed during download. Confirm the plan again."
+    "The resource folder changed during download. Confirm the plan again.",
   ],
   "已有同名但不同内容的资源。": [
     "已有同名但不同內容的資源。",
-    "A different resource with the same name already exists."
+    "A different resource with the same name already exists.",
   ],
   "导入过程中资源发生变化。": ["導入過程中資源發生變化。", "The resource changed during import."],
   "资源文件名无效。": ["資源檔名無效。", "Invalid resource filename."],
   "官方兼容列表格式变化，保留已有规则。": [
     "官方兼容列表格式變化，保留已有規則。",
-    "The official compatibility list format changed. Existing rules are retained."
+    "The official compatibility list format changed. Existing rules are retained.",
   ],
   "官方兼容列表格式无效。": ["官方兼容列表格式無效。", "Invalid official compatibility list."],
   "只能打开 HTTPS 项目链接。": [
     "只能打開 HTTPS 項目連結。",
-    "Only HTTPS project links can be opened."
+    "Only HTTPS project links can be opened.",
   ],
   "项目数量超过限制。": ["項目數量超過限制。", "The project count exceeds the limit."],
   "不支持的核心操作：": ["不支援的核心操作：", "Unsupported core operation: "],
   "无法读取有效的系统可用内存，请手动指定。": [
     "無法讀取有效的系統可用記憶體，請手動指定。",
-    "Unable to determine available system memory. Set it manually."
+    "Unable to determine available system memory. Set it manually.",
   ],
   "当前可用内存不足以给出 512 MiB 的建议。": [
     "當前可用記憶體不足以給出 512 MiB 的建議。",
-    "There is not enough available memory to recommend 512 MiB."
+    "There is not enough available memory to recommend 512 MiB.",
   ],
   "当前内存预算低于整合包建议。": [
     "當前記憶體預算低於整合包建議。",
-    "The current memory budget is below the modpack recommendation."
+    "The current memory budget is below the modpack recommendation.",
   ],
   "当前可用内存限制了分配上限。": [
     "當前可用記憶體限制了分配上限。",
-    "Available memory limits the allocation maximum."
+    "Available memory limits the allocation maximum.",
   ],
   "内存参数超出范围。": ["記憶體參數超出範圍。", "Memory settings are out of range."],
   "窗口尺寸超出范围。": ["窗口尺寸超出範圍。", "Window dimensions are out of range."],
   "附加参数过长或包含无效字符。": [
     "附加參數過長或包含無效字符。",
-    "Additional arguments are too long or contain invalid characters."
+    "Additional arguments are too long or contain invalid characters.",
   ],
   "JVM 参数缺少选项值。": ["JVM 參數缺少選項值。", "A JVM argument is missing its value."],
   "附加 JVM 参数不能覆盖启动器管理的内存、主类或类路径。": [
     "附加 JVM 參數不能覆蓋啓動器管理的記憶體、主類別或類別路徑。",
-    "Additional JVM arguments cannot override launcher-managed memory, main class, or classpath."
+    "Additional JVM arguments cannot override launcher-managed memory, main class, or classpath.",
   ],
   "附加游戏参数不能覆盖已验证的身份和实例设置。": [
     "附加遊戲參數不能覆蓋已驗證的身份和實例設置。",
-    "Additional game arguments cannot override verified identity or instance settings."
+    "Additional game arguments cannot override verified identity or instance settings.",
   ],
   "实例设置必须是 JSON 对象。": [
     "實例設置必須是 JSON 對象。",
-    "Instance settings must be a JSON object."
+    "Instance settings must be a JSON object.",
   ],
   "SECL 不提供离线身份设置。": [
     "SECL 不提供離線身份設置。",
-    "SECL does not provide offline identity settings."
+    "SECL does not provide offline identity settings.",
   ],
   "版本配置无法读取。": ["版本配置無法讀取。", "Unable to read the version configuration."],
   "同时检测到多个主加载器，请使用独立实例。": [
     "同時檢測到多個主載入器，請使用獨立實例。",
-    "Multiple primary loaders detected. Use separate instances."
+    "Multiple primary loaders detected. Use separate instances.",
   ],
   "操作已取消。": ["操作已取消。", "Operation cancelled."],
   "路径无效。": ["路徑無效。", "Invalid path."],
@@ -1088,18 +1387,18 @@ const catalog = <String, List<String>>{
   "校验已取消。": ["驗證已取消。", "Verification cancelled."],
   "无法完整读取待校验文件。": [
     "無法完整讀取待驗證檔案。",
-    "Unable to read the complete file for verification."
+    "Unable to read the complete file for verification.",
   ],
   "ZIP 数据被截断。": ["ZIP 數據被截斷。", "Truncated ZIP data."],
   "压缩包格式无效或不支持 ZIP64。": [
     "壓縮包格式無效或不支援 ZIP64。",
-    "Invalid archive format or unsupported ZIP64."
+    "Invalid archive format or unsupported ZIP64.",
   ],
   "ZIP 目录损坏。": ["ZIP 目錄損壞。", "Corrupt ZIP directory."],
   "ZIP 文件名损坏。": ["ZIP 檔名損壞。", "Corrupt ZIP filename."],
   "压缩包包含加密或符号链接条目。": [
     "壓縮包包含加密或符號連結條目。",
-    "The archive contains encrypted entries or symbolic links."
+    "The archive contains encrypted entries or symbolic links.",
   ],
   "ZIP 目录越界。": ["ZIP 目錄越界。", "The ZIP directory is out of bounds."],
   "压缩包条目过大或损坏。": ["壓縮包條目過大或損壞。", "An archive entry is too large or corrupt."],
@@ -1115,25 +1414,25 @@ const catalog = <String, List<String>>{
   "模组缺少 ID 或版本。": ["模組缺少 ID 或版本。", "The mod has no ID or version."],
   "无法识别模组元数据，需手动确认兼容性。": [
     "無法識別模組中繼資料，需手動確認兼容性。",
-    "Unrecognized mod metadata. Confirm compatibility manually."
+    "Unrecognized mod metadata. Confirm compatibility manually.",
   ],
   "未知文件": ["未知檔案", "Unknown file"],
   "元数据未知": ["中繼資料未知", "Unknown metadata"],
   "：加载器不匹配（": ["：載入器不匹配（", ": Loader mismatch ("],
   "OptiFine 必须由版本组件安装流程验证，不能作为普通模组直接启用。": [
     "OptiFine 必須由版本組件安裝流程驗證，不能作為普通模組直接啓用。",
-    "OptiFine must be verified through the version component installer and cannot be enabled as a regular mod."
+    "OptiFine must be verified through the version component installer and cannot be enabled as a regular mod.",
   ],
   "加载器与 Java 是实例版本组件，不能由 mods 文件替代：": [
     "載入器與 Java 是實例版本組件，不能由 mods 檔案替代：",
-    "Loaders and Java are instance version components and cannot be replaced by mods files: "
+    "Loaders and Java are instance version components and cannot be replaced by mods files: ",
   ],
   "重复模组 ID：": ["重復模組 ID：", "Duplicate mod ID: "],
   " 缺少前置：": [" 缺少前置：", " requires dependency: "],
   " 前置版本不符合：": [" 前置版本不符合：", " has an incompatible dependency version: "],
   "无法完整比较版本范围：": [
     "無法完整比較版本範圍：",
-    "Unable to compare the complete version range: "
+    "Unable to compare the complete version range: ",
   ],
   " 与 ": [" 與 ", " and "],
   " 不兼容。": [" 不兼容。", " are incompatible."],
@@ -1141,58 +1440,58 @@ const catalog = <String, List<String>>{
   "Quilt 官方兼容性提醒：": ["Quilt 官方兼容性提醒：", "Quilt official compatibility notice: "],
   "。未提供精确文件哈希，需核对具体构建。": [
     "。未提供精確檔案雜湊，需核對具體構建。",
-    ". No exact file hash was provided. Check the specific build."
+    ". No exact file hash was provided. Check the specific build.",
   ],
   "已有同名但内容不同的模组。": [
     "已有同名但內容不同的模組。",
-    "A different mod with the same name already exists."
+    "A different mod with the same name already exists.",
   ],
   "复制过程中原文件发生变化。": ["複製過程中原檔案發生變化。", "The source file changed while copying."],
   "OptiFine 属于版本组件，请通过版本组件接口修改。": [
     "OptiFine 屬於版本組件，請通過版本組件接口修改。",
-    "OptiFine is a version component. Modify it through the version component interface."
+    "OptiFine is a version component. Modify it through the version component interface.",
   ],
   "模组文件已变化，请刷新列表。": [
     "模組檔案已變化，請刷新列表。",
-    "The mod file changed. Refresh the list."
+    "The mod file changed. Refresh the list.",
   ],
   " 仍依赖所选模组，请一起选择或先禁用依赖者。": [
     " 仍依賴所選模組，請一起選擇或先禁用依賴者。",
-    " still depends on the selected mods. Select it too or disable the dependent first."
+    " still depends on the selected mods. Select it too or disable the dependent first.",
   ],
   "其他已启用模组仍依赖所选项目。": [
     "其他已啓用模組仍依賴所選項目。",
-    "Other enabled mods still depend on the selection."
+    "Other enabled mods still depend on the selection.",
   ],
   "OptiFine 属于版本组件。": ["OptiFine 屬於版本組件。", "OptiFine is a version component."],
   "启停目标文件已存在。": [
     "啓停目標檔案已存在。",
-    "The enable or disable target file already exists."
+    "The enable or disable target file already exists.",
   ],
   "版本配置包含不安全的相对路径。": [
     "版本配置包含不安全的相對路徑。",
-    "The version configuration contains an unsafe relative path."
+    "The version configuration contains an unsafe relative path.",
   ],
   "游戏目录不可访问。": ["遊戲目錄不可訪問。", "The game folder is inaccessible."],
   "文件路径不可访问。": ["檔案路徑不可訪問。", "The file path is inaccessible."],
   "版本配置路径指向游戏目录之外。": [
     "版本配置路徑指向遊戲目錄之外。",
-    "The version configuration points outside the game folder."
+    "The version configuration points outside the game folder.",
   ],
   "版本规则格式无效。": ["版本規則格式無效。", "Invalid version rules."],
   "系统版本规则无效。": ["系統版本規則無效。", "Invalid system version rule."],
   "版本名称无效或继承层级过深。": [
     "版本名稱無效或繼承層級過深。",
-    "Invalid version name or excessive inheritance depth."
+    "Invalid version name or excessive inheritance depth.",
   ],
   "无法解析版本配置：": ["無法解析版本配置：", "Unable to parse version configuration: "],
   "游戏目录不存在，请选择已安装游戏的 .minecraft 目录。": [
     "遊戲目錄不存在，請選擇已安裝遊戲的 .minecraft 目錄。",
-    "The game folder does not exist. Choose an installed .minecraft folder."
+    "The game folder does not exist. Choose an installed .minecraft folder.",
   ],
   "该目录没有 versions 文件夹，不会自动下载游戏。": [
     "該目錄沒有 versions 資料夾，不會自動下載遊戲。",
-    "This folder has no versions folder. Games are not downloaded automatically."
+    "This folder has no versions folder. Games are not downloaded automatically.",
   ],
   "OptiFine 类文件截断。": ["OptiFine 類檔案截斷。", "Truncated OptiFine class file."],
   "无效的 Java 类文件。": ["無效的 Java 類檔案。", "Invalid Java class file."],
@@ -1201,180 +1500,717 @@ const catalog = <String, List<String>>{
   "字段属性截断。": ["字段屬性截斷。", "Truncated field attributes."],
   "安装包没有受支持的 OptiFine 补丁器。": [
     "安裝包沒有受支援的 OptiFine 補丁器。",
-    "The installer has no supported OptiFine patcher."
+    "The installer has no supported OptiFine patcher.",
   ],
   "无法从安装包内部读取 OptiFine 构建。": [
     "無法從安裝包內部讀取 OptiFine 構建。",
-    "Unable to read the OptiFine build from the installer."
+    "Unable to read the OptiFine build from the installer.",
   ],
   "OptiFine 与 Minecraft 版本不一致。": [
     "OptiFine 與 Minecraft 版本不一致。",
-    "OptiFine and Minecraft versions do not match."
+    "OptiFine and Minecraft versions do not match.",
   ],
   "仅支持原版 / Forge 的 OptiFine 安装；不能与 Fabric、Quilt、NeoForge 或 Iris 混装。": [
     "僅支援原版 / Forge 的 OptiFine 安裝；不能與 Fabric、Quilt、NeoForge 或 Iris 混裝。",
-    "OptiFine installation is supported only for vanilla or Forge. Do not mix it with Fabric, Quilt, NeoForge, or Iris."
+    "OptiFine installation is supported only for vanilla or Forge. Do not mix it with Fabric, Quilt, NeoForge, or Iris.",
   ],
   "发布方未明确标注匹配的 Forge 构建。": [
     "發佈方未明確標注匹配的 Forge 構建。",
-    "The publisher did not specify a matching Forge build."
+    "The publisher did not specify a matching Forge build.",
   ],
   "OptiFine 标注 Forge ": ["OptiFine 標注 Forge ", "OptiFine specifies Forge "],
   "，与当前构建不同；不会自动更换主加载器。": [
     "，與當前構建不同；不會自動更換主載入器。",
-    ", which differs from the current build. The primary loader will not be changed automatically."
+    ", which differs from the current build. The primary loader will not be changed automatically.",
   ],
   "OptiFine 官网列表格式无效。": [
     "OptiFine 官網列表格式無效。",
-    "Invalid OptiFine website list format."
+    "Invalid OptiFine website list format.",
   ],
   "镜像列表格式无效。": ["鏡像列表格式無效。", "Invalid mirror list format."],
   "不能自动还原缺少原版记录的 OptiFine 配置。": [
     "不能自動還原缺少原版記錄的 OptiFine 配置。",
-    "Unable to restore an OptiFine configuration with no vanilla record."
+    "Unable to restore an OptiFine configuration with no vanilla record.",
   ],
   "原 OptiFine 文件已被外部修改。": [
     "原 OptiFine 檔案已被外部修改。",
-    "The previous OptiFine file was modified externally."
+    "The previous OptiFine file was modified externally.",
   ],
   "此实例没有受管理的 OptiFine。": [
     "此實例沒有受管理的 OptiFine。",
-    "This instance has no managed OptiFine installation."
+    "This instance has no managed OptiFine installation.",
   ],
   "无效的 OptiFine 操作。": ["無效的 OptiFine 操作。", "Invalid OptiFine operation."],
   "实例含多个主加载器。": [
     "實例含多個主載入器。",
-    "This instance contains multiple primary loaders."
+    "This instance contains multiple primary loaders.",
   ],
   "请先停用冲突组件：": ["請先停用衝突組件：", "Disable conflicting components first: "],
   "检测到手动安装的 OptiFine，请先处理旧副本。": [
     "檢測到手動安裝的 OptiFine，請先處理舊副本。",
-    "A manually installed OptiFine was detected. Resolve the old copy first."
+    "A manually installed OptiFine was detected. Resolve the old copy first.",
   ],
   "OptiFine 构建名无效。": ["OptiFine 構建名無效。", "Invalid OptiFine build name."],
   "OptiFine 官方页面未提供下载链接，请选择本地安装包。": [
     "OptiFine 官方頁面未提供下載連結，請選擇本地安裝包。",
-    "No download link is available on the official OptiFine page. Select a local installer."
+    "No download link is available on the official OptiFine page. Select a local installer.",
   ],
   "OptiFine 下载链接不匹配。": [
     "OptiFine 下載連結不匹配。",
-    "The OptiFine download link does not match."
+    "The OptiFine download link does not match.",
   ],
   "安装包内部版本不匹配。": [
     "安裝包內部版本不匹配。",
-    "The version inside the installer does not match."
+    "The version inside the installer does not match.",
   ],
   "安装包内部版本与选择的构建不匹配。": [
     "安裝包內部版本與選擇的構建不匹配。",
-    "The version inside the installer does not match the selected build."
+    "The version inside the installer does not match the selected build.",
   ],
   "目标 OptiFine 文件已存在。": [
     "目標 OptiFine 檔案已存在。",
-    "The target OptiFine file already exists."
+    "The target OptiFine file already exists.",
   ],
   "OptiFine 补丁输出无效。": ["OptiFine 補丁輸出無效。", "Invalid OptiFine patch output."],
   "此旧版 OptiFine 启动包装器尚未接入。": [
     "此舊版 OptiFine 啓動包裝器尚未接入。",
-    "This legacy OptiFine launch wrapper is not supported yet."
+    "This legacy OptiFine launch wrapper is not supported yet.",
   ],
   "OptiFine 启动包装器缺失。": [
     "OptiFine 啓動包裝器缺失。",
-    "The OptiFine launch wrapper is missing."
+    "The OptiFine launch wrapper is missing.",
   ],
   "确认后版本配置发生变化。": [
     "確認後版本配置發生變化。",
-    "The version configuration changed after confirmation."
+    "The version configuration changed after confirmation.",
   ],
   "无法初始化安全连接。": ["無法初始化安全連接。", "Unable to initialize a secure connection."],
   "无法初始化网络。": ["無法初始化網路。", "Unable to initialize networking."],
   "连接或请求超时，请手动重试。": [
     "連接或請求超時，請手動重試。",
-    "The connection or request timed out. Retry manually."
+    "The connection or request timed out. Retry manually.",
   ],
   "网络请求失败：": ["網路請求失敗：", "Network request failed: "],
   "登录回调格式无效。": ["登入回呼格式無效。", "Invalid sign-in callback format."],
   "登录回调包含重复参数。": [
     "登入回呼包含重復參數。",
-    "The sign-in callback contains duplicate parameters."
+    "The sign-in callback contains duplicate parameters.",
   ],
   "登录回调与当前会话不匹配。": [
     "登入回呼與當前會話不匹配。",
-    "The sign-in callback does not match this session."
+    "The sign-in callback does not match this session.",
   ],
   "微软授权已取消或被拒绝，请重新登录。": [
     "微軟授權已取消或被拒絕，請重新登入。",
-    "Microsoft authorization was cancelled or denied. Sign in again."
+    "Microsoft authorization was cancelled or denied. Sign in again.",
   ],
   "登录回调没有有效授权码。": [
     "登入回呼沒有有效授權碼。",
-    "The sign-in callback has no valid authorization code."
+    "The sign-in callback has no valid authorization code.",
   ],
   "服务拒绝了请求。": ["服務拒絕了請求。", "The service rejected the request."],
   "Minecraft Services 拒绝访问，请核对本应用的 API 授权和账号状态。不会替换为其他启动器的应用身份。": [
     "Minecraft Services 拒絕訪問，請核對本應用的 API 授權和帳號狀態。不會替換為其他啓動器的應用身份。",
-    "Minecraft Services denied access. Check this app's API approval and the account status. Another launcher's application identity will not be substituted."
+    "Minecraft Services denied access. Check this app's API approval and the account status. Another launcher's application identity will not be substituted.",
   ],
   "服务拒绝访问，请核对账号与应用权限。": [
     "服務拒絕訪問，請核對帳號與應用權限。",
-    "The service denied access. Check account and app permissions."
+    "The service denied access. Check account and app permissions.",
   ],
   "请求过于频繁，请稍后手动重试。": [
     "請求過於頻繁，請稍後手動重試。",
-    "Too many requests. Wait and retry manually."
+    "Too many requests. Wait and retry manually.",
   ],
   "服务暂时不可用，请稍后手动重试。": [
     "服務暫時不可用，請稍後手動重試。",
-    "The service is temporarily unavailable. Wait and retry manually."
+    "The service is temporarily unavailable. Wait and retry manually.",
   ],
   "登录会话失效，请重新登录。": [
     "登入會話失效，請重新登入。",
-    "The sign-in session expired. Sign in again."
+    "The sign-in session expired. Sign in again.",
   ],
   "应用注册配置无效，请检查 SECL 的 Client ID 和回调地址。": [
     "應用註冊配置無效，請檢查 SECL 的 Client ID 和回呼地址。",
-    "Invalid app registration. Check SECL's client ID and redirect URI."
+    "Invalid app registration. Check SECL's client ID and redirect URI.",
   ],
   "服务返回了无效的 JSON 数据。": [
     "服務返回了無效的 JSON 數據。",
-    "The service returned invalid JSON data."
+    "The service returned invalid JSON data.",
   ],
   "服务返回的身份数据不完整。": [
     "服務返回的身份數據不完整。",
-    "The service returned incomplete identity data."
+    "The service returned incomplete identity data.",
   ],
   "Xbox 未返回玩家身份。": ["Xbox 未返回玩家身份。", "Xbox did not return a player identity."],
   "Xbox 返回的身份不一致。": [
     "Xbox 返回的身份不一致。",
-    "Xbox returned inconsistent identity data."
+    "Xbox returned inconsistent identity data.",
   ],
   "Minecraft 凭据有效期无效。": [
     "Minecraft 憑據有效期無效。",
-    "Invalid Minecraft credential expiry."
+    "Invalid Minecraft credential expiry.",
   ],
   "未检测到 Minecraft: Java Edition 游戏资格，请在官网核对购买或订阅状态。": [
     "未檢測到 Minecraft: Java Edition 遊戲資格，請在官網核對購買或訂閱狀態。",
-    "No Minecraft: Java Edition ownership found. Check your purchase or subscription on the official website."
+    "No Minecraft: Java Edition ownership found. Check your purchase or subscription on the official website.",
   ],
   "Minecraft 角色信息无效，无法启动游戏。": [
     "Minecraft 角色資訊無效，無法啓動遊戲。",
-    "Invalid Minecraft profile. The game cannot be launched."
+    "Invalid Minecraft profile. The game cannot be launched.",
   ],
   "设置": ["設定", "Settings"],
   "界面语言": ["介面語言", "Interface language"],
   "跟随系统": ["跟隨系統", "Follow system"],
   "切换后立即生效。项目介绍和文件名保留原文。": [
     "切換後立即生效。項目介紹和檔名保留原文。",
-    "Changes apply immediately. Project descriptions and filenames stay in their original language."
+    "Changes apply immediately. Project descriptions and filenames stay in their original language.",
   ],
   "不支持的界面语言。": ["不支援的界面語言。", "Unsupported interface language."],
   "服务暂时不可用": ["服務暫時不可用", "The service is temporarily unavailable"],
   "请先配置 SECL 自己的 Client ID。": [
     "請先配置 SECL 自己的 Client ID。",
-    "Configure SECL’s own client ID first."
+    "Configure SECL’s own client ID first.",
   ],
   "需要下载的依赖": ["需要下載的依賴", "Dependencies to download"],
+  "存在冲突": ["存在衝突", "Conflict found"],
+  "未发现已知冲突": ["未發現已知衝突", "No known conflict"],
+  "需核实": ["需核實", "Needs review"],
+  "本地已识别": ["本機已識別", "Local metadata recognized"],
+  "本地文件无效": ["本機檔案無效", "Invalid local file"],
+  "本地元数据未知": ["本機中繼資料未知", "Local metadata unknown"],
+  "来源已匹配": ["來源已符合", "Source matched"],
+  "来源未匹配": ["來源未符合", "Source unmatched"],
+  "来源查询失败": ["來源查詢失敗", "Source lookup failed"],
+  "来源未查询": ["來源未查詢", "Source not checked"],
+  "静态检查未发现已知冲突，仍需在游戏内验证。": [
+    "靜態檢查未發現已知衝突，仍需在遊戲內驗證。",
+    "Static checks found no known conflict. Verify in the game.",
+  ],
+  "来源查询失败，本地资源仍可查看。": [
+    "來源查詢失敗，仍可檢視本機資源。",
+    "Source lookup failed. Local resources remain available.",
+  ],
+  "重试来源查询": ["重試來源查詢", "Retry source lookup"],
+  "模组来源索引格式异常，已保留原文件。": [
+    "模組來源索引格式異常，已保留原始檔案。",
+    "The mod source index is malformed. The original file was retained.",
+  ],
+  "模组文件无法读取，请检查文件后刷新。": [
+    "無法讀取模組檔案，請檢查檔案後重新整理。",
+    "Unable to read the mod file. Check the file and refresh.",
+  ],
+  "运行环境版本未知，无法完整检查：": [
+    "執行環境版本未知，無法完整檢查：",
+    "Runtime version unknown; unable to complete checks for: ",
+  ],
+  "无法完整检查冲突版本范围：": [
+    "無法完整檢查衝突版本範圍：",
+    "Unable to fully check the conflicting version range: ",
+  ],
+  "模组来源返回格式异常。": [
+    "模組來源傳回的格式異常。",
+    "The mod source service returned an invalid response.",
+  ],
+  "模组文件发生变化，请刷新后重试。": [
+    "模組檔案已變更，請重新整理後重試。",
+    "Mod files changed. Refresh and try again.",
+  ],
+  "此加载器不能使用 Iris 自动方案，请配置对应版本的光影组件。": [
+    "此載入器無法使用 Iris 自動方案，請設定對應版本的光影元件。",
+    "Automatic Iris setup is unavailable for this loader. Configure shader support for this version.",
+  ],
+  "没有找到适配此实例的正式版 Iris。": [
+    "找不到符合此實例的 Iris 正式版本。",
+    "No Iris release matches this instance.",
+  ],
+  "模组文件不存在或不是普通文件。": [
+    "模組檔案不存在或不是一般檔案。",
+    "The mod file is missing or is not a regular file.",
+  ],
+  "模组元数据必须是对象。": ["模組中繼資料必須是物件。", "Mod metadata must be an object."],
+  "模组元数据字段必须是字符串：": [
+    "模組中繼資料欄位必須是字串：",
+    "A mod metadata field must be a string: ",
+  ],
+  "模组元数据字段必须是布尔值：": [
+    "模組中繼資料欄位必須是布林值：",
+    "A mod metadata field must be a boolean: ",
+  ],
+  "模组元数据数组无效或超过限制：": [
+    "模組中繼資料陣列無效或超過限制：",
+    "A mod metadata array is invalid or exceeds the limit: ",
+  ],
+  "模组声明的 ID 或版本为空。": [
+    "模組宣告的 ID 或版本為空。",
+    "A declared mod ID or version is empty.",
+  ],
+  "模组声明的 ID 为空。": ["模組宣告的 ID 為空。", "A declared mod ID is empty."],
+  "模组 ID 不符合加载器规定，需手动确认。": [
+    "模組 ID 不符合載入器規定，需手動確認。",
+    "The mod ID does not follow the loader's rules. Check it manually.",
+  ],
+  "模组或别名版本包含未替换的占位符。": [
+    "模組或別名版本包含未取代的預留位置。",
+    "A mod or alias version contains an unresolved placeholder.",
+  ],
+  "同一模组别名声明了多个版本，需手动确认。": [
+    "同一模組別名宣告了多個版本，需手動確認。",
+    "A mod alias declares multiple versions. Check it manually.",
+  ],
+  "模组依赖缺少 ID。": ["模組相依項目缺少 ID。", "A mod dependency is missing its ID."],
+  "模组依赖表达式层级过深。": [
+    "模組相依運算式層級過深。",
+    "Mod dependency expressions are nested too deeply.",
+  ],
+  "模组依赖版本范围为空。": ["模組相依版本範圍為空。", "A mod dependency version range is empty."],
+  "依赖版本范围包含未替换的占位符。": [
+    "相依版本範圍包含未取代的預留位置。",
+    "A dependency version range contains an unresolved placeholder.",
+  ],
+  "模组依赖版本数组为空。": ["模組相依版本陣列為空。", "A mod dependency version array is empty."],
+  "Quilt 版本数组按任一版本匹配，建议检查其范围。": [
+    "Quilt 版本陣列會符合其中任一版本，建議檢查其範圍。",
+    "Quilt version arrays match any listed range. Review the intended range.",
+  ],
+  "模组依赖版本数组必须只包含字符串。": [
+    "模組相依版本陣列必須只包含字串。",
+    "A mod dependency version array must contain only strings.",
+  ],
+  "Quilt 版本约束组为空。": [
+    "Quilt 版本限制群組為空。",
+    "A Quilt version constraint group is empty.",
+  ],
+  "无法识别模组依赖版本范围：": [
+    "無法識別模組相依版本範圍：",
+    "Unrecognized mod dependency version range: ",
+  ],
+  "Quilt 依赖组为空。": ["Quilt 相依群組為空。", "A Quilt dependency group is empty."],
+  "Quilt 依赖必须是字符串、对象或数组。": [
+    "Quilt 相依項目必須是字串、物件或陣列。",
+    "A Quilt dependency must be a string, object, or array.",
+  ],
+  "Quilt 依赖环境扩展的处理取决于游戏提供器，需手动确认。": [
+    "Quilt 相依環境擴充的處理取決於遊戲提供器，需手動確認。",
+    "Quilt dependency environment extensions depend on the game provider. Check them manually.",
+  ],
+  "依赖含未支持的字段：": [
+    "相依項目含未支援的欄位：",
+    "A dependency contains an unsupported field: ",
+  ],
+  "模组图标路径必须是字符串。": ["模組圖示路徑必須是字串。", "A mod icon path must be a string."],
+  "模组图标声明无效。": ["模組圖示宣告無效。", "Invalid mod icon declaration."],
+  "模组元数据版本未受完整支持。": [
+    "模組中繼資料版本未受完整支援。",
+    "This mod metadata schema is not fully supported.",
+  ],
+  "模组加载器元数据必须是对象。": [
+    "模組載入器中繼資料必須是物件。",
+    "Mod loader metadata must be an object.",
+  ],
+  "模组版本包含未替换的占位符。": [
+    "模組版本包含未取代的預留位置。",
+    "The mod version contains an unresolved placeholder.",
+  ],
+  "Quilt 元数据缺少 Maven 组，分组依赖无法可靠核对。": [
+    "Quilt 中繼資料缺少 Maven 群組，無法可靠核對分組相依項目。",
+    "Quilt metadata has no Maven group. Group-qualified dependencies cannot be reliably checked.",
+  ],
+  "Quilt 加载元数据含未支持的字段：": [
+    "Quilt 載入中繼資料含未支援的欄位：",
+    "Quilt loading metadata contains an unsupported field: ",
+  ],
+  "Quilt 模组要求的加载器功能尚未核对。": [
+    "Quilt 模組要求的載入器功能尚未核對。",
+    "The loader features required by this Quilt mod have not been checked.",
+  ],
+  "Quilt 插件可更改模组发现及依赖规则，需手动确认。": [
+    "Quilt 外掛程式可變更模組探索及相依規則，需手動確認。",
+    "Quilt plugins can change mod discovery and dependency rules. Check them manually.",
+  ],
+  "无法识别 Quilt 模组加载策略。": [
+    "無法識別 Quilt 模組載入策略。",
+    "Unrecognized Quilt mod loading policy.",
+  ],
+  "Fabric 依赖表无效。": ["Fabric 相依表無效。", "Invalid Fabric dependency table."],
+  "无法识别模组运行环境。": ["無法識別模組執行環境。", "Unrecognized mod environment."],
+  "模组别名声明格式无效。": ["模組別名宣告格式無效。", "Invalid mod alias declaration."],
+  "Quilt 顶层 jars 不属于标准加载元数据。": [
+    "Quilt 頂層 jars 不屬於標準載入中繼資料。",
+    "Top-level Quilt jars are not part of the standard loading metadata.",
+  ],
+  "Quilt 内嵌 JAR 使用了非标准对象格式。": [
+    "Quilt 內嵌 JAR 使用了非標準物件格式。",
+    "A bundled Quilt JAR uses a nonstandard object format.",
+  ],
+  "内嵌模组声明格式无效。": ["內嵌模組宣告格式無效。", "Invalid bundled mod declaration."],
+  "模组版本中的文件属性无法解析，需手动确认。": [
+    "模組版本中的檔案屬性無法解析，需手動確認。",
+    "A file property in the mod version could not be resolved. Check it manually.",
+  ],
+  "Forge 模组缺少语言加载器或其版本范围。": [
+    "Forge 模組缺少語言載入器或其版本範圍。",
+    "A Forge mod is missing its language loader or version range.",
+  ],
+  "自定义语言加载器的安装与版本需手动确认。": [
+    "自訂語言載入器的安裝與版本需手動確認。",
+    "Confirm the custom language loader's installation and version manually.",
+  ],
+  "Forge 元数据缺少 mods 声明。": [
+    "Forge 中繼資料缺少 mods 宣告。",
+    "Forge metadata is missing its mods declarations.",
+  ],
+  "Forge 文件属性表无效。": ["Forge 檔案屬性表無效。", "Invalid Forge file properties table."],
+  "Forge 文件包含重复的模组 ID。": [
+    "Forge 檔案包含重複的模組 ID。",
+    "A Forge file declares duplicate mod IDs.",
+  ],
+  "Forge 依赖表无效。": ["Forge 相依表無效。", "Invalid Forge dependency table."],
+  "依赖表引用了本 JAR 未声明的模组。": [
+    "相依表參照了本 JAR 未宣告的模組。",
+    "A dependency table references a mod not declared by this JAR.",
+  ],
+  "Forge 依赖缺少 modId。": [
+    "Forge 相依項目缺少 modId。",
+    "A Forge dependency is missing its modId.",
+  ],
+  "无法识别 Forge 依赖的运行端。": [
+    "無法識別 Forge 相依項目的執行端。",
+    "Unrecognized Forge dependency side.",
+  ],
+  "无法识别 Forge 依赖类型：": [
+    "無法識別 Forge 相依類型：",
+    "Unrecognized Forge dependency type: ",
+  ],
+  "Forge 依赖使用 NeoForge 类型字段，需核对加载器。": [
+    "Forge 相依項目使用 NeoForge 類型欄位，需核對載入器。",
+    "A Forge dependency uses a NeoForge type field. Check the loader.",
+  ],
+  "依赖加载顺序约束尚未核对，需确认是否存在循环。": [
+    "相依載入順序限制尚未核對，需確認是否存在循環。",
+    "Dependency loading order has not been checked. Check for cycles.",
+  ],
+  "Forge 功能需求表无效。": [
+    "Forge 功能需求表無效。",
+    "Invalid Forge feature requirements table.",
+  ],
+  "模组功能需求尚未核对：": [
+    "模組功能需求尚未核對：",
+    "A mod feature requirement has not been checked: ",
+  ],
+  "Mixin 行为版本尚未核对。": [
+    "Mixin 行為版本尚未核對。",
+    "The Mixin behavior version has not been checked.",
+  ],
+  "Forge 加载元数据含未支持的字段：": [
+    "Forge 載入中繼資料含未支援的欄位：",
+    "Forge loading metadata contains an unsupported field: ",
+  ],
+  "内嵌 JAR 路径无效。": ["內嵌 JAR 路徑無效。", "Invalid bundled JAR path."],
+  "声明的内嵌 JAR 不存在或为空：": [
+    "宣告的內嵌 JAR 不存在或為空：",
+    "A declared bundled JAR is missing or empty: ",
+  ],
+  "内嵌模组总大小超过限制。": [
+    "內嵌模組總大小超過限制。",
+    "The combined size of bundled mods exceeds the limit.",
+  ],
+  "内嵌 JAR 声明重复。": ["內嵌 JAR 宣告重複。", "Duplicate bundled JAR declaration."],
+  "内嵌模组元数据无法识别：": ["內嵌模組中繼資料無法識別：", "Unrecognized bundled mod metadata: "],
+  "内嵌 JAR 只有其他加载器的模组声明，未将其视为当前加载器的依赖提供者。": [
+    "內嵌 JAR 只有其他載入器的模組宣告，未將其視為目前載入器的相依提供者。",
+    "A bundled JAR only declares mods for another loader. It is not treated as a dependency provider for this loader.",
+  ],
+  "JarJar 元数据含未支持的字段：": [
+    "JarJar 中繼資料含未支援的欄位：",
+    "JarJar metadata contains an unsupported field: ",
+  ],
+  "JarJar 内嵌 JAR 声明重复。": [
+    "JarJar 內嵌 JAR 宣告重複。",
+    "Duplicate JarJar bundled JAR declaration.",
+  ],
+  "JarJar 元数据缺少组件标识或版本。": [
+    "JarJar 中繼資料缺少元件識別碼或版本。",
+    "JarJar metadata is missing an artifact identifier or version.",
+  ],
+  "JarJar 组件含未支持的字段：": [
+    "JarJar 元件含未支援的欄位：",
+    "A JarJar artifact contains an unsupported field: ",
+  ],
+  "JarJar 内嵌 JAR 损坏：": ["JarJar 內嵌 JAR 損毀：", "Corrupt JarJar bundled JAR: "],
+  "JarJar 组件只有其他加载器的模组声明，未将其视为当前加载器的依赖提供者。": [
+    "JarJar 元件只有其他載入器的模組宣告，未將其視為目前載入器的相依提供者。",
+    "A JarJar artifact only declares mods for another loader. It is not treated as a dependency provider for this loader.",
+  ],
+  "JarJar 内嵌模组元数据无效：": [
+    "JarJar 內嵌模組中繼資料無效：",
+    "Invalid JarJar bundled mod metadata: ",
+  ],
+  "JarJar 的跨 JAR 版本协商尚未完整模拟，内嵌候选已静态检查。": [
+    "JarJar 的跨 JAR 版本協商尚未完整模擬，內嵌候選已完成靜態檢查。",
+    "JarJar version negotiation across JARs is not fully modeled. Bundled candidates have been statically checked.",
+  ],
+  "压缩包包含重复路径，无法可靠读取模组元数据。": [
+    "壓縮包包含重複路徑，無法可靠讀取模組中繼資料。",
+    "The archive contains duplicate paths. Mod metadata cannot be read reliably.",
+  ],
+  "模组元数据文件为空。": ["模組中繼資料檔案為空。", "The mod metadata file is empty."],
+  "同一加载器存在多个元数据文件，需核对加载器实际选择。": [
+    "同一載入器存在多個中繼資料檔案，需核對載入器實際選擇。",
+    "There are multiple metadata files for the same loader. Check which one the loader selects.",
+  ],
+  "仅服务端模组，不参与客户端依赖检查。": [
+    "僅伺服器端模組，不參與用戶端相依檢查。",
+    "This server-only mod is excluded from client dependency checks.",
+  ],
+  "依赖检查达到复杂度上限，请使用加载器日志进一步确认。": [
+    "相依檢查達到複雜度上限，請使用載入器記錄進一步確認。",
+    "Dependency checks reached the complexity limit. Check the loader logs for more detail.",
+  ],
+  "依赖表达式无法完整核对，需手动确认。": [
+    "相依運算式無法完整核對，需手動確認。",
+    "The dependency expression could not be fully checked. Review it manually.",
+  ],
+  "Quilt 下的 Fabric Loader 版本约束需由实际加载器确认。": [
+    "Quilt 下的 Fabric Loader 版本限制需由實際載入器確認。",
+    "Fabric Loader version constraints under Quilt require confirmation by the actual loader.",
+  ],
+  "依赖环境条件尚未完整核对，需手动确认。": [
+    "相依環境條件尚未完整核對，需手動確認。",
+    "Dependency environment conditions have not been fully checked. Review them manually.",
+  ],
+  " 依赖组合无法同时满足：": [
+    " 相依組合無法同時滿足：",
+    " has dependency constraints that cannot all be satisfied: ",
+  ],
+  "语言加载器版本尚未确认：": [
+    "語言載入器版本尚未確認：",
+    "The language loader version is not confirmed: ",
+  ],
+  " 语言加载器版本不符合：": [
+    " 語言載入器版本不符合：",
+    " requires a different language loader version: ",
+  ],
+  "模组元数据尚未完整核对。": ["模組中繼資料尚未完整核對。", "Mod metadata has not been fully checked."],
+  "依赖组合无法同时满足，请检查同一前置的版本及冲突声明。": [
+    "相依組合無法同時滿足，請檢查同一前置的版本及衝突宣告。",
+    "Dependency constraints cannot all be satisfied. Check dependency versions and conflict declarations.",
+  ],
+  "依赖元数据查询失败，请重新生成安装计划。": [
+    "相依中繼資料查詢失敗，請重新產生安裝計畫。",
+    "Dependency metadata lookup failed. Generate a new installation plan.",
+  ],
+  "依赖元数据格式无效。": ["相依中繼資料格式無效。", "Invalid dependency metadata."],
+  "已安装模组的版本元数据不可用，请重新确认。": [
+    "已安裝模組的版本中繼資料無法使用，請重新確認。",
+    "Version metadata for an installed mod is unavailable. Confirm the selection again.",
+  ],
+  "已安装文件与网站版本记录不一致，请重新确认。": [
+    "已安裝檔案與網站版本記錄不一致，請重新確認。",
+    "An installed file does not match the website's version record. Confirm it again.",
+  ],
+  "所选模组之间存在作者声明的不兼容关系，请取消选择或停用冲突组件。": [
+    "所選模組之間存在作者宣告的不相容關係，請取消選擇或停用衝突元件。",
+    "The authors declare selected mods incompatible. Deselect them or disable the conflicting components.",
+  ],
+  "所选模组的版本元数据不可用，请重新确认。": [
+    "所選模組的版本中繼資料無法使用，請重新確認。",
+    "Version metadata for a selected mod is unavailable. Confirm the selection again.",
+  ],
+  "所选文件与网站版本记录不一致，请重新确认。": [
+    "所選檔案與網站版本記錄不一致，請重新確認。",
+    "A selected file does not match the website's version record. Confirm it again.",
+  ],
+  "{0} 与 {1} 不兼容。": ["{0} 與 {1} 不相容。", "{0} and {1} are incompatible."],
+  "{0} 与 {1} 不能同时启用。": [
+    "{0} 與 {1} 不能同時啟用。",
+    "{0} and {1} cannot be enabled together.",
+  ],
+  "{0}：加载器不匹配（{1}）。": ["{0}：載入器不相符（{1}）。", "{0}: Loader mismatch ({1})."],
+  "Quilt 官方兼容性提醒：{0}。未提供精确文件哈希，需核对具体构建。": [
+    "Quilt 官方相容性提醒：{0}。未提供精確檔案雜湊，需核對具體版本。",
+    "Quilt official compatibility notice: {0}. No exact file hash was provided. Check the specific build.",
+  ],
+  "内嵌组件缺少完整依赖元数据，需由实际加载器确认。": [
+    "內嵌元件缺少完整相依中繼資料，需由實際載入器確認。",
+    "A bundled component lacks complete dependency metadata. Confirm it with the actual loader.",
+  ],
+  "与所选渲染组件不兼容": [
+    "與所選繪圖元件不相容",
+    "Incompatible with the selected rendering components",
+  ],
+  "资源缺少版本标识。": ["資源缺少版本識別碼。", "A resource is missing its version ID."],
+  "请先在版本组件中移除 OptiFine，再安装 Iris / Sodium。": [
+    "請先在版本元件中移除 OptiFine，再安裝 Iris / Sodium。",
+    "Remove OptiFine through version components before installing Iris / Sodium.",
+  ],
+  "OptiFine 属于版本组件，请在版本组件中修改。": [
+    "OptiFine 屬於版本元件，請在版本元件中修改。",
+    "OptiFine is a version component. Change it through version components.",
+  ],
+  "回滚未完成，旧文件保留在：": [
+    "復原未完成，舊檔案保留在：",
+    "Rollback is incomplete. The old files remain at: ",
+  ],
+  "{0} 与 {1} 不兼容": ["{0} 與 {1} 不相容", "{0} and {1} are incompatible"],
+  "取消选择冲突组件，或返回选择其他版本。": [
+    "取消選擇衝突元件，或返回選擇其他版本。",
+    "Deselect conflicting components or go back and choose different versions.",
+  ],
+  "存在未识别组件，无法确认是否缺少前置：": [
+    "存在未識別元件，無法確認是否缺少相依項目：",
+    "An unrecognized component is present. A missing dependency cannot be confirmed: ",
+  ],
+  "加载器内置组件及其版本尚未确认：": [
+    "載入器內建元件及其版本尚未確認：",
+    "A component bundled with the loader and its version are not confirmed: "
+  ],
+  "实例存在依赖冲突，尚未完成此组件的联合兼容性核对。": [
+    "實例存在相依衝突，尚未完成此元件的聯合相容性核對。",
+    "The instance has dependency conflicts. Joint compatibility checking for this component is incomplete.",
+  ],
+  "内嵌组件选择待确认": ["內嵌元件選擇待確認", "Bundled component selection needs review"],
+  "内嵌组件的加载选择尚未确定：{0} 与 {1} 的网站不兼容声明需由实际加载器确认。": [
+    "內嵌元件的載入選擇尚未確定：{0} 與 {1} 的網站不相容宣告需由實際載入器確認。",
+    "Bundled component selection is unresolved: the website's incompatibility declaration between {0} and {1} needs confirmation with the actual loader.",
+  ],
 };
 const nativeMessages = <String>{
+  "实例存在依赖冲突，尚未完成此组件的联合兼容性核对。",
+  "加载器内置组件及其版本尚未确认：",
+  "存在未识别组件，无法确认是否缺少前置：",
+  "内嵌组件缺少完整依赖元数据，需由实际加载器确认。",
+  "与所选渲染组件不兼容",
+  "资源缺少版本标识。",
+  "请先在版本组件中移除 OptiFine，再安装 Iris / Sodium。",
+  "OptiFine 属于版本组件，请在版本组件中修改。",
+  "回滚未完成，旧文件保留在：",
+  "取消选择冲突组件，或返回选择其他版本。",
+  "模组元数据必须是对象。",
+  "模组元数据字段必须是字符串：",
+  "模组元数据字段必须是布尔值：",
+  "模组元数据数组无效或超过限制：",
+  "模组声明的 ID 或版本为空。",
+  "模组声明的 ID 为空。",
+  "模组 ID 不符合加载器规定，需手动确认。",
+  "模组或别名版本包含未替换的占位符。",
+  "同一模组别名声明了多个版本，需手动确认。",
+  "模组依赖缺少 ID。",
+  "模组依赖表达式层级过深。",
+  "模组依赖版本范围为空。",
+  "依赖版本范围包含未替换的占位符。",
+  "模组依赖版本数组为空。",
+  "Quilt 版本数组按任一版本匹配，建议检查其范围。",
+  "模组依赖版本数组必须只包含字符串。",
+  "Quilt 版本约束组为空。",
+  "无法识别模组依赖版本范围：",
+  "Quilt 依赖组为空。",
+  "Quilt 依赖必须是字符串、对象或数组。",
+  "Quilt 依赖环境扩展的处理取决于游戏提供器，需手动确认。",
+  "依赖含未支持的字段：",
+  "模组图标路径必须是字符串。",
+  "模组图标声明无效。",
+  "模组元数据版本未受完整支持。",
+  "模组加载器元数据必须是对象。",
+  "模组版本包含未替换的占位符。",
+  "Quilt 元数据缺少 Maven 组，分组依赖无法可靠核对。",
+  "Quilt 加载元数据含未支持的字段：",
+  "Quilt 模组要求的加载器功能尚未核对。",
+  "Quilt 插件可更改模组发现及依赖规则，需手动确认。",
+  "无法识别 Quilt 模组加载策略。",
+  "Fabric 依赖表无效。",
+  "无法识别模组运行环境。",
+  "模组别名声明格式无效。",
+  "Quilt 顶层 jars 不属于标准加载元数据。",
+  "Quilt 内嵌 JAR 使用了非标准对象格式。",
+  "内嵌模组声明格式无效。",
+  "模组版本中的文件属性无法解析，需手动确认。",
+  "Forge 模组缺少语言加载器或其版本范围。",
+  "自定义语言加载器的安装与版本需手动确认。",
+  "Forge 元数据缺少 mods 声明。",
+  "Forge 文件属性表无效。",
+  "Forge 文件包含重复的模组 ID。",
+  "Forge 依赖表无效。",
+  "依赖表引用了本 JAR 未声明的模组。",
+  "Forge 依赖缺少 modId。",
+  "无法识别 Forge 依赖的运行端。",
+  "无法识别 Forge 依赖类型：",
+  "Forge 依赖使用 NeoForge 类型字段，需核对加载器。",
+  "依赖加载顺序约束尚未核对，需确认是否存在循环。",
+  "Forge 功能需求表无效。",
+  "模组功能需求尚未核对：",
+  "Mixin 行为版本尚未核对。",
+  "Forge 加载元数据含未支持的字段：",
+  "内嵌 JAR 路径无效。",
+  "声明的内嵌 JAR 不存在或为空：",
+  "内嵌模组总大小超过限制。",
+  "内嵌 JAR 声明重复。",
+  "内嵌模组元数据无法识别：",
+  "内嵌 JAR 只有其他加载器的模组声明，未将其视为当前加载器的依赖提供者。",
+  "JarJar 元数据含未支持的字段：",
+  "JarJar 内嵌 JAR 声明重复。",
+  "JarJar 元数据缺少组件标识或版本。",
+  "JarJar 组件含未支持的字段：",
+  "JarJar 内嵌 JAR 损坏：",
+  "JarJar 组件只有其他加载器的模组声明，未将其视为当前加载器的依赖提供者。",
+  "JarJar 内嵌模组元数据无效：",
+  "JarJar 的跨 JAR 版本协商尚未完整模拟，内嵌候选已静态检查。",
+  "压缩包包含重复路径，无法可靠读取模组元数据。",
+  "模组元数据文件为空。",
+  "同一加载器存在多个元数据文件，需核对加载器实际选择。",
+  "仅服务端模组，不参与客户端依赖检查。",
+  "依赖检查达到复杂度上限，请使用加载器日志进一步确认。",
+  "依赖表达式无法完整核对，需手动确认。",
+  "Quilt 下的 Fabric Loader 版本约束需由实际加载器确认。",
+  "依赖环境条件尚未完整核对，需手动确认。",
+  " 依赖组合无法同时满足：",
+  "语言加载器版本尚未确认：",
+  " 语言加载器版本不符合：",
+  "模组元数据尚未完整核对。",
+  "依赖组合无法同时满足，请检查同一前置的版本及冲突声明。",
+  "依赖元数据查询失败，请重新生成安装计划。",
+  "依赖元数据格式无效。",
+  "已安装模组的版本元数据不可用，请重新确认。",
+  "已安装文件与网站版本记录不一致，请重新确认。",
+  "所选模组之间存在作者声明的不兼容关系，请取消选择或停用冲突组件。",
+  "所选模组的版本元数据不可用，请重新确认。",
+  "所选文件与网站版本记录不一致，请重新确认。",
+  "模组来源索引格式异常，已保留原文件。",
+  "模组文件无法读取，请检查文件后刷新。",
+  "运行环境版本未知，无法完整检查：",
+  "无法完整检查冲突版本范围：",
+  "模组来源返回格式异常。",
+  "模组文件发生变化，请刷新后重试。",
+  "此加载器不能使用 Iris 自动方案，请配置对应版本的光影组件。",
+  "没有找到适配此实例的正式版 Iris。",
+  "模组文件不存在或不是普通文件。",
+  "不支持的存档操作。",
+  "不能把存档复制到自身目录中。",
+  "同名存档已存在，请换一个文件夹名称。",
+  "存档 ZIP 损坏或不受支持。",
+  "存档 ZIP 校验失败，未导入任何世界。",
+  "存档中含特殊文件，操作已停止。",
+  "存档中含符号链接，操作已停止。",
+  "存档体积或文件数量超过当前支持范围。",
+  "存档信息无法读取，仍可导出原始文件。",
+  "存档压缩包包含不安全的条目。",
+  "存档压缩包含重复路径。",
+  "存档压缩失败。",
+  "存档文件写入失败。",
+  "存档文件发生变化，请退出游戏后重试。",
+  "存档文件夹名称无效。",
+  "存档文件读取失败。",
+  "存档正在使用或无法锁定，请关闭游戏后重试。",
+  "导出文件已存在，请选择其他文件名。",
+  "未找到 Java 版存档的 level.dat。",
+  "正在复制存档",
+  "正在导入存档",
+  "正在导出存档",
+  "此存档需要 ZIP64，当前请使用文件夹复制。",
+  "游戏目录不存在。",
+  "磁盘空间不足。",
+  "该实例的游戏正在运行，请退出游戏后管理存档。",
+  "请选择只包含一个世界的存档目录或 ZIP。",
+  "请选择存档目录以外的有效导出位置。",
   "无法读取 Java 正式版版本清单。",
   "验证 Java 构建",
   "解压 Java 运行环境",

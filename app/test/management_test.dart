@@ -55,7 +55,7 @@ void main() {
           'needs_login': true
         }
       ]
-    }, action: (_) async {}, onConfigure: () {}))));
+    }, action: (_) async {}))));
     await t.pumpAndSettle();
     expect(find.text('TestPlayer'), findsOneWidget);
     expect(t.takeException(), isNull);

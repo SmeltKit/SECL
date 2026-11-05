@@ -165,3 +165,6 @@ accounts.json
 
 # Intentionally keep source artwork, public docs/screenshots, Flutter project
 # metadata, generated plugin registrants, pubspec.lock and Podfile.lock.
+
+# Local research, plans and private notes
+/private/

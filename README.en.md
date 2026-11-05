@@ -47,6 +47,8 @@ The account state and local-version list shown here are not evidence of a succes
 | Resource markets | Separate Modrinth mod, shader and resource-pack pages; search, categories, game-version and mod-loader filters, sorting and pagination |
 | Project details | Description summaries, galleries, project website links and downloadable files separated into release / beta / alpha channels |
 | Instance installation | Choose a compatible local target; review recursive dependencies, installed components, duplicates and author-declared conflicts before installing |
+| Local mod checks | Combine JAR metadata, SHA-512 source matching and whole-instance dependency checks; show local identity, website source and conflicts independently. An unknown source does not imply incompatibility. Browsing is cached; mutations revalidate file bytes |
+| World management | Per-instance world list, folder / ZIP import, streaming ZIP export, local and cross-instance copies, manual backup and restore-as-copy, and system Trash removal; game / world locks block unsafe operations |
 | Downloads and feedback | Staged downloads, hash verification, existing-copy reuse, cancellation, progress, structured errors and explicit retry |
 | Languages | Simplified Chinese, Traditional Chinese and English; system default, immediate switching and saved preference |
 
@@ -55,7 +57,16 @@ Existing components are reused by default; redownloading requires separate confi
 Shader packs are handled separately from Iris / OptiFine support components.
 Static compatibility checks cannot guarantee that every game, loader and mod combination will run.
 
-**Currently available only through the C++ backend:** OptiFine version components and additional per-instance launch settings.
+Embedded dependencies are checked as one version-selection problem. Quilt grouped
+dependencies, conditional exceptions and aliases, plus Forge / NeoForge TOML,
+manifest versions and JarJar artifacts participate in these checks. Install plans
+also check transitive and existing mods' declared conflicts, updating the review
+when optional choices change. Unsupported rules, unverified loader-bundled
+components and analysis limits require review rather than a hard incompatibility.
+Website exclusions involving possible nested candidates are shown separately;
+final candidate activation still needs confirmation with the actual loader.
+
+OptiFine version components and per-instance launch settings are available from instance management.
 Game / Java downloads and loader-build selection are now available in Downloads. Platform and loader combinations still need individual validation.
 See [migration notes](docs/migration.md) and the [core API](docs/core-api.md).
 
@@ -107,7 +118,7 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-Currently passing: 144 authentication / core checks, 75 engine checks and 36 Flutter tests.
+Currently passing: nine C++ test suites and 88 Flutter tests.
 See [test notes](docs/testing.md) for coverage, real resource-download checks and validation limits.
 
 ## Data, services and accounts
@@ -115,7 +126,7 @@ See [test notes](docs/testing.md) for coverage, real resource-download checks an
 - Games can be downloaded or selected from existing installations. Game files and Java runtimes are not bundled.
 - Game sources: **Automatic / Official / BMCLAPI**. Automatic mode uses only the local time zone: mirrors first for `Asia/Shanghai`, official first elsewhere, with one fallback to the other source and no endless retries. This is not geographic location detection. Java distributions use their official sources. Mirror service: [BMCLAPI](https://bmclapidoc.bangbang93.com/).
 - The resource markets currently use **Modrinth**. A new CurseForge application was submitted on 2026-11-03; review and integration are pending.
-- Microsoft sign-in requires this project's own public-client Application ID. No client secret is needed.
+- Microsoft sign-in defaults to this project's own public-client Application ID. Users do not need application configuration or a client secret.
   Register `http://localhost/oauth/callback` for the Entra desktop application; runtime authorization uses a random loopback port and PKCE S256.
   The project public Client ID is `7ed24288-81a6-4814-8271-25a1529d2e9d` and has API allow-list approval. This does not constitute official endorsement of the launcher.
 - Sign-in sessions stay in C++ memory, and tokens are not returned to Dart through FFI. Optional account persistence stores refresh credentials in the OS credential vault; without it, restarting requires signing in again. Real credential restoration still requires acceptance testing.
@@ -128,7 +139,7 @@ See [test notes](docs/testing.md) for coverage, real resource-download checks an
 - Expand the game / Java / loader test matrix, including in-world gameplay and long-duration stability.
 - Validate per-instance launch settings and the full loader / OptiFine installation and update matrix.
 - Validate Windows / Linux builds, native-library deployment and platform compatibility.
-- Integrate CurseForge after authorization; gradually add world management and further instance features.
+- Integrate CurseForge after authorization; expand world-management workflows and further instance features.
 - Continue reviewing terminology, long text and mod / shader compatibility guidance.
 
 Plans may change as development and testing progress; they are not claims of existing functionality.
@@ -149,3 +160,12 @@ Minecraft is a trademark of its respective owner.
 ### Management migration (2026-11-03)
 
 Instance library, local mods/shaders/resource packs, per-instance Java and launch options, loader/OptiFine controls, Java scans/licenses, logs, Microsoft account management and optional OS-vault persistence are connected. The UI includes full project descriptions, light/dark/system appearance and task history. Real credential restoration, the full component matrix remains unverified; macOS vanilla and Fabric + Iris/Sodium startup passed real acceptance testing. See [test record](docs/testing.md).
+
+
+Installed mods, shaders and resource packs now support hash-based Modrinth update
+checks scoped to the instance environment and an explicit release channel.
+Review selected updates and dependencies before applying them. Disabled mods
+remain disabled; failed batches roll back file replacements. Unknown files and
+metadata gaps are reported separately and never presented as guaranteed
+compatibility. Microsoft sign-in uses SECL's own approved public Client ID by
+default; ordinary users do not need application-registration settings.

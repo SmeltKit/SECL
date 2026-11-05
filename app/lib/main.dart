@@ -27,7 +27,8 @@ void main() {
       'SECL / M²CL': 'LICENSE',
       'M²CL additional terms': 'ADDITIONAL_TERMS.md',
       'nlohmann/json': 'json-MIT.txt',
-      'TinyXML2': 'tinyxml2-Zlib.txt'
+      'TinyXML2': 'tinyxml2-Zlib.txt',
+      'toml++ 3.4.0': 'tomlplusplus-MIT.txt'
     }.entries) {
       yield LicenseEntryWithLineBreaks([entry.key],
           await rootBundle.loadString('assets/legal/${entry.value}'));
@@ -418,76 +419,12 @@ class _LauncherHomeState extends State<LauncherHome> {
                               Text(tr('切换后立即生效。项目介绍和文件名保留原文。'),
                                   style: TextStyle(
                                       fontSize: 12, color: muted, height: 1.5)),
-                              const SizedBox(height: 22),
-                              OutlinedButton.icon(
-                                  key: const Key('appConfiguration'),
-                                  onPressed: () async {
-                                    Navigator.pop(dialogContext);
-                                    await configure();
-                                  },
-                                  icon:
-                                      const Icon(Icons.key_outlined, size: 18),
-                                  label: Text(tr('微软应用配置'))),
                             ])),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           child: Text(tr('完成')))
                     ])));
-  }
-
-  Future<void> configure() async {
-    final controller =
-        TextEditingController(text: state['client_id'] as String? ?? '');
-    final save = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-                title: Text(tr("微软应用配置"),
-                    style: const TextStyle(
-                        fontSize: 20, fontWeight: FontWeight.w600)),
-                content: SizedBox(
-                    width: 480,
-                    child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Application（client）ID'),
-                          const SizedBox(height: 10),
-                          TextField(
-                              key: const Key('clientIdField'),
-                              controller: controller,
-                              decoration: InputDecoration(
-                                  hintText: tr("SECL 自己注册的公共客户端应用 ID"))),
-                          const SizedBox(height: 16),
-                          Text(tr("桌面应用回调地址"),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 6),
-                          const SelectableText(
-                              'http://localhost/oauth/callback',
-                              style: TextStyle(
-                                  fontFamily: 'monospace', fontSize: 13)),
-                          const SizedBox(height: 14),
-                          Text(tr("个人 Microsoft 账号 · 授权码 + PKCE\n无需 Client Secret。API 访问仍须由应用自身获准。"),
-                              style: TextStyle(
-                                  fontSize: 13, color: muted, height: 1.6)),
-                        ])),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: Text(tr("取消"))),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      child: Text(tr("保存")))
-                ]));
-    if (save == true) {
-      await action({
-        'action': 'configure',
-        'client_id': controller.text.trim(),
-        'java': java
-      });
-    }
-    controller.dispose();
   }
 
   void downloads(String tab) => setState(() {
@@ -835,8 +772,7 @@ class _LauncherHomeState extends State<LauncherHome> {
       sidebar(),
       Expanded(
           child: page == 'accounts'
-              ? AccountManager(
-                  snapshot: state, action: action, onConfigure: configure)
+              ? AccountManager(snapshot: state, action: action)
               : page == 'java'
                   ? JavaManager(
                       engine: resources,
