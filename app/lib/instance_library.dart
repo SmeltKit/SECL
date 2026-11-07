@@ -22,7 +22,7 @@ class InstanceCover extends StatelessWidget {
         width: double.infinity,
         fit: BoxFit.cover);
     return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: cover.isNotEmpty
             ? Image.file(File(cover),
                 height: height,
@@ -158,31 +158,52 @@ class _InstanceLibraryState extends State<InstanceLibrary>
                               SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: columns,
                                   crossAxisSpacing: 14,
-                                  mainAxisSpacing: 14,
-                                  mainAxisExtent: 246),
+                                  mainAxisSpacing: 24,
+                                  mainAxisExtent: 232),
                           itemCount: visible.length,
                           itemBuilder: (context, index) {
                             final i = visible[index];
-                            return SurfaceCard(
-                                padding: const EdgeInsets.all(12),
+                            final loader = {
+                                  'vanilla': tr('原版'),
+                                  'fabric': 'Fabric',
+                                  'forge': 'Forge',
+                                  'neoforge': 'NeoForge',
+                                  'quilt': 'Quilt'
+                                }[i['loader']] ??
+                                i['loader']?.toString() ??
+                                '';
+                            final metadata = [
+                              i['version']?.toString() ?? '',
+                              '$loader ${i['loader_version'] ?? ''}'.trim()
+                            ].where((v) => v.isNotEmpty).join(' · ');
+                            return Material(
+                                color: Colors.transparent,
                                 child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
-                                          child: InkWell(
-                                              onTap: () =>
-                                                  widget.onOpen(i, 'mod'),
-                                              child: InstanceCover(i,
-                                                  height: 120))),
-                                      const SizedBox(height: 10),
+                                          child: Tooltip(
+                                              message: tr('管理实例'),
+                                              child: InkWell(
+                                                  key: ValueKey(
+                                                      'library-cover-${i['id']}'),
+                                                  onTap: () =>
+                                                      widget.onOpen(i, 'mod'),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  child: InstanceCover(i,
+                                                      height: 160)))),
+                                      const SizedBox(height: 8),
                                       Row(children: [
                                         Expanded(
                                             child: Text(i['name'] ?? i['id'],
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
+                                                style: TextStyle(
                                                     fontSize: 15,
+                                                    height: 1.4,
+                                                    color: ink,
                                                     fontWeight:
                                                         FontWeight.w600))),
                                         IconButton(
@@ -199,37 +220,78 @@ class _InstanceLibraryState extends State<InstanceLibrary>
                                                     ? Icons.star_rounded
                                                     : Icons
                                                         .star_outline_rounded,
-                                                size: 19,
+                                                size: 18,
                                                 color: i['favorite'] == true
                                                     ? seclColor(0xFFD89C31)
                                                     : muted))
                                       ]),
-                                      Text(
-                                          '${i['version']} · ${i['loader']} ${i['loader_version']}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                              fontSize: 12, color: muted)),
-                                      const SizedBox(height: 8),
                                       Row(children: [
                                         Expanded(
-                                            child: OutlinedButton.icon(
+                                            child: Tooltip(
+                                                message: metadata,
+                                                child: Text(metadata,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        height: 1.5,
+                                                        color: muted)))),
+                                        const SizedBox(width: 4),
+                                        SizedBox(
+                                            width: 30,
+                                            height: 32,
+                                            child: PopupMenuButton<String>(
+                                                key: ValueKey(
+                                                    'library-menu-${i['id']}'),
+                                                enabled: !locked,
+                                                tooltip: tr('更多操作'),
+                                                padding: EdgeInsets.zero,
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10)),
+                                                onSelected: (tab) =>
+                                                    widget.onOpen(i, tab),
+                                                itemBuilder: (_) => [
+                                                      PopupMenuItem(
+                                                          value: 'mod',
+                                                          child:
+                                                              Text(tr('管理实例'))),
+                                                      PopupMenuItem(
+                                                          value: 'settings',
+                                                          child:
+                                                              Text(tr('实例设置')))
+                                                    ],
+                                                icon: Icon(
+                                                    Icons.more_horiz_rounded,
+                                                    size: 19,
+                                                    color: muted))),
+                                        const SizedBox(width: 4),
+                                        SizedBox(
+                                            width: 32,
+                                            height: 32,
+                                            child: IconButton(
+                                                key: ValueKey(
+                                                    'library-launch-${i['id']}'),
+                                                tooltip: tr('启动游戏'),
                                                 onPressed: locked
                                                     ? null
-                                                    : () =>
-                                                        widget.onOpen(i, 'mod'),
-                                                icon: const Icon(
-                                                    Icons.tune_rounded,
-                                                    size: 16),
-                                                label: Text(tr('管理实例')))),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                            tooltip: tr('启动游戏'),
-                                            onPressed: locked
-                                                ? null
-                                                : () => widget.onLaunch(i),
-                                            icon: Icon(Icons.play_arrow_rounded,
-                                                color: accent))
+                                                    : () => widget.onLaunch(i),
+                                                style: IconButton.styleFrom(
+                                                    padding: EdgeInsets.zero,
+                                                    backgroundColor:
+                                                        accent.withOpacity(.1),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8))),
+                                                icon: Icon(
+                                                    Icons.play_arrow_rounded,
+                                                    size: 21,
+                                                    color: accent)))
                                       ])
                                     ]));
                           });

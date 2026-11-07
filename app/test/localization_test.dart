@@ -1,6 +1,7 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:secl/l10n/catalog.dart';
 import 'package:secl/localization.dart';
@@ -136,16 +137,35 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.byKey(const Key('nav-mod')));
     await t.pumpAndSettle();
-    await t.enterText(find.byKey(const Key('resourceSearch')), 'preserved');
+    final search = find.byKey(const Key('resourceSearch'));
+    await t.enterText(search, 'preserved');
+    final searchFocus = t
+        .widget<EditableText>(
+            find.descendant(of: search, matching: find.byType(EditableText)))
+        .focusNode;
+    expect(searchFocus.hasFocus, isTrue);
     await t.tap(find.byKey(const Key('settingsButton')));
     await t.pumpAndSettle();
+    expect(searchFocus.hasFocus, isFalse);
+    // The preserved market must not accept focus while its page is hidden,
+    // including a delayed request from the original input or keyboard traversal.
+    searchFocus.requestFocus();
+    await t.pump();
+    expect(searchFocus.hasFocus, isFalse);
+    for (var step = 0; step < 18; step++) {
+      await t.sendKeyEvent(LogicalKeyboardKey.tab);
+      await t.pump();
+      expect(searchFocus.hasFocus, isFalse);
+    }
+    await t.ensureVisible(find.byKey(const Key('languageSelector')));
     await t.tap(find.byKey(const Key('languageSelector')));
     await t.pumpAndSettle();
     await t.tap(find.text('繁體中文').last);
     await t.pumpAndSettle();
     expect(core.language, 'zh_Hant');
     expect(find.text('介面語言'), findsOneWidget);
-    expect(find.text('模組市集'), findsOneWidget);
+    expect(find.byKey(const Key('settingsPage')), findsOneWidget);
+    expect(find.text('模組市集'), findsNothing);
     await t.tap(find.text('完成'));
     await t.pumpAndSettle();
     expect(

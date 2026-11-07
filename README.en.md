@@ -123,7 +123,7 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-Currently passing: eleven C++ test suites and 135 Flutter tests.
+Currently passing: eleven C++ test suites and 138 Flutter tests.
 See [test notes](docs/testing.md) for coverage, real resource-download checks and validation limits.
 
 ## Data, services and accounts

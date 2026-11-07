@@ -2,7 +2,6 @@ import 'appearance.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'localization.dart';
 import 'dart:async';
-import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
@@ -522,15 +521,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
       ? curseForgeWebsite(project!)
       : 'https://modrinth.com/${widget.kind == 'mod' ? 'mod' : widget.kind}/${project!['slug'] ?? project!['project_id'] ?? project!['id']}';
 
-  Widget header() => Padding(
-      padding: EdgeInsets.fromLTRB(28, Platform.isMacOS ? 44 : 22, 28, 18),
-      child: Row(children: [
-        Expanded(
-            child: Text(titleFor(widget.kind),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 25, fontWeight: FontWeight.w600))),
+  Widget header() => PageMasthead(title: titleFor(widget.kind), actions: [
         PopupMenuButton<String>(
             key: const Key('resourceSource'),
             tooltip: tr("资源来源"),
@@ -541,19 +532,25 @@ class _ResourceMarketState extends State<ResourceMarket> {
                     PopupMenuItem(
                         value: provider.key, child: Text(provider.value))
                 ],
-            child: Padding(
+            child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                    color: panelSurface.withOpacity(.78),
+                    border: Border.all(color: line),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(resourceSources[source]!),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18)
+                  Text(resourceSources[source]!,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 17)
                 ]))),
         IconButton(
             onPressed: engine.active ? null : () => openLink(marketWebsite),
             tooltip: tr("打开来源网站"),
-            icon: const Icon(Icons.open_in_new, size: 16))
-      ]));
+            icon: const Icon(Icons.open_in_new, size: 17))
+      ]);
   Widget catalog() =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
@@ -628,11 +625,14 @@ class _ResourceMarketState extends State<ResourceMarket> {
                 Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           SizedBox(
               width: AppLanguage.instance.code == 'en'
-                  ? ((MediaQuery.sizeOf(context).width - 224) * .22)
-                      .clamp(168.0, 200.0)
-                  : 148,
-              child: SurfaceCard(
-                  padding: const EdgeInsets.all(6),
+                  ? ((MediaQuery.sizeOf(context).width - 224) * .21)
+                      .clamp(156.0, 182.0)
+                  : 136,
+              child: Container(
+                  padding: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                      border: Border(
+                          right: BorderSide(color: line.withOpacity(.7)))),
                   child: Column(children: [
                     categoryRow('', tr("全部分类"), Icons.grid_view_rounded),
                     Expanded(
@@ -685,8 +685,10 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                 key: PageStorageKey(
                                     'catalog-${widget.kind}-$source-${browse.offset}'),
                                 itemCount: browse.hits.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 10),
+                                separatorBuilder: (_, __) => Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: line.withOpacity(.65)),
                                 itemBuilder: (_, i) =>
                                     projectCard(browse.hits[i])))
           ]))
@@ -732,7 +734,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
             unawaited(search(reset: true));
           },
           child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               child: Row(children: [
                 Icon(icon,
                     size: 16, color: browse.category == value ? accent : muted),
@@ -748,60 +750,102 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                 ? FontWeight.w600
                                 : FontWeight.w400)))
               ]))));
-  Widget projectCard(Data hit) => SurfaceCard(
-      padding: const EdgeInsets.all(14),
+  Widget projectCard(Data hit) => Material(
+      color: Colors.transparent,
       child: InkWell(
           onTap: () => openProject(hit),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            ResourceImage(hit['icon_url'] as String?, size: 52),
-            const SizedBox(width: 13),
-            Expanded(
-                child: Column(
+          hoverColor: accent.withOpacity(.045),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+              child: LayoutBuilder(builder: (_, constraints) {
+                final wide = constraints.maxWidth >= 420;
+                final tags = hit['display_categories'] as List? ??
+                    hit['categories'] as List? ??
+                    [];
+                final downloads =
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.download_rounded, size: 13, color: muted),
+                  const SizedBox(width: 4),
+                  Flexible(
+                      child: Text(
+                          tr("{0} 次下载",
+                              [countLabel(hit['downloads'] as num? ?? 0)]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 10, color: muted)))
+                ]);
+                final details = Row(mainAxisSize: MainAxisSize.min, children: [
+                  Flexible(
+                      child: Text(tr("查看详情"),
+                          textAlign: TextAlign.end,
+                          softWrap: true,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: accent))),
+                  const SizedBox(width: 3),
+                  Icon(Icons.chevron_right_rounded, size: 15, color: accent)
+                ]);
+                return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(hit['title'] as String? ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 5),
-                  Text(hit['description'] as String? ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 12, color: muted, height: 1.5)),
-                  const SizedBox(height: 9),
-                  Wrap(spacing: 5, runSpacing: 4, children: [
-                    for (final tag in (hit['display_categories'] as List? ??
-                            hit['categories'] as List? ??
-                            [])
-                        .take(5))
-                      chip(nativeText(browse.categories
-                              .where((c) => c['name'] == tag)
-                              .firstOrNull?['label'] as String? ??
-                          tagName(tag.toString())))
-                  ]),
-                  const SizedBox(height: 9),
-                  Row(children: [
-                    Expanded(
-                        child: Text(
-                            tr("{0} 次下载",
-                                [countLabel(hit['downloads'] as num? ?? 0)]),
-                            style: TextStyle(fontSize: 11, color: muted))),
-                    Text(tr("查看详情"),
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.primary)),
-                    const SizedBox(width: 3),
-                    Icon(Icons.chevron_right, size: 15, color: accent)
-                  ])
-                ]))
-          ])));
+                      ResourceImage(hit['icon_url'] as String?, size: 52),
+                      const SizedBox(width: 13),
+                      Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                            Text(hit['title'] as String? ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 5),
+                            Text(hit['description'] as String? ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12, color: muted, height: 1.5)),
+                            if (tags.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(spacing: 5, runSpacing: 4, children: [
+                                for (final tag in tags)
+                                  chip(nativeText(browse.categories
+                                          .where((c) => c['name'] == tag)
+                                          .firstOrNull?['label'] as String? ??
+                                      tagName(tag.toString())))
+                              ])
+                            ],
+                            if (!wide) ...[
+                              const SizedBox(height: 10),
+                              Row(children: [
+                                Expanded(child: downloads),
+                                details
+                              ])
+                            ]
+                          ])),
+                      if (wide) ...[
+                        const SizedBox(width: 12),
+                        SizedBox(
+                            width: 106,
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  downloads,
+                                  const SizedBox(height: 24),
+                                  details
+                                ]))
+                      ]
+                    ]);
+              }))));
   Widget chip(String label) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-          color: seclColor(0xFFEEF2F6), borderRadius: BorderRadius.circular(5)),
-      child: Text(label, style: TextStyle(fontSize: 10, color: accent)));
+          color: accent.withOpacity(.07),
+          borderRadius: BorderRadius.circular(5)),
+      child: Text(label,
+          style: TextStyle(fontSize: 10, height: 1.2, color: accent)));
   List<Data> get matching => files
       .where((f) =>
           (fileGame.isEmpty ||
@@ -861,6 +905,25 @@ class _ResourceMarketState extends State<ResourceMarket> {
     ]);
   }
 
+  Widget detailTabButton(String value, String label) {
+    final selected = detailTab == value;
+    return InkWell(
+        onTap: () => setState(() => detailTab = value),
+        child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 11, 18, 12),
+            decoration: BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+                        color: selected ? accent : Colors.transparent,
+                        width: 2))),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: selected ? accent : muted,
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w500))));
+  }
+
   Widget detail() =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
@@ -901,14 +964,14 @@ class _ResourceMarketState extends State<ResourceMarket> {
               ]))
         ]),
         const SizedBox(height: 12),
-        Row(children: [
-          TextButton(
-              onPressed: () => setState(() => detailTab = 'description'),
-              child: Text(tr('介绍'))),
-          TextButton(
-              onPressed: () => setState(() => detailTab = 'files'),
-              child: Text(tr('下载')))
-        ]),
+        Container(
+            decoration:
+                BoxDecoration(border: Border(bottom: BorderSide(color: line))),
+            child: Row(children: [
+              detailTabButton('description', tr('介绍')),
+              detailTabButton('files', tr('下载')),
+            ])),
+        const SizedBox(height: 14),
         Expanded(
             child: detailError != null
                 ? projectProblem(detailError!)
@@ -1065,9 +1128,9 @@ class _ResourceMarketState extends State<ResourceMarket> {
                   if (constraints.maxHeight >= 120)
                     Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                            color: seclColor(0xFFEEF1F5),
+                            color: accent.withOpacity(.055),
                             borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(9))),
                         child: Row(children: [
@@ -1097,7 +1160,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                 curseForgeWebsite(f) ?? projectWebsite;
                             return Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 13),
+                                    horizontal: 16, vertical: 12),
                                 child: Row(children: [
                                   Expanded(
                                       child: Column(
@@ -1129,7 +1192,8 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                       child: OutlinedButton.icon(
                                           key: Key(
                                               '${downloadable ? 'install' : 'website'}-$i'),
-                                          onPressed: detailsLoading || engine.active
+                                          onPressed: detailsLoading ||
+                                                  engine.active
                                               ? null
                                               : downloadable
                                                   ? () => install(f)

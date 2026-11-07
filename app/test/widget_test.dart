@@ -174,6 +174,30 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets(
+      'settings use the content area and retain navigation at minimum size',
+      (tester) async {
+    tester.view.physicalSize = const Size(880, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(SeclApp(core: TestCore()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.byKey(const Key('settingsButton')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('settingsPage')), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byKey(const Key('nav-home')), findsOneWidget);
+    expect(find.byKey(const Key('appearance-system')), findsOneWidget);
+    expect(find.byKey(const Key('tone-blue')), findsOneWidget);
+    expect(find.byKey(const Key('languageSelector')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.widgetWithText(TextButton, '完成'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('launchButton')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
       'ordinary settings no longer expose Microsoft application configuration',
       (tester) async {
     tester.view.physicalSize = const Size(1080, 720);

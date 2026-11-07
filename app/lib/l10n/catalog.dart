@@ -1,6 +1,12 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
+  "类型": ["類型", "Type"],
+  "下载大小": ["下載大小", "Download size"],
+  "主题模式": ["主題模式", "Theme mode"],
+  "主题色": ["主題色", "Accent color"],
+  "背景": ["背景", "Background"],
+  "按游戏版本显示背景": ["依遊戲版本顯示背景", "Match the selected game version"],
   "尚未添加游戏实例": ["尚未新增遊戲實例", "No game instances yet"],
   "暂无最近游玩记录": ["暫無最近遊玩記錄", "No recently played instances"],
   "打开游戏库": ["開啟遊戲庫", "Open library"],

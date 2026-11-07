@@ -115,7 +115,7 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-当前通过 11 组 C++ 测试与 135 项 Flutter 测试。
+当前通过 11 组 C++ 测试与 138 项 Flutter 测试。
 测试范围、真实资源下载记录及尚未验收的项目见[测试说明](docs/testing.md)。
 
 ## 数据、来源与账号

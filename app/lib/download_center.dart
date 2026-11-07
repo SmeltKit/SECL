@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'app_widgets.dart';
 import 'localization.dart';
 import 'resource_engine.dart';
+import 'management_widgets.dart';
 
 typedef DownloadComplete = Future<void> Function(
     String kind, Map<String, dynamic> result);
@@ -348,6 +349,41 @@ class _DownloadCenterState extends State<DownloadCenter> {
                     if (v != null) change(v);
                   }),
       ]);
+  Widget inlineSelect<T>(
+          String label, T value, Map<T, String> choices, ValueChanged<T> change,
+          {Key? key}) =>
+      LayoutBuilder(
+          builder: (context, bounds) => Row(children: [
+                ConstrainedBox(
+                    constraints:
+                        BoxConstraints(maxWidth: bounds.maxWidth * .45),
+                    child: Text(label,
+                        style:
+                            TextStyle(fontSize: 13, height: 1.35, color: ink))),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: DropdownButtonFormField<T>(
+                        key: key,
+                        value: choices.containsKey(value) ? value : null,
+                        isExpanded: true,
+                        borderRadius: BorderRadius.circular(9),
+                        style: TextStyle(fontSize: 13, color: ink),
+                        decoration: const InputDecoration(
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12)),
+                        items: choices.entries
+                            .map((e) => DropdownMenuItem<T>(
+                                value: e.key,
+                                child: Text(e.value,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis)))
+                            .toList(),
+                        onChanged: locked
+                            ? null
+                            : (v) {
+                                if (v != null) change(v);
+                              }))
+              ]));
   Widget switches(String current, Map<String, String> choices,
           ValueChanged<String> change) =>
       Wrap(
@@ -358,14 +394,17 @@ class _DownloadCenterState extends State<DownloadCenter> {
                   label: Text(e.value),
                   selected: current == e.key,
                   showCheckmark: false,
-                  selectedColor: seclColor(0xFFE9F0F6),
+                  selectedColor: accent.withOpacity(.10),
+                  backgroundColor: panelSurface.withOpacity(.35),
                   labelStyle: TextStyle(
                       fontSize: 13,
                       color: current == e.key ? accent : muted,
                       fontWeight:
                           current == e.key ? FontWeight.w600 : FontWeight.w400),
                   side: BorderSide(
-                      color: current == e.key ? accent.withOpacity(.35) : line),
+                      color: current == e.key
+                          ? accent.withOpacity(.3)
+                          : line.withOpacity(.65)),
                   onSelected: locked ? null : (_) => change(e.key)))
               .toList());
   Widget empty(String title, {IconData icon = Icons.download_outlined}) =>
@@ -388,15 +427,20 @@ class _DownloadCenterState extends State<DownloadCenter> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(
-            child: Text(tr('选择游戏版本'),
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w600))),
+            child: TextField(
+                key: const Key('gameVersionSearch'),
+                controller: search,
+                decoration: InputDecoration(
+                    hintText: tr('搜索游戏版本'),
+                    prefixIcon: const Icon(Icons.search, size: 19)),
+                onChanged: (s) => setState(() => query = s))),
+        const SizedBox(width: 10),
         IconButton(
             tooltip: tr('刷新'),
             onPressed: locked ? null : () => guard(loadGames),
             icon: const Icon(Icons.refresh_rounded, size: 20))
       ]),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       switches(
           channel,
           {
@@ -406,55 +450,53 @@ class _DownloadCenterState extends State<DownloadCenter> {
             'historical': tr('历史版本')
           },
           (v) => setState(() => channel = v)),
-      const SizedBox(height: 14),
-      TextField(
-          key: const Key('gameVersionSearch'),
-          controller: search,
-          decoration: InputDecoration(
-              hintText: tr('搜索游戏版本'),
-              prefixIcon: const Icon(Icons.search, size: 20)),
-          onChanged: (s) => setState(() => query = s)),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       Expanded(
-          child: SurfaceCard(
-              padding: EdgeInsets.zero,
-              child: visible.isEmpty
-                  ? empty(tr('没有匹配的版本'))
-                  : ListView.separated(
-                      key: const Key('gameVersions'),
-                      padding: const EdgeInsets.all(6),
-                      itemCount: visible.length,
-                      separatorBuilder: (_, __) => const Divider(),
-                      itemBuilder: (context, i) {
-                        final v = visible[i];
-                        return ListTile(
-                          key: ValueKey('game-${v['id']}'),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 5),
-                          leading: Icon(Icons.sports_esports_outlined,
-                              color: accent),
-                          title: Text(v['id'] as String,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 14)),
-                          subtitle: Text(
-                              v['releaseTime'].toString().split('T').first,
-                              style: TextStyle(color: muted, fontSize: 12)),
-                          trailing:
-                              Icon(Icons.chevron_right_rounded, color: muted),
-                          onTap: locked
-                              ? null
-                              : () => setState(() {
-                                    game = v;
-                                    loader = 'vanilla';
-                                    loaders = [];
-                                    loaderVersion = '';
-                                    javaChoice = '';
-                                    forceJava = false;
-                                    name.text = defaultName;
-                                    notice = null;
-                                  }),
-                        );
-                      }))),
+          child: visible.isEmpty
+              ? empty(tr('没有匹配的版本'))
+              : ListView.separated(
+                  key: const Key('gameVersions'),
+                  padding: EdgeInsets.zero,
+                  itemCount: visible.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(color: line.withOpacity(.65)),
+                  itemBuilder: (context, i) {
+                    final v = visible[i];
+                    return ListTile(
+                        key: ValueKey('game-${v['id']}'),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 8),
+                        leading: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                                color: accent.withOpacity(.08),
+                                borderRadius: BorderRadius.circular(9)),
+                            child: Icon(Icons.sports_esports_outlined,
+                                color: accent, size: 20)),
+                        title: Text(v['id'] as String,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
+                        subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                                v['releaseTime'].toString().split('T').first,
+                                style: TextStyle(color: muted, fontSize: 12))),
+                        trailing: Icon(Icons.chevron_right_rounded,
+                            color: muted, size: 21),
+                        onTap: locked
+                            ? null
+                            : () => setState(() {
+                                  game = v;
+                                  loader = 'vanilla';
+                                  loaders = [];
+                                  loaderVersion = '';
+                                  javaChoice = '';
+                                  forceJava = false;
+                                  name.text = defaultName;
+                                  notice = null;
+                                }));
+                  }))
     ]);
   }
 
@@ -466,240 +508,259 @@ class _DownloadCenterState extends State<DownloadCenter> {
             icon: const Icon(Icons.arrow_back_rounded, size: 18),
             label: Text(tr('返回版本列表'))),
         const SizedBox(height: 12),
-        SurfaceCard(
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Minecraft ${game!['id']}',
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 20),
-          TextField(
-              key: const Key('gameInstanceName'),
-              controller: name,
-              enabled: !locked,
-              onChanged: (_) => setState(() {}),
-              decoration:
-                  InputDecoration(labelText: tr('实例名称'), errorText: nameError)),
-          const SizedBox(height: 20),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-                child: select(
-                    tr('加载器'),
-                    loader,
-                    {
-                      'vanilla': tr('原版'),
-                      'fabric': 'Fabric',
-                      'forge': 'Forge',
-                      'neoforge': 'NeoForge',
-                      'quilt': 'Quilt'
-                    },
-                    (v) => unawaited(selectLoader(v)),
-                    key: const Key('gameLoader'))),
-            if (loader != 'vanilla') ...[
-              const SizedBox(width: 14),
-              Expanded(
-                  child: select(
-                      tr('加载器版本'),
-                      loaderVersion,
-                      {
-                        for (final l in loaders)
-                          l['version'] as String:
-                              '${l['version']}${l['stable'] == true ? ' · ${tr('正式版')}' : ''}'
-                      },
-                      (v) => setState(() => loaderVersion = v),
-                      key: const Key('gameLoaderVersion')))
-            ],
-          ]),
-          if (loader != 'vanilla' && loaders.isEmpty)
-            Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child:
-                    Text(tr('该版本没有可用的加载器构建'), style: TextStyle(color: muted))),
-          const SizedBox(height: 20),
-          select(
-              tr('Java 运行环境'),
-              javaChoice,
-              {
-                '': tr('自动匹配，缺少时下载官方运行时'),
-                for (final j in widget.javas)
-                  j['path'] as String:
-                      'Java ${j['version']} · ${j['vendor']} · ${j['arch']}'
-              },
-              (v) => setState(() {
-                    javaChoice = v;
-                    forceJava = false;
-                  }),
-              key: const Key('installGameJava')),
-          if (javaChoice.isNotEmpty)
-            CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('允许使用低于推荐版本的 Java'),
-                    style: const TextStyle(fontSize: 12)),
-                value: forceJava,
-                onChanged: locked
-                    ? null
-                    : (v) => setState(() => forceJava = v ?? false)),
-          const SizedBox(height: 20),
-          Text(tr('游戏目录'), style: TextStyle(fontSize: 12, color: muted)),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-                child: SelectableText(root,
-                    style: TextStyle(fontSize: 12, color: ink, height: 1.5))),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(
-                onPressed: locked ? null : chooseRoot,
-                icon: const Icon(Icons.folder_open_outlined, size: 18),
-                label: Text(tr('更改')))
-          ]),
-          const SizedBox(height: 14),
-          Text(tr('存档和设置按实例隔离；游戏文件与依赖下载后进行哈希校验。'),
-              style: TextStyle(fontSize: 12, color: muted, height: 1.6)),
-        ])),
+              Text('Minecraft ${game!['id']}',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 20),
+              TextField(
+                  key: const Key('gameInstanceName'),
+                  controller: name,
+                  enabled: !locked,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                      labelText: tr('实例名称'), errorText: nameError)),
+              const SizedBox(height: 20),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                    child: select(
+                        tr('加载器'),
+                        loader,
+                        {
+                          'vanilla': tr('原版'),
+                          'fabric': 'Fabric',
+                          'forge': 'Forge',
+                          'neoforge': 'NeoForge',
+                          'quilt': 'Quilt'
+                        },
+                        (v) => unawaited(selectLoader(v)),
+                        key: const Key('gameLoader'))),
+                if (loader != 'vanilla') ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                      child: select(
+                          tr('加载器版本'),
+                          loaderVersion,
+                          {
+                            for (final l in loaders)
+                              l['version'] as String:
+                                  '${l['version']}${l['stable'] == true ? ' · ${tr('正式版')}' : ''}'
+                          },
+                          (v) => setState(() => loaderVersion = v),
+                          key: const Key('gameLoaderVersion')))
+                ],
+              ]),
+              if (loader != 'vanilla' && loaders.isEmpty)
+                Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(tr('该版本没有可用的加载器构建'),
+                        style: TextStyle(color: muted))),
+              const SizedBox(height: 20),
+              select(
+                  tr('Java 运行环境'),
+                  javaChoice,
+                  {
+                    '': tr('自动匹配，缺少时下载官方运行时'),
+                    for (final j in widget.javas)
+                      j['path'] as String:
+                          'Java ${j['version']} · ${j['vendor']} · ${j['arch']}'
+                  },
+                  (v) => setState(() {
+                        javaChoice = v;
+                        forceJava = false;
+                      }),
+                  key: const Key('installGameJava')),
+              if (javaChoice.isNotEmpty)
+                CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(tr('允许使用低于推荐版本的 Java'),
+                        style: const TextStyle(fontSize: 12)),
+                    value: forceJava,
+                    onChanged: locked
+                        ? null
+                        : (v) => setState(() => forceJava = v ?? false)),
+              const SizedBox(height: 20),
+              Text(tr('游戏目录'), style: TextStyle(fontSize: 12, color: muted)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                    child: SelectableText(root,
+                        style:
+                            TextStyle(fontSize: 12, color: ink, height: 1.5))),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                    onPressed: locked ? null : chooseRoot,
+                    icon: const Icon(Icons.folder_open_outlined, size: 18),
+                    label: Text(tr('更改')))
+              ]),
+              const SizedBox(height: 14),
+              Text(tr('存档和设置按实例隔离；游戏文件与依赖下载后进行哈希校验。'),
+                  style: TextStyle(fontSize: 12, color: muted, height: 1.6)),
+            ])),
       ]));
   Widget get javaPage => SingleChildScrollView(
           child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SurfaceCard(
-            child: Column(children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-                child: select(
-                    tr('主版本'),
-                    major,
-                    {
-                      for (final v in [
-                        for (final common in [25, 21, 17, 16, 11, 8])
-                          if (javaReleases.contains(common)) common,
-                        ...javaReleases
-                            .where((v) => ![25, 21, 17, 16, 11, 8].contains(v))
-                      ])
-                        v: 'Java $v'
-                    },
-                    (v) => invalidate(() => major = v),
-                    key: const Key('javaMajor'))),
-            const SizedBox(width: 12),
-            Expanded(
-                flex: 2,
-                child: select(tr('发行版'), vendor, vendors,
-                    (v) => invalidate(() => vendor = v),
-                    key: const Key('javaVendor'))),
-          ]),
-          const SizedBox(height: 16),
-          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Expanded(
-                child: select(
-                    tr('操作系统'),
-                    os,
-                    systems,
-                    (v) => invalidate(() {
-                          os = v;
-                          if (v == 'osx' && arch == 'x86') arch = 'x86_64';
-                        }),
-                    key: const Key('javaOS'))),
-            const SizedBox(width: 12),
-            Expanded(
-                child: select(
-                    tr('架构'),
-                    arch,
-                    {
-                      for (final e in arches.entries)
-                        if (os != 'osx' ||
-                            ['x86_64', 'aarch64'].contains(e.key))
-                          e.key: e.value
-                    },
-                    (v) => invalidate(() => arch = v),
-                    key: const Key('javaArch'))),
-            const SizedBox(width: 8),
-            IconButton(
-                tooltip: tr('自动检测'),
-                onPressed: locked ? null : detect,
-                icon: const Icon(Icons.radar_rounded, size: 20)),
-          ]),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(
-                child: Text(tr('自动检测本机系统和架构，可手动更改查询条件。'),
-                    style: TextStyle(fontSize: 12, color: muted, height: 1.5))),
-            const SizedBox(width: 12),
-            FilledButton.icon(
-                key: const Key('queryJavaBuilds'),
-                onPressed: locked || os.isEmpty || !javaReleases.contains(major)
-                    ? null
-                    : queryJava,
-                icon: const Icon(Icons.search_rounded, size: 18),
-                label: Text(tr('查询构建')))
-          ]),
-        ])),
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(
+              child: inlineSelect(
+                  tr('主版本'),
+                  major,
+                  {
+                    for (final v in [
+                      for (final common in [25, 21, 17, 16, 11, 8])
+                        if (javaReleases.contains(common)) common,
+                      ...javaReleases
+                          .where((v) => ![25, 21, 17, 16, 11, 8].contains(v))
+                    ])
+                      v: 'Java $v'
+                  },
+                  (v) => invalidate(() => major = v),
+                  key: const Key('javaMajor'))),
+          const SizedBox(width: 20),
+          Expanded(
+              flex: 2,
+              child: inlineSelect(tr('发行版'), vendor, vendors,
+                  (v) => invalidate(() => vendor = v),
+                  key: const Key('javaVendor')))
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+              child: inlineSelect(
+                  tr('操作系统'),
+                  os,
+                  systems,
+                  (v) => invalidate(() {
+                        os = v;
+                        if (v == 'osx' && arch == 'x86') arch = 'x86_64';
+                      }),
+                  key: const Key('javaOS'))),
+          const SizedBox(width: 20),
+          Expanded(
+              flex: 2,
+              child: inlineSelect(
+                  tr('架构'),
+                  arch,
+                  {
+                    for (final e in arches.entries)
+                      if (os != 'osx' || ['x86_64', 'aarch64'].contains(e.key))
+                        e.key: e.value
+                  },
+                  (v) => invalidate(() => arch = v),
+                  key: const Key('javaArch')))
+        ]),
         const SizedBox(height: 14),
-        SurfaceCard(
-            padding: EdgeInsets.zero,
-            child: Column(children: [
-              Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-                  decoration: BoxDecoration(
-                      color: seclColor(0xFFEDF1F5),
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(9))),
-                  child: Row(children: [
-                    Expanded(
-                        child: Text(tr('具体构建'),
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600))),
-                    TextButton(
-                        onPressed: locked
-                            ? null
-                            : () => unawaited(open({
-                                  'zulu': 'https://www.azul.com/downloads/',
-                                  'temurin': 'https://adoptium.net/',
-                                  'microsoft':
-                                      'https://learn.microsoft.com/java/openjdk/download',
-                                  'oracle-openjdk': 'https://openjdk.org/'
-                                }[vendor]!)),
-                        child: Text('${tr('发行版官网')} ↗'))
-                  ])),
-              builds.isEmpty
-                  ? SizedBox(
-                      height: 180,
-                      child: empty(buildsQueried
-                          ? tr('没有匹配的构建，请更改版本、发行版或架构')
-                          : tr('点击「查询构建」查看可安装的 Java')))
-                  : ListView.separated(
-                      key: const Key('javaBuilds'),
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(6),
-                      itemCount: builds.length,
-                      separatorBuilder: (_, __) => const Divider(),
-                      itemBuilder: (_, i) {
-                        final b = builds[i];
-                        return RadioListTile<int>(
+        Row(children: [
+          OutlinedButton.icon(
+              onPressed: locked ? null : detect,
+              icon: const Icon(Icons.radar_rounded, size: 17),
+              label: Text(tr('自动检测'))),
+          const Spacer(),
+          FilledButton.icon(
+              key: const Key('queryJavaBuilds'),
+              onPressed: locked || os.isEmpty || !javaReleases.contains(major)
+                  ? null
+                  : queryJava,
+              icon: const Icon(Icons.search_rounded, size: 17),
+              label: Text(tr('查询构建')))
+        ]),
+        const SizedBox(height: 24),
+        Row(children: [
+          Expanded(
+              child: Text(tr('具体构建'),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600))),
+          TextButton.icon(
+              onPressed: locked
+                  ? null
+                  : () => unawaited(open({
+                        'zulu': 'https://www.azul.com/downloads/',
+                        'temurin': 'https://adoptium.net/',
+                        'microsoft':
+                            'https://learn.microsoft.com/java/openjdk/download',
+                        'oracle-openjdk': 'https://openjdk.org/'
+                      }[vendor]!)),
+              icon: const Icon(Icons.open_in_new_rounded, size: 15),
+              label: Text(tr('发行版官网')))
+        ]),
+        const SizedBox(height: 10),
+        KeyedSubtree(
+            key: const Key('javaBuilds'),
+            child: ManagementTable(
+                headers: [
+                  const SizedBox(),
+                  Text(tr('版本 / 构建')),
+                  Text(tr('架构')),
+                  Text(tr('类型')),
+                  Text(tr('下载大小'))
+                ],
+                widths: const {
+                  0: FixedColumnWidth(42),
+                  1: FlexColumnWidth(3.6),
+                  2: FlexColumnWidth(2),
+                  3: FlexColumnWidth(1.2),
+                  4: FlexColumnWidth(1.8)
+                },
+                selected: selectedBuild == null
+                    ? {}
+                    : {builds.indexOf(selectedBuild!)},
+                rows: [
+                  for (var i = 0; i < builds.length; i++)
+                    [
+                      Radio<int>(
                           key: ValueKey('selectedBuild-$i'),
                           value: i,
                           groupValue: selectedBuild == null
                               ? null
                               : builds.indexOf(selectedBuild!),
-                          title: Text(b['version'] as String,
-                              style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w600)),
-                          subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                  '${vendors[b['provider']]}${(b['distribution_version'] as String? ?? '').isEmpty ? '' : ' ${b['distribution_version']}'} · ${arches[b['arch']] ?? b['arch']} · ${b['type']}',
-                                  style:
-                                      TextStyle(fontSize: 12, color: muted))),
-                          secondary: Text(
-                              (b['size'] as num? ?? -1) > 0
-                                  ? byteLabel(b['size'] as num)
-                                  : '—',
-                              style: TextStyle(color: muted, fontSize: 12)),
+                          visualDensity: VisualDensity.compact,
                           onChanged: locked
                               ? null
-                              : (_) => setState(() => selectedBuild = b),
-                        );
-                      }),
-            ])),
+                              : (_) =>
+                                  setState(() => selectedBuild = builds[i])),
+                      InkWell(
+                          onTap: locked
+                              ? null
+                              : () => setState(() => selectedBuild = builds[i]),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(builds[i]['version'] as String,
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.5)),
+                                const SizedBox(height: 4),
+                                Text(
+                                    '${vendors[builds[i]['provider']]}${(builds[i]['distribution_version'] as String? ?? '').isEmpty ? '' : ' ${builds[i]['distribution_version']}'}',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: muted,
+                                        height: 1.5))
+                              ])),
+                      Text(
+                          arches[builds[i]['arch']] ??
+                              builds[i]['arch'].toString(),
+                          style: TextStyle(fontSize: 12, color: muted)),
+                      Text(builds[i]['type'].toString(),
+                          style: TextStyle(fontSize: 12, color: muted)),
+                      Text(
+                          (builds[i]['size'] as num? ?? -1) > 0
+                              ? byteLabel(builds[i]['size'] as num)
+                              : '—',
+                          style: TextStyle(fontSize: 12, color: muted))
+                    ]
+                ])),
+        if (builds.isEmpty)
+          SizedBox(
+              height: 180,
+              child: empty(buildsQueried
+                  ? tr('没有匹配的构建，请更改版本、发行版或架构')
+                  : tr('点击「查询构建」查看可安装的 Java')))
       ]));
   void invalidate(VoidCallback change) => setState(() {
         change();
@@ -747,55 +808,42 @@ class _DownloadCenterState extends State<DownloadCenter> {
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-            padding:
-                EdgeInsets.fromLTRB(28, Platform.isMacOS ? 44 : 22, 28, 16),
-            child: Row(children: [
-              Expanded(
-                  child: Text(tr('下载'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 25, fontWeight: FontWeight.w600))),
-              if (widget.onImport != null && tab == 'game') ...[
-                OutlinedButton.icon(
-                    key: const Key('importModpackDownload'),
-                    onPressed: locked ? null : widget.onImport,
-                    icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                    label: Text(tr('导入整合包'))),
-                const SizedBox(width: 12)
-              ],
-              SizedBox(
-                  width: 200,
-                  child: DropdownButtonFormField<String>(
-                    key: const Key('downloadSource'),
-                    isExpanded: true,
-                    value: widget.source,
-                    style: TextStyle(fontSize: 12, color: ink),
-                    borderRadius: BorderRadius.circular(9),
-                    decoration: const InputDecoration(
-                        prefixIcon:
-                            Icon(Icons.cloud_download_outlined, size: 18),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                    items: {
-                      'auto': tr('自动选择源'),
-                      'official': tr('官方源'),
-                      'bmclapi': 'BMCLAPI'
-                    }
-                        .entries
-                        .map((e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Text(e.value,
-                                maxLines: 1, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: locked
-                        ? null
-                        : (v) {
-                            if (v != null) unawaited(widget.onSource(v));
-                          },
-                  ))
-            ])),
+        PageMasthead(title: tr('下载'), actions: [
+          if (widget.onImport != null && tab == 'game')
+            OutlinedButton.icon(
+                key: const Key('importModpackDownload'),
+                onPressed: locked ? null : widget.onImport,
+                icon: const Icon(Icons.inventory_2_outlined, size: 17),
+                label: Text(tr('导入整合包'))),
+          SizedBox(
+              width: 190,
+              child: DropdownButtonFormField<String>(
+                  key: const Key('downloadSource'),
+                  isExpanded: true,
+                  value: widget.source,
+                  style: TextStyle(fontSize: 12, color: ink),
+                  borderRadius: BorderRadius.circular(9),
+                  decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.cloud_download_outlined, size: 17),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 11)),
+                  items: {
+                    'auto': tr('自动选择源'),
+                    'official': tr('官方源'),
+                    'bmclapi': 'BMCLAPI'
+                  }
+                      .entries
+                      .map((e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(e.value,
+                              maxLines: 1, overflow: TextOverflow.ellipsis)))
+                      .toList(),
+                  onChanged: locked
+                      ? null
+                      : (v) {
+                          if (v != null) unawaited(widget.onSource(v));
+                        }))
+        ]),
         Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child:

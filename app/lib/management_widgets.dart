@@ -65,38 +65,20 @@ class ManagementPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(
-            padding: EdgeInsets.fromLTRB(
-                28,
-                Theme.of(context).platform == TargetPlatform.macOS ? 44 : 24,
-                28,
-                20),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (onBack != null)
-                Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: TextButton.icon(
-                        onPressed: onBack,
-                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                        label: Text(tr('返回游戏库')))),
-              Row(children: [
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(title,
-                          style: const TextStyle(
-                              fontSize: 25, fontWeight: FontWeight.w600)),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 8),
-                        Text(subtitle!,
-                            style: TextStyle(fontSize: 13, color: muted))
-                      ]
-                    ])),
-                ...actions
-              ]),
-            ])),
+        PageMasthead(
+            title: title,
+            subtitle: subtitle,
+            actions: actions,
+            leading: onBack == null
+                ? null
+                : TextButton.icon(
+                    onPressed: onBack,
+                    style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 17),
+                    label: Text(tr('返回游戏库')))),
         Expanded(
             child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -119,44 +101,59 @@ class ManagementTable extends StatelessWidget {
   final List<List<Widget>> rows;
   final Map<int, TableColumnWidth> widths;
   final Set<int> selected;
+  double cellInset(int index) {
+    final width = widths[index];
+    return width is FixedColumnWidth && width.value < 72 ? 8 : 16;
+  }
+
+  Widget cell(Widget child, int index, {required bool header}) => Padding(
+      padding: EdgeInsets.symmetric(
+          horizontal: cellInset(index), vertical: header ? 13 : 15),
+      child: DefaultTextStyle.merge(
+          style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: header ? FontWeight.w600 : FontWeight.w400,
+              color: ink),
+          child: index == headers.length - 1
+              ? Align(alignment: Alignment.center, child: child)
+              : child));
+
   @override
-  Widget build(BuildContext context) => SurfaceCard(
-      padding: EdgeInsets.zero,
+  Widget build(BuildContext context) => DecoratedBox(
+      decoration: BoxDecoration(
+          color: panelSurface.withOpacity(.78),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: line.withOpacity(.65), width: .7)),
       child: ClipRRect(
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(10),
           child: Table(
               columnWidths: widths,
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: [
                 TableRow(
-                    decoration: BoxDecoration(color: seclColor(0xFFEDF1F5)),
+                    decoration: BoxDecoration(
+                        color: AppAppearance.instance.dark
+                            ? const Color(0xff2b3345)
+                            : const Color(0xffefedf6)),
                     children: [
-                      for (final cell in headers)
-                        Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14),
-                            child: DefaultTextStyle.merge(
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: ink),
-                                child: cell))
+                      for (var index = 0; index < headers.length; index++)
+                        cell(headers[index], index, header: true)
                     ]),
                 for (var index = 0; index < rows.length; index++)
                   TableRow(
                       decoration: BoxDecoration(
                           color: selected.contains(index)
-                              ? seclColor(0xFFEAF2F7)
+                              ? accent.withOpacity(.08)
                               : null,
-                          border: Border(top: BorderSide(color: line))),
+                          border: Border(
+                              top: BorderSide(
+                                  color: line.withOpacity(.65), width: .7))),
                       children: [
-                        for (final cell in rows[index])
-                          Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                              child: DefaultTextStyle.merge(
-                                  style: TextStyle(fontSize: 13, color: ink),
-                                  child: cell))
+                        for (var column = 0;
+                            column < rows[index].length;
+                            column++)
+                          cell(rows[index][column], column, header: false)
                       ])
               ])));
 }

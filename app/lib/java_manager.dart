@@ -24,6 +24,7 @@ class _JavaManagerState extends State<JavaManager>
   @override
   ResourceEngine get engine => widget.engine;
   List<Data> runtimes = [];
+  String? expandedPath;
   @override
   void initState() {
     super.initState();
@@ -126,6 +127,79 @@ class _JavaManagerState extends State<JavaManager>
                           child: Text(tr('完成')))
                     ]));
       });
+  Future<void> openHome(Data runtime) => perform(() async {
+        final data =
+            await rpc({'op': 'java.legal', 'path': runtime['path']}) as Map;
+        await rpc({'op': 'path.open', 'path': data['home']});
+      });
+
+  Widget runtimeVersion(Data runtime) {
+    final path = runtime['path'] as String;
+    final expanded = expandedPath == path;
+    return Row(children: [
+      IconButton(
+          tooltip: tr('查看详情'),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 24, height: 28),
+          visualDensity: VisualDensity.standard,
+          onPressed: () =>
+              setState(() => expandedPath = expanded ? null : path),
+          icon: Icon(
+              expanded
+                  ? Icons.expand_more_rounded
+                  : Icons.chevron_right_rounded,
+              size: 18,
+              color: muted)),
+      const SizedBox(width: 4),
+      Icon(Icons.coffee_outlined, size: 22, color: accent),
+      const SizedBox(width: 10),
+      Expanded(
+          child: Text(runtime['version'] as String,
+              style: const TextStyle(fontWeight: FontWeight.w600))),
+    ]);
+  }
+
+  Widget runtimeDetails(Data runtime) => Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: accent.withOpacity(.045),
+              borderRadius: BorderRadius.circular(10)),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Java ${runtime['version']} · ${runtime['vendor'] ?? ''}',
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            SelectableText(runtime['path'] as String,
+                style: TextStyle(fontSize: 12, height: 1.5, color: muted)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              TextButton.icon(
+                  onPressed: locked ? null : () => openHome(runtime),
+                  icon: const Icon(Icons.folder_open_outlined, size: 15),
+                  label: Text(tr('打开位置'))),
+              TextButton.icon(
+                  onPressed: locked ? null : () => legal(runtime),
+                  icon: const Icon(Icons.description_outlined, size: 15),
+                  label: Text(tr('查看许可证'))),
+            ]),
+          ])));
+
+  Widget runtimeArchitecture(Data runtime) {
+    final arch = runtime['arch'] as String? ?? '';
+    final label = {
+          'aarch64': 'ARM64',
+          'arm64': 'ARM64',
+          'x86_64': 'x64',
+          'amd64': 'x64',
+          'x86': 'x86'
+        }[arch.toLowerCase()] ??
+        arch;
+    return Tooltip(message: arch, child: Text(label));
+  }
+
   @override
   Widget build(BuildContext context) => ManagementPage(
       title: tr('Java 管理'),
@@ -164,55 +238,60 @@ class _JavaManagerState extends State<JavaManager>
             child: result(runtimes.isEmpty
                 ? Center(child: Text(tr('未检测到 Java，可扫描、导入或下载安装。')))
                 : SingleChildScrollView(
-                    child: ManagementTable(headers: [
-                    Text(tr('版本 / 构建')),
-                    Text(tr('发行版')),
-                    Text(tr('架构')),
-                    Text(tr('状态')),
-                    Text(tr('操作'))
-                  ], widths: const {
-                    0: FlexColumnWidth(2),
-                    1: FlexColumnWidth(1.5),
-                    2: FlexColumnWidth(1),
-                    3: FlexColumnWidth(1),
-                    4: FixedColumnWidth(70)
-                  }, rows: [
-                    for (final j in runtimes)
-                      [
-                        Tooltip(
-                            message: j['path'] as String,
-                            child: Text(j['version'] as String)),
-                        Text(j['vendor'] as String? ?? '',
-                            maxLines: 2, overflow: TextOverflow.ellipsis),
-                        Text(j['arch'] as String? ?? ''),
-                        Text('● ${tr('可用')}',
-                            style: TextStyle(color: seclColor(0xFF2F7C55))),
-                        PopupMenuButton<String>(
-                            tooltip: tr('更多操作'),
-                            icon: const Icon(Icons.more_horiz_rounded),
-                            onSelected: (action) {
-                              if (action == 'legal') legal(j);
-                              if (action == 'open') {
-                                perform(() async {
-                                  final data = await rpc({
-                                    'op': 'java.legal',
-                                    'path': j['path']
-                                  }) as Map;
-                                  await rpc({
-                                    'op': 'path.open',
-                                    'path': data['home']
-                                  });
-                                });
-                              }
-                            },
-                            itemBuilder: (_) => [
-                                  PopupMenuItem(
-                                      value: 'open', child: Text(tr('打开位置'))),
-                                  PopupMenuItem(
-                                      value: 'legal', child: Text(tr('查看许可证')))
-                                ])
-                      ]
-                  ])))),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                        ManagementTable(headers: [
+                          Padding(
+                              padding: const EdgeInsets.only(left: 60),
+                              child: Text(tr('版本 / 构建'))),
+                          Text(tr('发行版')),
+                          Text(tr('架构')),
+                          Text(tr('状态')),
+                          Text(tr('操作'))
+                        ], widths: const {
+                          0: FlexColumnWidth(2),
+                          1: FlexColumnWidth(1.5),
+                          2: FlexColumnWidth(1),
+                          3: FlexColumnWidth(1),
+                          4: FixedColumnWidth(70)
+                        }, rows: [
+                          for (final j in runtimes)
+                            [
+                              runtimeVersion(j),
+                              Text(j['vendor'] as String? ?? '',
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                              runtimeArchitecture(j),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.circle,
+                                    size: 7, color: seclColor(0xFF2F7C55)),
+                                const SizedBox(width: 7),
+                                Flexible(
+                                    child: Text(tr('可用'),
+                                        style: TextStyle(
+                                            color: seclColor(0xFF2F7C55))))
+                              ]),
+                              PopupMenuButton<String>(
+                                  tooltip: tr('更多操作'),
+                                  icon: const Icon(Icons.more_horiz_rounded),
+                                  onSelected: (action) {
+                                    if (action == 'legal') legal(j);
+                                    if (action == 'open') openHome(j);
+                                  },
+                                  itemBuilder: (_) => [
+                                        PopupMenuItem(
+                                            value: 'open',
+                                            child: Text(tr('打开位置'))),
+                                        PopupMenuItem(
+                                            value: 'legal',
+                                            child: Text(tr('查看许可证')))
+                                      ])
+                            ]
+                        ]),
+                        for (final runtime in runtimes)
+                          if (runtime['path'] == expandedPath)
+                            runtimeDetails(runtime)
+                      ])))),
         if (loading)
           Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),

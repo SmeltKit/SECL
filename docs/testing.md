@@ -484,3 +484,20 @@ The ARM64 macOS Release bundle with the version cover artwork and vector terrain
 branding is 33,599,088 bytes (33.6 MB); its ZIP is 17,380,159 bytes (17.4 MB).
 Strict deep ad hoc signature verification passes. Build products, private notes,
 credentials and validation logs are excluded from source control.
+
+
+### Unified management interface follow-up
+
+The library, instance/resource tables, all three markets, Java and downloads now
+share a restrained landscape page heading and aligned controls. Appearance
+settings use a full content page; the previous page remains mounted while hidden
+and excluded from keyboard focus. New layout checks cover compact English/light/
+dark headings, library management actions and settings focus/state restoration.
+All 138 Flutter tests pass and static analysis reports no issues.
+
+The updated ARM64 macOS Release builds, passes strict deep ad hoc signature
+verification, and opens with the existing native core. Its app is 33,632,300 bytes;
+the ZIP is 17,391,371 bytes. The library, markets, independent settings page,
+Java runtime details and a live Java build query have been visually inspected in
+the running application. Generated design references and
+prompts are private development artifacts, excluded from the repository.

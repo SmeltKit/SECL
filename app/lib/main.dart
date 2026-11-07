@@ -24,6 +24,7 @@ import 'instance_page.dart';
 import 'java_manager.dart';
 import 'account_manager.dart';
 import 'task_panel.dart';
+import 'settings_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -150,6 +151,7 @@ class _LauncherHomeState extends State<LauncherHome> {
   Map<String, dynamic> state = {};
   String selected = '', java = '';
   String page = 'home';
+  String settingsReturnPage = 'home';
   String downloadTab = 'game';
   Map<String, dynamic>? focusedInstance, marketTarget;
   String instanceTab = 'mod', marketQuery = '';
@@ -387,116 +389,23 @@ class _LauncherHomeState extends State<LauncherHome> {
   }
 
   Future<void> settings() async {
-    await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AnimatedBuilder(
-            animation: Listenable.merge(
-                [AppLanguage.instance, AppAppearance.instance]),
-            builder: (context, _) => AlertDialog(
-                    title: Text(tr('设置')),
-                    content: SizedBox(
-                        width: 420,
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              DropdownButtonFormField<String>(
-                                  value: AppAppearance.instance.mode,
-                                  items: [
-                                    for (final value in [
-                                      'system',
-                                      'light',
-                                      'dark'
-                                    ])
-                                      DropdownMenuItem(
-                                          value: value,
-                                          child: Text(tr({
-                                            'system': '跟随系统',
-                                            'light': '浅色',
-                                            'dark': '深色'
-                                          }[value]!)))
-                                  ],
-                                  onChanged: (value) async {
-                                    if (value == null) return;
-                                    AppAppearance.instance.select(
-                                        value, AppAppearance.instance.tone);
-                                    await action({
-                                      'action': 'configure',
-                                      'appearance': value
-                                    });
-                                  }),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                  value: AppAppearance.instance.tone,
-                                  items: [
-                                    for (final value in [
-                                      'blue',
-                                      'forest',
-                                      'violet'
-                                    ])
-                                      DropdownMenuItem(
-                                          value: value,
-                                          child: Text(tr({
-                                            'blue': '蓝色',
-                                            'forest': '森林绿',
-                                            'violet': '紫色'
-                                          }[value]!)))
-                                  ],
-                                  onChanged: (value) async {
-                                    if (value == null) return;
-                                    AppAppearance.instance.select(
-                                        AppAppearance.instance.mode, value);
-                                    await action(
-                                        {'action': 'configure', 'tone': value});
-                                  }),
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                  onPressed: chooseBackground,
-                                  icon: const Icon(Icons.wallpaper_rounded,
-                                      size: 18),
-                                  label: Text(tr('更换背景'))),
-                              const SizedBox(height: 16),
-                              Text(tr('界面语言'),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 10),
-                              DropdownButtonFormField<String>(
-                                  key: const Key('languageSelector'),
-                                  borderRadius: BorderRadius.circular(9),
-                                  focusColor: Colors.transparent,
-                                  value: AppLanguage.instance.preference,
-                                  isExpanded: true,
-                                  items: [
-                                    DropdownMenuItem(
-                                        value: 'system',
-                                        child: Text(tr('跟随系统'))),
-                                    const DropdownMenuItem(
-                                        value: 'zh_Hans', child: Text('简体中文')),
-                                    const DropdownMenuItem(
-                                        value: 'zh_Hant', child: Text('繁體中文')),
-                                    const DropdownMenuItem(
-                                        value: 'en', child: Text('English')),
-                                  ],
-                                  onChanged: (value) async {
-                                    if (value == null) return;
-                                    await action({
-                                      'action': 'configure',
-                                      'language': value
-                                    });
-                                    if (mounted && state['language'] == value) {
-                                      AppLanguage.instance.select(value);
-                                    }
-                                  }),
-                              const SizedBox(height: 12),
-                              Text(tr('切换后立即生效。项目介绍和文件名保留原文。'),
-                                  style: TextStyle(
-                                      fontSize: 12, color: muted, height: 1.5)),
-                            ])),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          child: Text(tr('完成')))
-                    ])));
+    if (page == 'settings') return;
+    setState(() {
+      settingsReturnPage = page;
+      page = 'settings';
+    });
+  }
+
+  Future<void> setAppearance(String mode, String tone) async {
+    AppAppearance.instance.select(mode, tone);
+    await action({'action': 'configure', 'appearance': mode, 'tone': tone});
+  }
+
+  Future<void> setLanguage(String value) async {
+    await action({'action': 'configure', 'language': value});
+    if (mounted && state['language'] == value) {
+      AppLanguage.instance.select(value);
+    }
   }
 
   void downloads(String tab) => setState(() {
@@ -692,6 +601,7 @@ class _LauncherHomeState extends State<LauncherHome> {
           profile: accountPanel(),
           settings: SidebarNavItem(
               label: tr('设置'),
+              selected: page == 'settings',
               onTap: settings,
               leading: IconButton(
                   key: const Key('settingsButton'),
@@ -942,21 +852,22 @@ class _LauncherHomeState extends State<LauncherHome> {
       onChooseJava: busy ? null : chooseJava,
       onChangeBackground: chooseBackground);
 
-  Widget pageBody(Map<String, dynamic>? error) {
-    if (page == 'accounts') {
+  Widget pageBody(Map<String, dynamic>? error, {String? route}) {
+    final currentPage = route ?? page;
+    if (currentPage == 'accounts') {
       return AccountManager(
           snapshot: state,
           action: action,
           pending: accountPending,
           authenticating: authenticating);
     }
-    if (page == 'java') {
+    if (currentPage == 'java') {
       return JavaManager(
           engine: resources,
           onDownload: () => downloads('java'),
           onChanged: () => action({'action': 'detect_java'}));
     }
-    if (page == 'library') {
+    if (currentPage == 'library') {
       return InstanceLibrary(
           engine: resources,
           root: state['root'] as String? ?? '',
@@ -968,7 +879,7 @@ class _LauncherHomeState extends State<LauncherHome> {
             action({'action': 'launch', 'version': selected, 'java': java});
           });
     }
-    if (page == 'instance' && focusedInstance != null) {
+    if (currentPage == 'instance' && focusedInstance != null) {
       return InstancePage(
           key: ValueKey('instance-${focusedInstance!['path']}'),
           engine: resources,
@@ -979,7 +890,7 @@ class _LauncherHomeState extends State<LauncherHome> {
           onChanged: refreshInstance,
           onBrowse: browseForInstance);
     }
-    if (page == 'download') {
+    if (currentPage == 'download') {
       return DownloadCenter(
           key: ValueKey('download-$downloadTab'),
           engine: resources,
@@ -993,9 +904,9 @@ class _LauncherHomeState extends State<LauncherHome> {
           onImport: importModpack,
           initialTab: downloadTab);
     }
-    if (page != 'home') {
+    if (currentPage != 'home') {
       return ResourceMarket(
-          kind: page,
+          kind: currentPage,
           engine: resources,
           root: state['root'] as String? ?? '',
           selectedVersion: selected,
@@ -1012,6 +923,26 @@ class _LauncherHomeState extends State<LauncherHome> {
   Widget build(BuildContext context) {
     final error = localError ?? state['error'] as Map<String, dynamic>?;
     return Scaffold(
-        body: Row(children: [sidebar(), Expanded(child: pageBody(error))]));
+        body: Row(children: [
+      sidebar(),
+      Expanded(
+          child: Stack(fit: StackFit.expand, children: [
+        Offstage(
+            offstage: page == 'settings',
+            child: ExcludeFocus(
+                excluding: page == 'settings',
+                child: pageBody(error,
+                    route: page == 'settings' ? settingsReturnPage : page))),
+        if (page == 'settings')
+          SettingsPage(
+              background: state['home_background'] as String? ?? 'auto',
+              version: selectedGameVersion,
+              onAppearanceChanged: setAppearance,
+              onLanguageChanged: setLanguage,
+              onChooseBackground: chooseBackground,
+              onDone: () => setState(() => page = settingsReturnPage),
+              onAbout: showProjectAbout)
+      ]))
+    ]));
   }
 }

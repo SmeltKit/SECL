@@ -24,6 +24,123 @@ Color get line => AppAppearance.instance.dark
     ? const Color(0xff3a4858)
     : const Color(0xffe2e7ed);
 
+/// Shared page heading with a quiet landscape echo of the home scene.
+/// Content determines its height; actions wrap instead of compressing the title.
+class PageMasthead extends StatelessWidget {
+  const PageMasthead({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.actions = const [],
+    this.leading,
+  });
+  final String title;
+  final String? subtitle;
+  final List<Widget> actions;
+  final Widget? leading;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = AppAppearance.instance.dark;
+    final heading = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: 25,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -.3,
+                  color: ink)),
+          if (subtitle != null && subtitle!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(subtitle!,
+                style: TextStyle(fontSize: 13, height: 1.5, color: muted)),
+          ],
+        ]);
+    final actionWidgets =
+        actions.where((w) => !(w is SizedBox && w.child == null)).toList();
+    return Stack(children: [
+      Positioned.fill(
+          child: IgnorePointer(
+              child: ExcludeSemantics(
+                  child: Align(
+                      alignment: Alignment.topRight,
+                      child: FractionallySizedBox(
+                          widthFactor: .78,
+                          child: Opacity(
+                              opacity: dark ? .15 : .26,
+                              child: ShaderMask(
+                                  blendMode: BlendMode.dstIn,
+                                  shaderCallback: (rect) => const LinearGradient(colors: [Colors.transparent, Colors.white], stops: [.04, .7])
+                                      .createShader(rect),
+                                  child: ShaderMask(
+                                      blendMode: BlendMode.dstIn,
+                                      shaderCallback: (rect) => const LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.white,
+                                                Colors.transparent
+                                              ],
+                                              stops: [
+                                                0,
+                                                1
+                                              ]).createShader(rect),
+                                      child: Image.asset('assets/version-covers/minecraft-1.20.webp',
+                                          alignment: Alignment.topRight,
+                                          fit: BoxFit.cover,
+                                          cacheWidth: 1000,
+                                          gaplessPlayback: true))))))))),
+      Padding(
+          padding: EdgeInsets.fromLTRB(
+              28,
+              Theme.of(context).platform == TargetPlatform.macOS ? 44 : 24,
+              28,
+              20),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(height: 10),
+                ],
+                LayoutBuilder(builder: (context, bounds) {
+                  final actionRow = Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: actionWidgets);
+                  if (actionWidgets.isEmpty) return heading;
+                  if (bounds.maxWidth < 560) {
+                    return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          heading,
+                          const SizedBox(height: 14),
+                          actionRow,
+                        ]);
+                  }
+                  return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(child: heading),
+                        const SizedBox(width: 20),
+                        ConstrainedBox(
+                            constraints:
+                                BoxConstraints(maxWidth: bounds.maxWidth * .54),
+                            child: actionRow),
+                      ]);
+                }),
+              ])),
+    ]);
+  }
+}
+
 class FooterBar extends StatelessWidget {
   const FooterBar(
       {super.key, required this.child, this.horizontalPadding = 28});
