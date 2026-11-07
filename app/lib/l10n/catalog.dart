@@ -1,6 +1,485 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
+  "尚未添加游戏实例": ["尚未新增遊戲實例", "No game instances yet"],
+  "暂无最近游玩记录": ["暫無最近遊玩記錄", "No recently played instances"],
+  "打开游戏库": ["開啟遊戲庫", "Open library"],
+  "全部实例": ["全部實例", "All instances"],
+  "最近游玩": ["最近遊玩", "Recently played"],
+  "关于 SECL": ["關於 SECL", "About SECL"],
+  "准备就绪": ["準備就緒", "Ready to play"],
+  "选择游戏实例": ["選擇遊戲實例", "Choose an instance"],
+  "切换实例": ["切換實例", "Switch instance"],
+  "应用": ["套用", "Apply"],
+  "背景选项无效。": ["背景選項無效。", "Invalid background option."],
+  "默认风景": ["預設風景", "Default scenery"],
+  "按游戏版本自动选择": ["依遊戲版本自動選擇", "Match game version"],
+  "更换背景": ["更換背景", "Change background"],
+  "等待当前任务完成": ["等待目前工作完成", "Waiting for the current task"],
+  "CurseForge 作者声明不兼容：": [
+    "CurseForge 作者聲明不相容：",
+    "Incompatibility declared on CurseForge: "
+  ],
+  "CurseForge 必需依赖未核实：": [
+    "CurseForge 必要相依項目尚未確認：",
+    "Required CurseForge dependency unverified: "
+  ],
+  "整合包（.mrpack、.zip）": ["整合包（.mrpack、.zip）", "Modpacks (.mrpack, .zip)"],
+  "项目 {0} · 文件 {1}": ["專案 {0} · 檔案 {1}", "Project {0} · File {1}"],
+  "生成导入计划时会查询 CurseForge 文件信息。": [
+    "產生匯入計畫時會查詢 CurseForge 檔案資訊。",
+    "CurseForge file details are looked up when you review the import plan."
+  ],
+  "覆盖文件：{0}": ["覆寫檔案：{0}", "Override files: {0}"],
+  "选择补充文件目录": ["選擇補充檔案目錄", "Select folder with missing files"],
+  "已校验的本地文件": ["已驗證的本機檔案", "Verified local files"],
+  "{0} 个文件需要处理": ["{0} 個檔案需要處理", "{0} files need attention"],
+  "作者声明与 {0} 不兼容。": [
+    "作者聲明與 {0} 不相容。",
+    "The author declares an incompatibility with {0}."
+  ],
+  "处理这些文件后才能开始导入。可选文件可以返回取消选择。": [
+    "處理這些檔案後才能開始匯入。選用檔案可以返回取消選取。",
+    "Resolve these files before importing. You can go back and deselect optional files."
+  ],
+  "将手动下载的文件放在同一文件夹，然后选择该目录以校验。": [
+    "將手動下載的檔案放在同一個資料夾，然後選擇該資料夾進行驗證。",
+    "Put the downloaded files in one folder, then select it to verify them."
+  ],
+  "启动器暂不支持此资源类型。": [
+    "啟動器暫不支援此資源類型。",
+    "This resource type is not supported by the launcher."
+  ],
+  "CurseForge 未提供用于校验的文件哈希。": [
+    "CurseForge 未提供用於驗證的檔案雜湊。",
+    "CurseForge did not provide a file checksum for verification."
+  ],
+  "CurseForge 提供的文件大小无效。": [
+    "CurseForge 提供的檔案大小無效。",
+    "CurseForge reported an invalid file size."
+  ],
+  "该文件的名称无法安全导入。": ["無法安全匯入此檔案名稱。", "This filename cannot be imported safely."],
+  "请从 CurseForge 文件页面手动下载。": [
+    "請從 CurseForge 檔案頁面手動下載。",
+    "Download this file manually from its CurseForge page."
+  ],
+  "本地文件校验失败，请核对文件版本。": [
+    "本機檔案驗證失敗，請確認檔案版本。",
+    "The local file failed verification. Check the file version."
+  ],
+  "CurseForge 上的指定文件不可用。": [
+    "CurseForge 上的指定檔案無法使用。",
+    "The specified file is unavailable on CurseForge."
+  ],
+  "请选择 Modrinth .mrpack 或 CurseForge .zip 整合包。": [
+    "請選擇 Modrinth .mrpack 或 CurseForge .zip 整合包。",
+    "Choose a Modrinth .mrpack or CurseForge .zip modpack."
+  ],
+  "整合包根目录缺少 manifest.json。": [
+    "整合包根目錄缺少 manifest.json。",
+    "The modpack root is missing manifest.json."
+  ],
+  "仅支持 manifestVersion 为 1 的 CurseForge 整合包。": [
+    "僅支援 manifestVersion 為 1 的 CurseForge 整合包。",
+    "Only CurseForge modpacks with manifestVersion 1 are supported."
+  ],
+  "CurseForge 文件缺少有效的 projectID。": [
+    "CurseForge 檔案缺少有效的 projectID。",
+    "The CurseForge file is missing a valid projectID."
+  ],
+  "CurseForge 文件缺少有效的 fileID。": [
+    "CurseForge 檔案缺少有效的 fileID。",
+    "The CurseForge file is missing a valid fileID."
+  ],
+  "CurseForge 文件标识无效：": [
+    "CurseForge 檔案識別碼無效：",
+    "Invalid CurseForge file identifier: "
+  ],
+  "CurseForge 文件缺少有效的 required。": [
+    "CurseForge 檔案缺少有效的 required。",
+    "The CurseForge file is missing a valid required flag."
+  ],
+  "CurseForge 整合包版本必须是字符串。": [
+    "CurseForge 整合包版本必須是字串。",
+    "The CurseForge modpack version must be a string."
+  ],
+  "CurseForge 整合包缺少有效的 minecraft。": [
+    "CurseForge 整合包缺少有效的 minecraft。",
+    "The CurseForge modpack is missing valid minecraft settings."
+  ],
+  "CurseForge 整合包的 modLoaders 无效。": [
+    "CurseForge 整合包的 modLoaders 無效。",
+    "The CurseForge modpack has invalid modLoaders."
+  ],
+  "CurseForge 整合包的 primary 必须是布尔值。": [
+    "CurseForge 整合包的 primary 必須是布林值。",
+    "The CurseForge modpack's primary flag must be a boolean."
+  ],
+  "整合包声明了多个主加载器。": [
+    "整合包宣告了多個主載入器。",
+    "The modpack declares multiple primary mod loaders."
+  ],
+  "整合包未指定主加载器。": [
+    "整合包未指定主載入器。",
+    "The modpack does not specify a primary mod loader."
+  ],
+  "整合包要求尚不支持的加载器：": [
+    "整合包要求尚不支援的載入器：",
+    "The modpack requires an unsupported loader: "
+  ],
+  "CurseForge 整合包重复声明了同一个文件。": [
+    "CurseForge 整合包重複宣告了同一個檔案。",
+    "The CurseForge modpack declares the same file more than once."
+  ],
+  "请选择有效的整合包补充文件目录。": [
+    "請選擇有效的整合包補充檔案目錄。",
+    "Select a valid folder with missing modpack files."
+  ],
+  "无法读取整合包补充文件目录。": [
+    "無法讀取整合包補充檔案目錄。",
+    "Could not read the folder with missing modpack files."
+  ],
+  "整合包仍有需要处理的文件，请重新查看安装计划。": [
+    "整合包仍有需要處理的檔案，請重新檢視安裝計畫。",
+    "The modpack still has files that need attention. Review the plan again."
+  ],
+  "CurseForge 文件信息已变化，请重新查看安装计划。": [
+    "CurseForge 檔案資訊已變更，請重新檢視安裝計畫。",
+    "CurseForge file information changed. Review the plan again."
+  ],
+  "查询 CurseForge 整合包文件": [
+    "查詢 CurseForge 整合包檔案",
+    "Looking up CurseForge modpack files"
+  ],
+  "整合包文件大小或哈希校验失败。": [
+    "整合包檔案大小或雜湊驗證失敗。",
+    "The modpack file failed size or hash verification."
+  ],
+  "下载大小仅为整合包文件，不含游戏、Java 和加载器。": [
+    "下載大小僅為整合包檔案，不含遊戲、Java 與載入器。",
+    "The download size covers modpack files only, excluding the game, Java and loader."
+  ],
+  "此整合包或目标实例已有安装操作进行中。": [
+    "此整合包或目標實例已有安裝操作進行中。",
+    "An installation is already running for this modpack or target instance."
+  ],
+  "无法恢复中断的整合包安装，请检查目标目录。": [
+    "無法復原中斷的整合包安裝，請檢查目標目錄。",
+    "Could not recover the interrupted modpack installation. Check the target directory."
+  ],
+  "整合包实例 ID 无效。": ["整合包實例 ID 無效。", "The modpack instance ID is invalid."],
+  "目标实例或游戏目录已存在，请使用其他名称。": [
+    "目標實例或遊戲目錄已存在，請使用其他名稱。",
+    "The target instance or game directory already exists. Use another name."
+  ],
+  "整合包文件大小或双重哈希校验失败。": [
+    "整合包檔案大小或雙重雜湊驗證失敗。",
+    "The modpack file failed size or dual-hash verification."
+  ],
+  "整合包缓存包含无效文件。": [
+    "整合包快取包含無效檔案。",
+    "The modpack cache contains an invalid file."
+  ],
+  "共享游戏文件与整合包要求不同，未覆盖已有文件。": [
+    "共用遊戲檔案與整合包要求不同，未覆寫已有檔案。",
+    "A shared game file differs from the modpack requirement. The existing file was kept."
+  ],
+  "无法复制已校验的整合包文件。": [
+    "無法複製已驗證的整合包檔案。",
+    "Could not copy the verified modpack file."
+  ],
+  "无法提交整合包文件，目标可能已被占用。": [
+    "無法提交整合包檔案，目標可能已被占用。",
+    "Could not publish the modpack file. The destination may already be in use."
+  ],
+  "游戏缓存文件数量超过限制。": [
+    "遊戲快取檔案數量超過限制。",
+    "The game cache exceeds the file count limit."
+  ],
+  "读取整合包安装信息": ["讀取整合包安裝資訊", "Reading modpack installation details"],
+  "请选择有效的整合包安装目录。": [
+    "請選擇有效的整合包安裝目錄。",
+    "Choose a valid modpack installation directory."
+  ],
+  "整合包实例名称无效。": ["整合包實例名稱無效。", "The modpack instance name is invalid."],
+  "整合包可选文件选择无效。": [
+    "整合包選用檔案選取無效。",
+    "The optional modpack file selection is invalid."
+  ],
+  "选择了不属于此整合包的可选文件。": [
+    "選取了不屬於此整合包的選用檔案。",
+    "A selected optional file does not belong to this modpack."
+  ],
+  "整合包文件已变化，请重新查看安装计划。": [
+    "整合包檔案已變更，請重新檢視安裝計畫。",
+    "The modpack file changed. Review the installation plan again."
+  ],
+  "未完成的安装目录不属于此整合包。": [
+    "未完成的安裝目錄不屬於此整合包。",
+    "The unfinished installation directory does not belong to this modpack."
+  ],
+  "整合包路径在当前文件系统上发生重名，未覆盖文件。": [
+    "整合包路徑在目前檔案系統上發生重名，未覆寫檔案。",
+    "Modpack paths collide on this file system. No file was overwritten."
+  ],
+  "下载并校验整合包文件": ["下載並驗證整合包檔案", "Downloading and verifying modpack files"],
+  "应用整合包配置": ["套用整合包設定", "Applying modpack configuration"],
+  "整合包配置文件损坏。": ["整合包設定檔已損壞。", "The modpack configuration file is damaged."],
+  "安装整合包所需的游戏与加载器": [
+    "安裝整合包所需的遊戲與載入器",
+    "Installing the game and loader required by the modpack"
+  ],
+  "官方版本列表中没有此整合包要求的游戏版本。": [
+    "官方版本清單中沒有此整合包要求的遊戲版本。",
+    "The official version list does not contain the game version required by this modpack."
+  ],
+  "检查整合包依赖": ["檢查整合包相依項目", "Checking modpack dependencies"],
+  "整合包包含依赖冲突：": ["整合包包含相依衝突：", "The modpack contains dependency conflicts: "],
+  "准备独立游戏实例": ["準備獨立遊戲實例", "Preparing a separate game instance"],
+  "发布后的 Java 无法运行，请重试安装。": [
+    "發佈後的 Java 無法執行，請重試安裝。",
+    "The installed Java runtime cannot run. Retry the installation."
+  ],
+  "导入整合包": ["匯入整合包", "Import modpack"],
+  "操作已取消，可重新确认并继续导入": [
+    "操作已取消，可重新確認並繼續匯入",
+    "Cancelled. Review the plan to continue importing."
+  ],
+  "无法读取整合包结果，请重试。": [
+    "無法讀取整合包結果，請重試。",
+    "Could not read the modpack result. Retry the operation."
+  ],
+  "将创建独立实例，不会合并到已有实例。": [
+    "將建立獨立實例，不會合併至已有實例。",
+    "A separate instance will be created without merging into an existing instance."
+  ],
+  "客户端文件": ["用戶端檔案", "Client files"],
+  "必需文件自动安装，可选文件默认不安装。": [
+    "必要檔案會自動安裝，選用檔案預設不安裝。",
+    "Required files are installed automatically. Optional files are off by default."
+  ],
+  "可选": ["選用", "Optional"],
+  "必需": ["必要", "Required"],
+  "覆盖文件：{0}；仅服务端文件将跳过。": [
+    "覆寫檔案：{0}；僅伺服器端檔案將略過。",
+    "Override files: {0}; server-only files will be skipped."
+  ],
+  "独立实例目录": ["獨立實例目錄", "Separate instance directory"],
+  "游戏与加载器": ["遊戲與載入器", "Game and loader"],
+  "整合包版本": ["整合包版本", "Modpack version"],
+  "{0} 个文件 · {1}": ["{0} 個檔案 · {1}", "{0} files · {1}"],
+  "覆盖文件": ["覆寫檔案", "Override files"],
+  "跳过的服务端文件": ["略過的伺服器端檔案", "Skipped server files"],
+  "已选可选文件": ["已選取的選用檔案", "Selected optional files"],
+  "导入中断后可重试，已校验的文件会保留并继续使用。": [
+    "匯入中斷後可重試，已驗證的檔案會保留並繼續使用。",
+    "Retry an interrupted import to reuse files that have already been verified."
+  ],
+  "准备导入": ["準備匯入", "Preparing import"],
+  "取消后保留已校验的文件，可稍后重新导入。": [
+    "取消後會保留已驗證的檔案，可稍後重新匯入。",
+    "Verified files are kept after cancellation for a later import."
+  ],
+  "确认导入整合包": ["確認匯入整合包", "Confirm modpack import"],
+  "正在读取整合包": ["正在讀取整合包", "Reading modpack"],
+  "正在生成导入计划": ["正在產生匯入計畫", "Preparing import plan"],
+  "正在取消": ["正在取消", "Cancelling"],
+  "返回修改": ["返回修改", "Back to edit"],
+  "查看导入计划": ["檢視匯入計畫", "Review import plan"],
+  "开始导入": ["開始匯入", "Start import"],
+  "整合包包含不安全的文件路径。": [
+    "整合包包含不安全的檔案路徑。",
+    "The modpack contains an unsafe file path."
+  ],
+  "整合包路径包含 Windows 保留名称。": [
+    "整合包路徑包含 Windows 保留名稱。",
+    "A modpack path contains a Windows reserved name."
+  ],
+  "整合包不能覆盖启动器管理的文件。": [
+    "整合包不能覆寫啟動器管理的檔案。",
+    "The modpack cannot overwrite files managed by the launcher."
+  ],
+  "整合包路径存在大小写冲突或文件与目录冲突。": [
+    "整合包路徑存在大小寫衝突或檔案與目錄衝突。",
+    "Modpack paths contain a case conflict or a file/directory conflict."
+  ],
+  "整合包包含重复的文件路径。": [
+    "整合包包含重複的檔案路徑。",
+    "The modpack contains duplicate file paths."
+  ],
+  "整合包 ZIP 数据被截断。": ["整合包 ZIP 資料遭截斷。", "The modpack ZIP data is truncated."],
+  "整合包必须是完整的单卷 ZIP，且不支持 ZIP64。": [
+    "整合包必須是完整的單卷 ZIP，且不支援 ZIP64。",
+    "The modpack must be a complete single-volume ZIP. ZIP64 is unsupported."
+  ],
+  "整合包文件数量超过 10000 个的限制。": [
+    "整合包檔案數量超過 10000 個的限制。",
+    "The modpack exceeds the limit of 10,000 files."
+  ],
+  "整合包 ZIP 目录损坏。": ["整合包 ZIP 目錄已損壞。", "The modpack ZIP directory is damaged."],
+  "整合包包含加密、符号链接或特殊文件条目。": [
+    "整合包包含加密、符號連結或特殊檔案項目。",
+    "The modpack contains encrypted entries, symbolic links or special files."
+  ],
+  "整合包使用了不支持的压缩方式。": [
+    "整合包使用了不支援的壓縮方式。",
+    "The modpack uses an unsupported compression method."
+  ],
+  "整合包目录条目标记不一致。": [
+    "整合包目錄項目標記不一致。",
+    "The modpack directory entry flags are inconsistent."
+  ],
+  "整合包 ZIP 包含重复路径。": [
+    "整合包 ZIP 包含重複路徑。",
+    "The modpack ZIP contains duplicate paths."
+  ],
+  "整合包 ZIP 条目大小无效或使用 ZIP64。": [
+    "整合包 ZIP 項目大小無效或使用 ZIP64。",
+    "A modpack ZIP entry has an invalid size or uses ZIP64."
+  ],
+  "整合包展开后超过 2 GiB 的限制。": [
+    "整合包解壓縮後超過 2 GiB 的限制。",
+    "The extracted modpack exceeds the 2 GiB limit."
+  ],
+  "整合包 ZIP 文件头损坏。": [
+    "整合包 ZIP 檔案標頭已損壞。",
+    "A modpack ZIP file header is damaged."
+  ],
+  "整合包 ZIP 文件头与目录不一致。": [
+    "整合包 ZIP 檔案標頭與目錄不一致。",
+    "A modpack ZIP file header does not match its directory entry."
+  ],
+  "整合包 ZIP 文件大小不一致。": [
+    "整合包 ZIP 檔案大小不一致。",
+    "A modpack ZIP file has inconsistent sizes."
+  ],
+  "整合包 ZIP 文件条目重叠。": [
+    "整合包 ZIP 檔案項目重疊。",
+    "The modpack ZIP file entries overlap."
+  ],
+  "整合包缺少有效字段：": ["整合包缺少有效欄位：", "The modpack is missing a valid field: "],
+  "整合包字段无效：": ["整合包欄位無效：", "Invalid modpack field: "],
+  "整合包 fileSize 必须是非负整数。": [
+    "整合包 fileSize 必須是非負整數。",
+    "The modpack fileSize must be a nonnegative integer."
+  ],
+  "整合包单个下载文件超过 2 GiB 的限制。": [
+    "整合包單一下載檔案超過 2 GiB 的限制。",
+    "A modpack download file exceeds the 2 GiB limit."
+  ],
+  "整合包文件哈希无效：": ["整合包檔案雜湊無效：", "Invalid modpack file hash: "],
+  "整合包下载链接必须使用受信任域名的 HTTPS 地址。": [
+    "整合包下載連結必須使用受信任網域的 HTTPS 位址。",
+    "Modpack downloads must use HTTPS addresses on trusted domains."
+  ],
+  "整合包下载链接包含无效字符。": [
+    "整合包下載連結包含無效字元。",
+    "A modpack download URL contains invalid characters."
+  ],
+  "整合包下载链接包含无效转义。": [
+    "整合包下載連結包含無效跳脫序列。",
+    "A modpack download URL contains an invalid escape sequence."
+  ],
+  "整合包环境字段必须是 required、optional 或 unsupported。": [
+    "整合包環境欄位必須是 required、optional 或 unsupported。",
+    "Modpack environment fields must be required, optional or unsupported."
+  ],
+  "整合包索引必须使用 UTF-8 编码。": [
+    "整合包索引必須使用 UTF-8 編碼。",
+    "The modpack index must use UTF-8 encoding."
+  ],
+  "整合包索引嵌套层级超过限制。": [
+    "整合包索引巢狀層級超過限制。",
+    "The modpack index exceeds the nesting depth limit."
+  ],
+  "整合包索引包含重复的 JSON 字段。": [
+    "整合包索引包含重複的 JSON 欄位。",
+    "The modpack index contains duplicate JSON fields."
+  ],
+  "整合包索引必须是 JSON 对象。": [
+    "整合包索引必須是 JSON 物件。",
+    "The modpack index must be a JSON object."
+  ],
+  "整合包索引 JSON 无法解析。": [
+    "整合包索引 JSON 無法解析。",
+    "The modpack index JSON could not be parsed."
+  ],
+  "请选择 .mrpack 格式的整合包。": [
+    "請選擇 .mrpack 格式的整合包。",
+    "Choose a modpack in .mrpack format."
+  ],
+  "整合包索引超过 16 MiB 的限制。": [
+    "整合包索引超過 16 MiB 的限制。",
+    "The modpack index exceeds the 16 MiB limit."
+  ],
+  "整合包根目录缺少 modrinth.index.json。": [
+    "整合包根目錄缺少 modrinth.index.json。",
+    "The modpack root is missing modrinth.index.json."
+  ],
+  "仅支持 formatVersion 为 1 的 Modrinth 整合包。": [
+    "僅支援 formatVersion 為 1 的 Modrinth 整合包。",
+    "Only Modrinth modpacks with formatVersion 1 are supported."
+  ],
+  "仅支持 Minecraft 整合包。": [
+    "僅支援 Minecraft 整合包。",
+    "Only Minecraft modpacks are supported."
+  ],
+  "整合包 summary 必须是字符串。": [
+    "整合包 summary 必須是字串。",
+    "The modpack summary must be a string."
+  ],
+  "整合包 summary 无效。": ["整合包 summary 無效。", "The modpack summary is invalid."],
+  "整合包缺少有效的 dependencies。": [
+    "整合包缺少有效的 dependencies。",
+    "The modpack is missing valid dependencies."
+  ],
+  "整合包要求尚不支持的依赖：": [
+    "整合包要求尚不支援的相依項目：",
+    "The modpack requires an unsupported dependency: "
+  ],
+  "整合包声明了多个模组加载器。": [
+    "整合包宣告了多個模組載入器。",
+    "The modpack declares multiple mod loaders."
+  ],
+  "整合包 files 必须是最多包含 10000 项的数组。": [
+    "整合包 files 必須是最多包含 10000 項的陣列。",
+    "The modpack files must be an array of up to 10,000 entries."
+  ],
+  "整合包文件缺少 hashes。": ["整合包檔案缺少 hashes。", "A modpack file is missing hashes."],
+  "整合包文件缺少 fileSize。": [
+    "整合包檔案缺少 fileSize。",
+    "A modpack file is missing fileSize."
+  ],
+  "整合包下载总大小超过 16 GiB 的限制。": [
+    "整合包下載總大小超過 16 GiB 的限制。",
+    "The total modpack download size exceeds the 16 GiB limit."
+  ],
+  "整合包包含不支持的环境字段：": [
+    "整合包包含不支援的環境欄位：",
+    "The modpack contains an unsupported environment field: "
+  ],
+  "整合包文件必须包含 1 至 16 个下载链接。": [
+    "整合包檔案必須包含 1 至 16 個下載連結。",
+    "Each modpack file must contain 1 to 16 download URLs."
+  ],
+  "整合包下载链接必须是字符串。": ["整合包下載連結必須是字串。", "Modpack download URLs must be strings."],
+  "整合包单个覆盖文件超过 256 MiB 的限制。": [
+    "整合包單一覆寫檔案超過 256 MiB 的限制。",
+    "A modpack override file exceeds the 256 MiB limit."
+  ],
+  "下载响应超过大小限制。": [
+    "下載回應超過大小限制。",
+    "The download response exceeds the size limit."
+  ],
+  "整合包下载地址或重定向域名不在允许列表中。": [
+    "整合包下載位址或重新導向網域不在允許清單中。",
+    "The modpack download or redirect domain is not on the allowlist."
+  ],
+  "下载重定向缺少有效地址。": [
+    "下載重新導向缺少有效位址。",
+    "The download redirect is missing a valid address."
+  ],
+  "下载重定向次数超过限制。": ["下載重新導向次數超過限制。", "The download exceeds the redirect limit."],
   "文件名已变化，请在游戏内重新选择更新后的光影或材质包。": [
     "檔名已變更，請在遊戲內重新選擇更新後的光影或材質包。",
     "Filenames changed. Select the updated shader or resource pack again in the game.",
@@ -743,6 +1222,77 @@ const catalog = <String, List<String>>{
   "{0} 亿": ["{0} 億", "{0} hundred million"],
   "{0} 万": ["{0} 萬", "{0} ten thousand"],
   "市场": ["市場", "market"],
+  "资源来源": ["資源來源", "Resource source"],
+  "打开来源网站": ["開啟來源網站", "Open provider website"],
+  "在官网打开": ["在官方網站開啟", "Open website"],
+  "无法下载": ["無法下載", "Unavailable"],
+  "加载更多版本": ["載入更多版本", "Load more versions"],
+  "此构建未配置 CurseForge 访问。": [
+    "此組建未設定 CurseForge 存取。",
+    "This build has no CurseForge access configured."
+  ],
+  "CurseForge 访问密钥格式无效。": [
+    "CurseForge 存取金鑰格式無效。",
+    "The CurseForge access key has an invalid format."
+  ],
+  "CurseForge 返回的资源信息格式无效。": [
+    "CurseForge 傳回的資源資訊格式無效。",
+    "CurseForge returned invalid resource information."
+  ],
+  "CurseForge API 请求失败。": [
+    "CurseForge API 請求失敗。",
+    "The CurseForge API request failed."
+  ],
+  "CurseForge 请求地址无效。": [
+    "CurseForge 請求網址無效。",
+    "The CurseForge request URL is invalid."
+  ],
+  "CurseForge 响应超过大小限制。": [
+    "CurseForge 回應超過大小限制。",
+    "The CurseForge response exceeded the size limit."
+  ],
+  "CurseForge 返回的元数据无法解析。": [
+    "無法解析 CurseForge 傳回的中繼資料。",
+    "Could not read the metadata returned by CurseForge."
+  ],
+  "CurseForge 下载地址不在官方域名列表中。": [
+    "CurseForge 下載網址的網域不在官方清單中。",
+    "The CurseForge download URL is outside the official domains."
+  ],
+  "CurseForge 项目标识无效。": [
+    "CurseForge 專案識別碼無效。",
+    "The CurseForge project ID is invalid."
+  ],
+  "CurseForge 加载器筛选无效。": [
+    "CurseForge 載入器篩選無效。",
+    "The CurseForge loader filter is invalid."
+  ],
+  "CurseForge 分页位置无效。": [
+    "CurseForge 分頁位置無效。",
+    "The CurseForge page offset is invalid."
+  ],
+  "此 CurseForge 文件不可通过启动器安装。": [
+    "無法透過啟動器安裝此 CurseForge 檔案。",
+    "This CurseForge file cannot be installed through the launcher."
+  ],
+  "确认后模组依赖发生变化，请重新生成安装计划。": [
+    "確認後模組依賴有變，請重新產生安裝計畫。",
+    "Mod dependencies changed after confirmation. Create a new installation plan."
+  ],
+  "CurseForge 依赖元数据格式无效。": [
+    "CurseForge 依賴中繼資料格式無效。",
+    "CurseForge returned invalid dependency metadata."
+  ],
+  "模组来源无效。": ["模組來源無效。", "The mod source is invalid."],
+  "同一安装计划中的模组来源必须一致。": [
+    "同一安裝計畫中的模組來源必須一致。",
+    "All mods in an installation plan must use the same source."
+  ],
+  "资源包来源无效。": ["資源包來源無效。", "The pack source is invalid."],
+  "资源文件缺少有效的校验值。": [
+    "資源檔案缺少有效的雜湊值。",
+    "The resource file is missing a valid checksum."
+  ],
   "正在搜索{0}": ["正在搜索{0}", "Searching {0}"],
   "正在读取分类": ["正在讀取分類", "Loading categories"],
   "正在读取游戏版本": ["正在讀取遊戲版本", "Loading game versions"],
@@ -795,10 +1345,10 @@ const catalog = <String, List<String>>{
   ],
   "版本 / 适用环境": ["版本 / 適用環境", "Version / environment"],
   "安装": ["安裝", "Install"],
-  "共 {0} 个项目 · Modrinth": ["共 {0} 個項目 · Modrinth", "{0} projects · Modrinth"],
-  "来源：Modrinth · 下载时选择目标实例": [
-    "來源：Modrinth · 下載時選擇目標實例",
-    "Source: Modrinth · Choose an instance when installing",
+  "共 {0} 个项目 · {1}": ["共 {0} 個項目 · {1}", "{0} projects · {1}"],
+  "来源为 {0} · 下载时选择目标实例": [
+    "來源為 {0} · 下載時選擇目標實例",
+    "From {0} · Choose an instance when installing",
   ],
   "上一页": ["上一頁", "Previous page"],
   "下一页": ["下一頁", "Next page"],
@@ -2075,6 +2625,112 @@ const catalog = <String, List<String>>{
   ],
 };
 const nativeMessages = <String>{
+  "CurseForge 作者声明不兼容：",
+  "CurseForge 必需依赖未核实：",
+  "请选择 Modrinth .mrpack 或 CurseForge .zip 整合包。",
+  "整合包根目录缺少 manifest.json。",
+  "仅支持 manifestVersion 为 1 的 CurseForge 整合包。",
+  "CurseForge 文件缺少有效的 projectID。",
+  "CurseForge 文件缺少有效的 fileID。",
+  "CurseForge 文件标识无效：",
+  "CurseForge 文件缺少有效的 required。",
+  "CurseForge 整合包版本必须是字符串。",
+  "CurseForge 整合包缺少有效的 minecraft。",
+  "CurseForge 整合包的 modLoaders 无效。",
+  "CurseForge 整合包的 primary 必须是布尔值。",
+  "整合包声明了多个主加载器。",
+  "整合包未指定主加载器。",
+  "整合包要求尚不支持的加载器：",
+  "CurseForge 整合包重复声明了同一个文件。",
+  "请选择有效的整合包补充文件目录。",
+  "无法读取整合包补充文件目录。",
+  "整合包仍有需要处理的文件，请重新查看安装计划。",
+  "CurseForge 文件信息已变化，请重新查看安装计划。",
+  "查询 CurseForge 整合包文件",
+  "整合包文件大小或哈希校验失败。",
+  "此整合包或目标实例已有安装操作进行中。",
+  "无法恢复中断的整合包安装，请检查目标目录。",
+  "整合包实例 ID 无效。",
+  "目标实例或游戏目录已存在，请使用其他名称。",
+  "整合包文件大小或双重哈希校验失败。",
+  "整合包缓存包含无效文件。",
+  "共享游戏文件与整合包要求不同，未覆盖已有文件。",
+  "无法复制已校验的整合包文件。",
+  "无法提交整合包文件，目标可能已被占用。",
+  "游戏缓存文件数量超过限制。",
+  "读取整合包安装信息",
+  "请选择有效的整合包安装目录。",
+  "整合包实例名称无效。",
+  "整合包可选文件选择无效。",
+  "选择了不属于此整合包的可选文件。",
+  "整合包文件已变化，请重新查看安装计划。",
+  "未完成的安装目录不属于此整合包。",
+  "整合包路径在当前文件系统上发生重名，未覆盖文件。",
+  "下载并校验整合包文件",
+  "应用整合包配置",
+  "整合包配置文件损坏。",
+  "安装整合包所需的游戏与加载器",
+  "官方版本列表中没有此整合包要求的游戏版本。",
+  "检查整合包依赖",
+  "整合包包含依赖冲突：",
+  "准备独立游戏实例",
+  "发布后的 Java 无法运行，请重试安装。",
+  "整合包包含不安全的文件路径。",
+  "整合包路径包含 Windows 保留名称。",
+  "整合包不能覆盖启动器管理的文件。",
+  "整合包路径存在大小写冲突或文件与目录冲突。",
+  "整合包包含重复的文件路径。",
+  "整合包 ZIP 数据被截断。",
+  "整合包必须是完整的单卷 ZIP，且不支持 ZIP64。",
+  "整合包文件数量超过 10000 个的限制。",
+  "整合包 ZIP 目录损坏。",
+  "整合包包含加密、符号链接或特殊文件条目。",
+  "整合包使用了不支持的压缩方式。",
+  "整合包目录条目标记不一致。",
+  "整合包 ZIP 包含重复路径。",
+  "整合包 ZIP 条目大小无效或使用 ZIP64。",
+  "整合包展开后超过 2 GiB 的限制。",
+  "整合包 ZIP 文件头损坏。",
+  "整合包 ZIP 文件头与目录不一致。",
+  "整合包 ZIP 文件大小不一致。",
+  "整合包 ZIP 文件条目重叠。",
+  "整合包缺少有效字段：",
+  "整合包字段无效：",
+  "整合包 fileSize 必须是非负整数。",
+  "整合包单个下载文件超过 2 GiB 的限制。",
+  "整合包文件哈希无效：",
+  "整合包下载链接必须使用受信任域名的 HTTPS 地址。",
+  "整合包下载链接包含无效字符。",
+  "整合包下载链接包含无效转义。",
+  "整合包环境字段必须是 required、optional 或 unsupported。",
+  "整合包索引必须使用 UTF-8 编码。",
+  "整合包索引嵌套层级超过限制。",
+  "整合包索引包含重复的 JSON 字段。",
+  "整合包索引必须是 JSON 对象。",
+  "整合包索引 JSON 无法解析。",
+  "请选择 .mrpack 格式的整合包。",
+  "整合包索引超过 16 MiB 的限制。",
+  "整合包根目录缺少 modrinth.index.json。",
+  "仅支持 formatVersion 为 1 的 Modrinth 整合包。",
+  "仅支持 Minecraft 整合包。",
+  "整合包 summary 必须是字符串。",
+  "整合包 summary 无效。",
+  "整合包缺少有效的 dependencies。",
+  "整合包要求尚不支持的依赖：",
+  "整合包声明了多个模组加载器。",
+  "整合包 files 必须是最多包含 10000 项的数组。",
+  "整合包文件缺少 hashes。",
+  "整合包文件缺少 fileSize。",
+  "整合包下载总大小超过 16 GiB 的限制。",
+  "整合包包含不支持的环境字段：",
+  "整合包文件必须包含 1 至 16 个下载链接。",
+  "整合包下载链接必须是字符串。",
+  "整合包单个覆盖文件超过 256 MiB 的限制。",
+  "下载响应超过大小限制。",
+  "更新服务返回格式无效。",
+  "整合包下载地址或重定向域名不在允许列表中。",
+  "下载重定向缺少有效地址。",
+  "下载重定向次数超过限制。",
   "实例存在依赖冲突，尚未完成此组件的联合兼容性核对。",
   "加载器内置组件及其版本尚未确认：",
   "存在未识别组件，无法确认是否缺少前置：",

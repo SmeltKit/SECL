@@ -36,6 +36,7 @@ class InventoryCore implements LauncherCore {
   final requests = <Data>[];
   List<Data> items = [resource('Demo')];
   Data? sourceError;
+  List<Data>? sourceErrors;
   bool throwEnrich = false;
   Completer<void>? pendingEnrich;
   Data get instance => {
@@ -68,6 +69,8 @@ class InventoryCore implements LauncherCore {
         'checks': {'errors': [], 'warnings': []},
         'support': {},
         if (sourceError != null) 'source_error': sourceError,
+        if (sourceErrors != null && operation['op'] == 'mods.enrich')
+          'source_errors': sourceErrors,
       },
     };
   }
@@ -163,6 +166,35 @@ void main() {
     expect(tooltip.message, contains('duplicate_id'));
     expect(tooltip.message, contains('Demo.jar, Copy.jar'));
     expect(tooltip.message, contains('Both files declare demo'));
+  });
+
+  testWidgets('online lookup shows each provider without losing local rows', (
+    t,
+  ) async {
+    final core = InventoryCore();
+    await showInventory(t, core);
+    expect(core.requests.map((r) => r['op']), ['instance.inventory']);
+    core.items = [
+      resource('Demo', source: 'matched')
+        ..['source'] = 'curseforge'
+        ..['sources'] = ['curseforge'],
+    ];
+    core.sourceErrors = [
+      {
+        'source': 'modrinth',
+        'code': 'http_503',
+        'http_status': 503,
+        'message': 'Service unavailable',
+      }
+    ];
+    await t.tap(find.text(tr('补全来源信息')));
+    await t.pumpAndSettle();
+    expect(find.text('Demo'), findsOneWidget);
+    expect(find.text('CurseForge'), findsOneWidget);
+    expect(find.text('Modrinth · Service unavailable'), findsOneWidget);
+    expect(find.text('http_503 · HTTP 503'), findsOneWidget);
+    expect(find.text(tr('未发现已知冲突')), findsOneWidget);
+    expect(t.takeException(), isNull);
   });
 
   testWidgets('problem filter includes structured and legacy warnings', (

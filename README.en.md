@@ -11,8 +11,8 @@ Download or select local games and Java, then browse separate mod, shader and re
 The native core has no Qt dependency. The interface supports Simplified Chinese, Traditional Chinese and English.
 
 > **0.1.0 early development preview.** Intended for development, validation and feedback. The interface, configuration format and platform coverage may change.
-> This project's AppID was approved for the **Minecraft Services API allow list on 2026-11-02**. Real Microsoft sign-in, Java Edition entitlement and player profile checks passed on **2026-11-03**. Actual game startup still requires validation.
-> A new CurseForge application has been submitted and is awaiting review. Resource markets currently use Modrinth.
+> This project's AppID was approved for the **Minecraft Services API allow list on 2026-11-02**. Real Microsoft sign-in, Java Edition entitlement and player profile checks passed on **2026-11-03**. Real vanilla and Fabric + Iris / Sodium game startup passed on macOS; other combinations still require validation.
+> SECL's CurseForge third-party API application was approved. Configure the project key to browse CurseForge, import its modpacks, and look up installed mods.
 > The primary validated platform is currently macOS on Apple Silicon. Complete application compatibility elsewhere remains unverified.
 
 ## Screenshots
@@ -44,10 +44,11 @@ The account state and local-version list shown here are not evidence of a succes
 | Game installation | Release, snapshot, special and historical groups; isolated instances, client / library / asset downloads and official Java runtime when needed; selectable primary loader |
 | Local versions | Discover existing game folders and installed versions, then select a local version to launch |
 | Java | Local runtime detection, version / distribution / architecture identification, canonical-path deduplication and manual executable selection; download a specific Zulu / Temurin / Microsoft / Oracle OpenJDK build, with automatic OS / architecture detection |
-| Resource markets | Separate Modrinth mod, shader and resource-pack pages; search, categories, game-version and mod-loader filters, sorting and pagination |
+| Resource markets | Separate mod, shader and resource-pack pages with Modrinth and CurseForge; search, categories, game-version and mod-loader filters, sorting and pagination |
 | Project details | Description summaries, galleries, project website links and downloadable files separated into release / beta / alpha channels |
+| Modpack import | Import Modrinth `.mrpack` and CurseForge `.zip` files; review optional files and the isolated instance target, install pinned versions, verify files and apply overrides. Supply restricted files downloaded from their official pages |
 | Instance installation | Choose a compatible local target; review recursive dependencies, installed components, duplicates and author-declared conflicts before installing |
-| Local mod checks | Combine JAR metadata, SHA-512 source matching and whole-instance dependency checks; show local identity, website source and conflicts independently. An unknown source does not imply incompatibility. Browsing is cached; mutations revalidate file bytes |
+| Local mod checks | Read JAR metadata for loader and dependency checks. On request, look up Modrinth by SHA-512 and CurseForge by fingerprint verified with SHA-1. Show local identity, website sources and known conflicts separately |
 | World management | Per-instance world list, folder / ZIP import, streaming ZIP export, local and cross-instance copies, manual backup and restore-as-copy, and system Trash removal; game / world locks block unsafe operations |
 | Downloads and feedback | Staged downloads, hash verification, existing-copy reuse, cancellation, progress, structured errors and explicit retry |
 | Languages | Simplified Chinese, Traditional Chinese and English; system default, immediate switching and saved preference |
@@ -103,11 +104,15 @@ python3 tools/build.py --flutter /path/to/flutter-3.19.6/bin/flutter --test
 ```
 
 The script defaults to Release; add `--debug` for a Debug build.
+For development, set `SECL_CURSEFORGE_API_KEY` in the launcher's environment
+to connect directly to CurseForge. The manual macOS Release build in
+SmeltKit/SECL GitHub Actions reads the `CURSEFORGE_API_KEY` repository secret
+and embeds it in the native core via `--embed-curseforge-key`.
 The complete application flow above has been validated on macOS ARM64. Windows / Linux still require native-library deployment and runtime validation.
 The macOS app is at `app/build/macos/Build/Products/Release/SECL.app`; native build output is under `build/native/`.
 
 Flutter 3.19.6's macOS Release AOT build tools require Rosetta on Apple Silicon build hosts;
-the resulting app itself runs natively on ARM64. The current local Release is about **25.5 MB**, or **10.2 MB** as a ZIP.
+the resulting app itself runs natively on ARM64. The current local Release is about **33.6 MB**, or **17.4 MB** as a ZIP.
 Signing is ad hoc for local testing. Distribution still requires release signing and notarization.
 
 Build and test only the C++ core:
@@ -118,14 +123,14 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-Currently passing: nine C++ test suites and 88 Flutter tests.
+Currently passing: eleven C++ test suites and 135 Flutter tests.
 See [test notes](docs/testing.md) for coverage, real resource-download checks and validation limits.
 
 ## Data, services and accounts
 
 - Games can be downloaded or selected from existing installations. Game files and Java runtimes are not bundled.
 - Game sources: **Automatic / Official / BMCLAPI**. Automatic mode uses only the local time zone: mirrors first for `Asia/Shanghai`, official first elsewhere, with one fallback to the other source and no endless retries. This is not geographic location detection. Java distributions use their official sources. Mirror service: [BMCLAPI](https://bmclapidoc.bangbang93.com/).
-- The resource markets currently use **Modrinth**. A new CurseForge application was submitted on 2026-11-03; review and integration are pending.
+- The resource market defaults to **Modrinth** and also supports **CurseForge**. CurseForge downloads respect the author's third-party distribution settings.
 - Microsoft sign-in defaults to this project's own public-client Application ID. Users do not need application configuration or a client secret.
   Register `http://localhost/oauth/callback` for the Entra desktop application; runtime authorization uses a random loopback port and PKCE S256.
   The project public Client ID is `7ed24288-81a6-4814-8271-25a1529d2e9d` and has API allow-list approval. This does not constitute official endorsement of the launcher.
@@ -139,7 +144,7 @@ See [test notes](docs/testing.md) for coverage, real resource-download checks an
 - Expand the game / Java / loader test matrix, including in-world gameplay and long-duration stability.
 - Validate per-instance launch settings and the full loader / OptiFine installation and update matrix.
 - Validate Windows / Linux builds, native-library deployment and platform compatibility.
-- Integrate CurseForge after authorization; expand world-management workflows and further instance features.
+- Expand modpack import, world management and further instance features.
 - Continue reviewing terminology, long text and mod / shader compatibility guidance.
 
 Plans may change as development and testing progress; they are not claims of existing functionality.

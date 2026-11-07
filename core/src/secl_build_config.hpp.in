@@ -1,0 +1,4 @@
+// Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
+#pragma once
+
+inline constexpr char secl_embedded_curseforge_key[] = "@secl_curseforge_key@";

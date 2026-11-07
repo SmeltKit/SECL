@@ -12,7 +12,9 @@ using Progress = std::function<void(const std::string &, std::int64_t, std::int6
 struct Task {
     Cancel cancel = std::make_shared<std::atomic_bool>(false);
     Progress progress;
+    Transport transport; // Native test seam; never populated from FFI requests.
     std::string source = "auto", time_zone, active_game_directory;
+    std::string game_cache_root; // Import preparation may reuse verified shared game files.
     std::vector<std::string> secrets;
     void check() const;
     void report(const std::string &, std::int64_t = -1, std::int64_t = -1) const;
@@ -51,6 +53,19 @@ std::vector<std::string> download_candidates(const std::string &, const Task &ta
 std::string fetch_data(const std::string &, const Task &task = {}, size_t limit = 32 * 1024 * 1024);
 Json fetch_json(const std::string &, const Task &task = {});
 Json post_json(const std::string &, const Json &, const Task &task = {});
+Json fetch_curseforge_json(const std::string &path, const Task &task, const Json &body = Json());
+bool curseforge_download_url(const std::string &);
+Json curseforge_search(const Json &, const Task &);
+Json curseforge_categories(const std::string &, const Task &);
+Json curseforge_project(const std::string &, const Task &);
+Json curseforge_projects(const Json &, const Task &);
+Json curseforge_versions(const std::string &, const std::string &game,
+                         const std::string &loader, const Task &);
+Json curseforge_versions_page(const std::string &, const std::string &game,
+                              const std::string &loader, int offset, const Task &);
+Json curseforge_file(const std::string &project, const std::string &file, const Task &);
+Json curseforge_pack_files(const Json &refs, const Task &);
+Json curseforge_dependencies(const Json &raw_file);
 void download(const Json &descriptor, const fs::path &target, const Task &task = {});
 Json resource_search(const Json &, const Task &task = {});
 Json resource_tags(const std::string &type, const Task &task = {});
@@ -116,6 +131,9 @@ Json java_builds(int major, const std::string &vendor, const std::string &os,
 Json java_build_legal(const Json &);
 void extract_java_archive(const fs::path &, const fs::path &, const Task &task = {});
 Json install_java(const Json &build, const fs::path &directory, const Task &task = {});
+Json inspect_modpack(const fs::path &, const Task &task = {});
+Json plan_modpack(const Json &, const Task &task = {});
+Json apply_modpack(const Json &, const Task &task = {});
 Json game_versions(const Task &task = {});
 Json loader_versions(const std::string &loader, const std::string &game, const Task &task = {});
 std::string maven_path(const std::string &);

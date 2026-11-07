@@ -1,7 +1,8 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Derived from M2CL; see LICENSE and ADDITIONAL_TERMS.md in the repository
 // root.
-#include "solar/engine.hpp"
+#include "install_internal.hpp"
+#include <limits>
 #include <set>
 #include <unordered_map>
 namespace solar::engine {
@@ -29,7 +30,10 @@ static Json marketplace_request(const std::string &endpoint, const Task &task,
     return result;
 }
 static Json marketplace_versions(const std::string &project, const Json &instance, const Task &task,
-                                 const Transport &transport, const std::string &loader) {
+                                 const Transport &transport, const std::string &loader,
+                                 const std::string &source) {
+    if (source == "curseforge")
+        return curseforge_versions(project, instance.value("version", ""), loader, task);
     if (!transport)
         return resource_versions(project, instance.value("version", ""), loader, task);
     auto endpoint = "project/" + url_encode(project) + "/version?game_versions=" +
@@ -47,6 +51,110 @@ static void validate_marketplace_version(const Json &version) {
     for (const auto &dependency : version["dependencies"])
         if (!dependency.is_object())
             throw Error("dependencies", "invalid_response", "依赖元数据格式无效。");
+}
+static std::uint32_t curseforge_fingerprint(std::string &bytes) {
+    // CurseForge uses MurmurHash2 with seed 1 after removing four ASCII whitespace bytes.
+    bytes.erase(std::remove_if(bytes.begin(), bytes.end(), [](unsigned char byte) {
+        return byte == 9 || byte == 10 || byte == 13 || byte == 32;
+    }), bytes.end());
+    constexpr std::uint32_t multiplier = 0x5bd1e995;
+    const auto data = reinterpret_cast<const unsigned char *>(bytes.data());
+    std::uint32_t hash = 1 ^ static_cast<std::uint32_t>(bytes.size());
+    size_t offset = 0;
+    for (; bytes.size() - offset >= 4; offset += 4) {
+        std::uint32_t word = data[offset] | (std::uint32_t(data[offset + 1]) << 8) |
+            (std::uint32_t(data[offset + 2]) << 16) | (std::uint32_t(data[offset + 3]) << 24);
+        word *= multiplier;
+        word ^= word >> 24;
+        hash = (hash * multiplier) ^ (word * multiplier);
+    }
+    for (size_t index = offset; index < bytes.size(); ++index)
+        hash ^= std::uint32_t(data[index]) << (8 * (index - offset));
+    if (offset != bytes.size()) hash *= multiplier;
+    hash ^= hash >> 13;
+    hash *= multiplier;
+    return hash ^ (hash >> 15);
+}
+Json detail::curseforge_existing(const Json &instance, const Json &mods, const Task &task) {
+    if (mods.size() > 4096)
+        throw Error("dependencies", "graph_limit", "模组依赖层级或数量超过限制。");
+    const auto game = fs::u8path(instance.at("game_directory").get<std::string>());
+    std::map<std::uint32_t, std::vector<std::pair<std::string, const Json *>>> local;
+    for (const auto &mod : mods) {
+        task.check();
+        if (mod.value("sha512", "").empty()) continue;
+        auto bytes = read_file(checked_path(game, "mods/" + mod.at("filename").get<std::string>()),
+                               256 * 1024 * 1024);
+        if (hash_bytes(bytes) != mod.at("sha512"))
+            throw Error("mods", "plan_stale", "确认后模组目录发生变化，请重新生成安装计划。");
+        auto sha1 = hash_bytes(bytes, "sha1");
+        auto fingerprint = curseforge_fingerprint(bytes);
+        local[fingerprint].emplace_back(std::move(sha1), &mod);
+    }
+    Json nodes = Json::array();
+    std::set<std::pair<std::string, std::int64_t>> seen;
+    for (auto next = local.begin(); next != local.end();) {
+        Json batch = Json::array();
+        for (size_t n = 0; next != local.end() && n < 64; ++next, ++n)
+            batch.push_back(next->first);
+        const auto response = fetch_curseforge_json("/v1/fingerprints/432", task,
+                                                   {{"fingerprints", batch}});
+        const auto &matches = response.at("data").at("exactMatches");
+        if (!matches.is_array() || matches.size() > 4096)
+            throw Error("dependencies", "invalid_response", "CurseForge 依赖元数据格式无效。");
+        for (const auto &match : matches) {
+            const auto &file = match.at("file");
+            if (file.value("gameId", 0) != 432) continue;
+            const auto fingerprint = file.value("fileFingerprint", std::uint32_t(0));
+            if (std::find(batch.begin(), batch.end(), fingerprint) == batch.end()) continue;
+            const auto project = file.value("modId", std::int64_t(0));
+            const auto version = file.value("id", std::int64_t(0));
+            constexpr auto max_id = std::numeric_limits<std::uint32_t>::max();
+            if (project <= 0 || project > max_id || version <= 0 || version > max_id) continue;
+            for (const auto &artifact : local.at(fingerprint)) {
+                const auto *mod = artifact.second;
+                // A 32-bit fingerprint is a lookup key. Confirm the full file against its SHA-1.
+                const auto hashes = file.value("hashes", Json::array());
+                const bool verified = std::any_of(hashes.begin(), hashes.end(), [&](const Json &hash) {
+                    auto value = hash.value("value", "");
+                    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+                        return char(std::tolower(c));
+                    });
+                    return hash.value("algo", 0) == 1 && value == artifact.first;
+                });
+                const auto filename = mod->at("filename").get<std::string>();
+                if (!verified || !seen.emplace(filename, version).second) continue;
+                nodes.push_back({{"project_id", std::to_string(project)},
+                                 {"version_id", std::to_string(version)},
+                                 {"filename", filename}, {"sha512", mod->at("sha512")},
+                                 {"name", mod->value("name", filename)},
+                                 {"version", mod->value("version", "")},
+                                 {"enabled", mod->value("enabled", true)}, {"source", "existing"},
+                                 {"dependencies", curseforge_dependencies(file)}});
+                if (nodes.size() > 4096)
+                    throw Error("dependencies", "graph_limit", "模组依赖层级或数量超过限制。");
+            }
+        }
+    }
+    return nodes;
+}
+static bool available_curseforge_mod(const Json &file) {
+    return file.value("project_type", "") == "mod" && file.value("downloadable", false) &&
+        curseforge_download_url(file.value("url", "")) &&
+        fs::u8path(file.value("filename", "")).extension() == ".jar";
+}
+static Json verified_curseforge_mod(const Json &selected, const Json &instance, const Task &task) {
+    const auto file = curseforge_file(selected.at("project_id"), selected.at("version_id"), task);
+    if (!available_curseforge_mod(file))
+        throw Error("dependencies", "curseforge_unavailable", "此 CurseForge 文件不可通过启动器安装。", 0,
+                    file.value("website_url", ""));
+    if (!resource_compatible(file, instance.value("version", ""), instance.value("loader", "")) ||
+        file.at("filename") != selected.at("filename") || file.at("sha1") != selected.at("sha1"))
+        throw Error("dependencies", "version_mismatch", "所选文件与网站版本记录不一致，请重新确认。");
+    auto verified = file;
+    for (const auto field : {"optional", "root", "replaces", "previous_version", "install_disabled"})
+        if (selected.contains(field)) verified[field] = selected.at(field);
+    return verified;
 }
 static Json marketplace_existing(const Json &mods, const Task &task, const Transport &transport) {
     // components retain every nested candidate and its own bytes. The legacy
@@ -253,8 +361,9 @@ static void refresh_marketplace_conflicts(Json &plan) {
     for (const auto &source : nodes) {
         if (source.value("embedded", false)) continue; // The staged local solver checks nested rendering providers.
         const auto project = source.value("project_id", "");
-        const bool iris = project == "iris" || project == "YL57xq9U";
-        if (!iris && project != "sodium" && project != "AANobbMI") continue;
+        const auto slug = source.value("slug", "");
+        const bool iris = project == "iris" || project == "YL57xq9U" || slug == "iris-shaders";
+        if (!iris && project != "sodium" && project != "AANobbMI" && slug != "sodium") continue;
         auto append = [&](const std::string &target_project, const std::string &target_version,
                           const std::string &filename, const std::string &kind) {
             Json conflict{{"from_project", project}, {"from_version", source.value("version_id", "")},
@@ -292,18 +401,25 @@ static void validate_marketplace_conflicts(const Json &plan) {
 static Json revalidate_marketplace_plan(const Json &plan, const Json &mods, const Task &task,
                                        const Transport &transport) {
     auto reviewed = plan;
+    const auto instance = plan.at("target");
+    const auto source = plan.value("source", "modrinth");
+    if (source != "modrinth" && source != "curseforge")
+        throw Error("dependencies", "invalid_source", "模组来源无效。");
     reviewed["local_graph_files"] = mods;
-    reviewed["marketplace_existing"] = marketplace_existing(mods, task, transport);
+    reviewed["marketplace_existing"] = source == "curseforge" ? detail::curseforge_existing(instance, mods, task)
+                                                               : marketplace_existing(mods, task, transport);
     auto files = plan.value("files", Json::array());
     if (files.size() > 128)
         throw Error("dependencies", "graph_limit", "模组依赖层级或数量超过限制。");
     Json ids = Json::array();
     std::set<std::string> unique;
     for (const auto &file : files) {
+        if (file.value("source", "modrinth") != source)
+            throw Error("dependencies", "invalid_source", "同一安装计划中的模组来源必须一致。");
         const auto id = file.value("version_id", "");
         if (id.empty())
             throw Error("dependencies", "missing_version", "资源缺少版本标识。");
-        if (unique.insert(id).second) ids.push_back(id);
+        if (source == "modrinth" && unique.insert(id).second) ids.push_back(id);
     }
     std::map<std::string, Json> metadata;
     for (size_t offset = 0; offset < ids.size(); offset += 64) {
@@ -315,22 +431,28 @@ static Json revalidate_marketplace_plan(const Json &plan, const Json &mods, cons
         for (const auto &version : versions)
             if (contains(chunk, version.value("id", ""))) metadata[version.value("id", "")] = version;
     }
-    const auto instance = plan.at("target");
     for (auto &file : files) {
-        const auto id = file.value("version_id", "");
-        if (!metadata.count(id))
-            throw Error("dependencies", "missing_version", "所选模组的版本元数据不可用，请重新确认。");
-        validate_marketplace_version(metadata.at(id));
-        const auto candidates = resource_files(Json::array({metadata.at(id)}), false);
-        auto same = std::find_if(candidates.begin(), candidates.end(), [&](const Json &candidate) {
-            return candidate.value("project_id", "") == file.value("project_id", "") &&
-                candidate.value("sha512", "") == file.value("sha512", "") &&
-                candidate.value("filename", "") == file.value("filename", "");
-        });
-        if (same == candidates.end() ||
-            !resource_compatible(*same, instance.value("version", ""), instance.value("loader", "")))
-            throw Error("dependencies", "version_mismatch", "所选文件与网站版本记录不一致，请重新确认。");
-        file["dependencies"] = same->value("dependencies", Json::array());
+        if (source == "curseforge") {
+            auto fresh = verified_curseforge_mod(file, instance, task);
+            if (fresh.at("dependencies") != file.at("dependencies"))
+                throw Error("dependencies", "plan_stale", "确认后模组依赖发生变化，请重新生成安装计划。");
+            file = std::move(fresh);
+        } else {
+            const auto id = file.value("version_id", "");
+            if (!metadata.count(id))
+                throw Error("dependencies", "missing_version", "所选模组的版本元数据不可用，请重新确认。");
+            validate_marketplace_version(metadata.at(id));
+            const auto candidates = resource_files(Json::array({metadata.at(id)}), false);
+            auto same = std::find_if(candidates.begin(), candidates.end(), [&](const Json &candidate) {
+                return candidate.value("project_id", "") == file.value("project_id", "") &&
+                    candidate.value("sha512", "") == file.value("sha512", "") &&
+                    candidate.value("filename", "") == file.value("filename", "");
+            });
+            if (same == candidates.end() ||
+                !resource_compatible(*same, instance.value("version", ""), instance.value("loader", "")))
+                throw Error("dependencies", "version_mismatch", "所选文件与网站版本记录不一致，请重新确认。");
+            file["dependencies"] = same->value("dependencies", Json::array());
+        }
         const auto old = file.value("replaces", Json());
         if (old.is_object() && !old.value("embedded", false)) {
             const auto &existing = reviewed["marketplace_existing"];
@@ -355,6 +477,9 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
                        const Transport &transport) {
     if (!roots.is_array() || roots.empty() || roots.size() > 128)
         throw Error("dependencies", "graph_limit", "模组依赖层级或数量超过限制。");
+    const auto source = roots.front().value("source", "modrinth");
+    if (source != "modrinth" && source != "curseforge")
+        throw Error("dependencies", "invalid_source", "模组来源无效。");
     std::map<std::string, Json> requested;
     auto permitted = [&](const Json &file) {
         auto type = file.value("release_type", "release");
@@ -362,7 +487,10 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
             (channel != "release" && type == "beta") || (channel == "alpha" && type == "alpha");
     };
     Json root_projects = Json::array();
-    for (auto &root : roots) {
+    for (auto root : roots) {
+        if (root.value("source", "modrinth") != source)
+            throw Error("dependencies", "invalid_source", "同一安装计划中的模组来源必须一致。");
+        if (source == "curseforge") root = verified_curseforge_mod(root, instance, task);
         auto project = root.at("project_id").get<std::string>();
         if (!requested.emplace(project, root).second)
             throw Error("dependencies", "version_conflict", "同一依赖被要求安装不同版本。");
@@ -374,7 +502,8 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
     for (auto &m : mods) {
         expected[m.at("filename").get<std::string>()] = m["sha512"];
     }
-    const auto installed_graph = marketplace_existing(mods, task, transport);
+    const auto installed_graph = source == "curseforge" ? detail::curseforge_existing(instance, mods, task)
+                                                        : marketplace_existing(mods, task, transport);
     std::map<std::string, Json> existing;
     for (const auto &node : installed_graph) {
         const auto project = node.value("project_id", "");
@@ -383,6 +512,7 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
         existing[project] = node;
     }
     Json plan{{"target", instance},
+              {"source", source},
               {"files", Json::array()},
               {"reuse", Json::array()},
               {"edges", Json::array()},
@@ -424,13 +554,15 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
         file["optional"] = optional;
         file["root"] = requested.count(project) != 0;
         if (file["root"] == true) file["optional"] = false;
-        if (existing.count(project) &&
-            existing[project].value("version_id", "") == file.value("version_id", "")) {
+        if (reusing_existing) {
             auto reuse = existing[project];
             reuse["project_id"] = project;
             reuse["file"] = file;
             plan["reuse"].push_back(reuse);
         } else {
+            if (source == "curseforge" && !available_curseforge_mod(file))
+                throw Error("dependencies", "curseforge_unavailable", "此 CurseForge 文件不可通过启动器安装。", 0,
+                            file.value("website_url", ""));
             file["replaces"] = existing.count(project) ? existing[project] : Json();
             if (existing.count(project)) file["previous_version"] = existing[project].value("version", "");
             file["install_disabled"] = existing.count(project) && !existing[project].value("enabled", true);
@@ -451,6 +583,8 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
             if (requested.count(dep_project) && version.empty()) {
                 candidate = requested.at(dep_project);
             } else if (!version.empty()) {
+                if (source == "curseforge")
+                    throw Error("dependencies", "invalid_response", "CurseForge 依赖元数据格式无效。");
                 auto raw = marketplace_request("version/" + url_encode(version), task, transport);
                 validate_marketplace_version(raw);
                 auto files = resource_files(Json::array({raw}), false);
@@ -463,9 +597,9 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
                     throw Error("dependencies", "project_mismatch", "依赖版本与项目不一致。");
             } else {
                 auto files = marketplace_versions(dep_project, instance, task, transport,
-                                                  instance.value("loader", ""));
+                                                  instance.value("loader", ""), source);
                 if (files.empty() && instance.value("loader", "") == "quilt")
-                    files = marketplace_versions(dep_project, instance, task, transport, "fabric");
+                    files = marketplace_versions(dep_project, instance, task, transport, "fabric", source);
                 // A project-only dependency does not request a different
                 // version. Prefer an already installed compatible copy instead
                 // of gratuitously upgrading/downgrading the user's environment.
@@ -474,19 +608,25 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
                 if (same != files.end()) {
                     candidate = *same;
                 } else {
-                files.erase(std::remove_if(files.begin(), files.end(), [&](const Json &f) { return !permitted(f); }), files.end());
-                if (files.empty()) {
-                    if (type == "optional") {
-                        plan["optional_errors"][dep_project] = "没有匹配文件";
-                        continue;
+                    const auto compatible = !files.empty();
+                    const auto website = compatible ? files.front().value("website_url", "") : "";
+                    files.erase(std::remove_if(files.begin(), files.end(), [&](const Json &f) {
+                        return !permitted(f) || (source == "curseforge" && !available_curseforge_mod(f));
+                    }), files.end());
+                    if (files.empty()) {
+                        if (type == "optional") {
+                            plan["optional_errors"][dep_project] = "没有匹配文件";
+                            continue;
+                        }
+                        if (source == "curseforge" && compatible)
+                            throw Error("dependencies", "curseforge_unavailable",
+                                        "此 CurseForge 文件不可通过启动器安装。", 0, website);
+                        throw Error("dependencies", "missing_compatible_version", "没有找到适配的前置模组文件。");
                     }
-                    throw Error("dependencies", "missing_compatible_version",
-                                "没有找到适配的前置模组文件。");
-                }
-                auto stable = std::find_if(files.begin(), files.end(), [](const Json &f) {
-                    return f.value("release_type", "") == "release";
-                });
-                candidate = stable == files.end() ? files.front() : *stable;
+                    auto stable = std::find_if(files.begin(), files.end(), [](const Json &f) {
+                        return f.value("release_type", "") == "release";
+                    });
+                    candidate = stable == files.end() ? files.front() : *stable;
                 }
             }
             auto p = candidate.value("project_id", "");
@@ -495,7 +635,7 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
             resolve(candidate, project, optional || type == "optional", type == "optional", depth + 1);
         }
     };
-    for (auto &root : roots) resolve(root, "", false, false, 0);
+    for (const auto &root : root_projects) resolve(requested.at(root.get<std::string>()), "", false, false, 0);
     // A shared node may first be discovered below an optional branch. Compute
     // unconditional reachability after all roots/edges exist, so a later
     // required path promotes the node and all its required descendants. Keep
@@ -627,7 +767,7 @@ Json apply_mod_plan(const Json &plan, const Task &task, const Transport &transpo
     Json installed = Json::array();
     try {
         auto mods = local_mods(game, i.value("loader", ""));
-        for (auto &f : plan.value("files", Json::array())) {
+        for (const auto &f : reviewed_graph.value("files", Json::array())) {
             task.check();
             auto name = f.value("filename", "");
             if (name.find('/') != name.npos)
@@ -662,7 +802,7 @@ Json apply_mod_plan(const Json &plan, const Task &task, const Transport &transpo
         if (mod_inventory(game) != plan.value("original_manifest", Json::object()))
             throw Error("mods", "manifest_changed", "模组索引发生变化，请重新确认。");
         auto manifest = plan.value("original_manifest", Json::object());
-        for (auto &f : plan.value("files", Json::array())) {
+        for (const auto &f : reviewed_graph.value("files", Json::array())) {
             auto name = f.value("filename", "");
             auto replacement = f.value("replaces", Json());
             if (replacement.is_object() && !replacement.value("embedded", false)) {
@@ -681,11 +821,15 @@ Json apply_mod_plan(const Json &plan, const Task &task, const Transport &transpo
                 throw Error("mods", "target_exists", "目标模组文件已存在，不能静默覆盖。");
             fs::rename(checked_path(stage, name), dest);
             added.push_back(dest);
-            manifest[name] = {{"projectId", f.value("project_id", "")},
-                              {"versionId", f.value("version_id", "")},
-                              {"sha512", f.value("sha512", "")},
-                              {"title", f.value("title", f.value("name", ""))},
-                              {"icon_url", f.value("icon_url", Json())}};
+            if (f.value("source", "modrinth") == "curseforge") {
+                manifest.erase(name);
+            } else {
+                manifest[name] = {{"projectId", f.value("project_id", "")},
+                                  {"versionId", f.value("version_id", "")},
+                                  {"sha512", f.value("sha512", "")},
+                                  {"title", f.value("title", f.value("name", ""))},
+                                  {"icon_url", f.value("icon_url", Json())}};
+            }
             installed.push_back(dest.filename().u8string());
         }
         for (auto &n : disabled) {

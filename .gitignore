@@ -36,6 +36,7 @@ Desktop.ini
 CMakeFiles/
 CMakeCache.txt
 CMakeUserPresets.json
+secl_build_config.hpp
 cmake_install.cmake
 CTestTestfile.cmake
 install_manifest.txt
@@ -168,3 +169,9 @@ accounts.json
 
 # Local research, plans and private notes
 /private/
+
+# Local modpack archives, resumable caches and import receipts
+*.mrpack
+.solar-mrpack/
+.solar-mrpack-locks/
+.solar-modpack.json

@@ -15,6 +15,7 @@ List<Data> maps(dynamic value) => (value as List? ?? [])
     .map((e) => Map<String, dynamic>.from(e as Map))
     .toList();
 Future<void> enrichModPlanProjects(ResourceEngine engine, Data plan) async {
+  final source = plan['source'] == 'curseforge' ? 'curseforge' : 'modrinth';
   final ids = <String>{
     for (final f in maps(plan['files'])) f['project_id'] as String,
     for (final r in maps(plan['reuse'])) r['project_id'] as String,
@@ -25,9 +26,11 @@ Future<void> enrichModPlanProjects(ResourceEngine engine, Data plan) async {
   try {
     for (var offset = 0; offset < ids.length; offset += 64) {
       final end = offset + 64 < ids.length ? offset + 64 : ids.length;
-      for (final project in maps(await engine.run(
-          {'op': 'resource.projects', 'ids': ids.sublist(offset, end)},
-          title: tr('正在读取组件信息')))) {
+      for (final project in maps(await engine.run({
+        'op': 'resource.projects',
+        'source': source,
+        'ids': ids.sublist(offset, end)
+      }, title: tr('正在读取组件信息')))) {
         projects[project['id'] as String] = project;
       }
     }
@@ -109,6 +112,9 @@ bool compatible(Data file, Data instance, String kind) =>
         (instance['loader'] == 'quilt' &&
             (file['loaders'] as List? ?? []).contains('fabric')));
 
+const resourceSources = {'modrinth': 'Modrinth', 'curseforge': 'CurseForge'};
+const marketLoaders = ['forge', 'neoforge', 'fabric', 'quilt'];
+
 class BrowseState {
   String query = '', category = '', game = '', loader = '', sort = 'downloads';
   int offset = 0, total = 0, generation = 0;
@@ -146,12 +152,15 @@ class _ResourceMarketState extends State<ResourceMarket> {
     unawaited(load());
   }
 
-  final states = <String, BrowseState>{};
+  final states = <(String, String), BrowseState>{};
+  String source = 'modrinth';
+  bool get isCurseForge => source == 'curseforge';
   final query = TextEditingController();
   final roots = <String>{};
-  List<Data> games = [];
-  Data? project, detailError;
+  final games = <String, List<Data>>{};
+  Data? project, detailError, fileError;
   List<Data> files = [];
+  int? nextFileOffset;
   bool detailsLoading = false;
   String channel = 'release', fileGame = '', fileLoader = '';
   String detailTab = 'description';
@@ -167,7 +176,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
   }
 
   int detailGeneration = 0;
-  BrowseState get browse => states.putIfAbsent(widget.kind, () {
+  BrowseState get browse => states.putIfAbsent((widget.kind, source), () {
         final value = BrowseState();
         value.query = widget.initialQuery;
         value.game = widget.initialTarget?['version'] as String? ?? '';
@@ -182,14 +191,29 @@ class _ResourceMarketState extends State<ResourceMarket> {
     super.didUpdateWidget(old);
     if (widget.root.isNotEmpty) roots.add(widget.root);
     if (old.kind != widget.kind) {
-      detailGeneration++;
-      project = null;
-      files = [];
-      detailError = null;
-      query.text = browse.query;
-      installedNotice = null;
-      if (!browse.loaded) unawaited(load());
+      restoreCatalog();
+      unawaited(load());
     }
+  }
+
+  void restoreCatalog() {
+    detailGeneration++;
+    project = null;
+    files = [];
+    detailError = null;
+    fileError = null;
+    query.text = browse.query;
+    installedNotice = null;
+  }
+
+  void changeSource(String value) {
+    if (source == value) return;
+    browse.query = query.text;
+    setState(() {
+      source = value;
+      restoreCatalog();
+    });
+    unawaited(load());
   }
 
   @override
@@ -199,12 +223,18 @@ class _ResourceMarketState extends State<ResourceMarket> {
   }
 
   Future<void> load() async {
-    await search();
-    if (mounted && browse.categories.isEmpty) await categories();
+    final state = browse;
+    if (!state.loaded && !state.loading) await search();
+    if (mounted &&
+        identical(browse, state) &&
+        state.categories.isEmpty &&
+        !state.categoriesLoading) {
+      await categories();
+    }
   }
 
   Future<void> search({bool reset = false}) async {
-    final b = browse, kind = widget.kind;
+    final b = browse, kind = widget.kind, provider = source;
     final generation = ++b.generation;
     if (reset) b.offset = 0;
     b.query = query.text.trim();
@@ -216,6 +246,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
     try {
       final raw = Map<String, dynamic>.from(await engine.run({
         'op': 'resource.search',
+        'source': provider,
         'type': kind,
         'query': b.query,
         'category': b.category,
@@ -242,14 +273,14 @@ class _ResourceMarketState extends State<ResourceMarket> {
   }
 
   Future<void> categories() async {
-    final b = browse, kind = widget.kind;
+    final b = browse, kind = widget.kind, provider = source;
     setState(() {
       b.categoriesLoading = true;
       b.categoryError = null;
     });
     try {
       final result = maps(await engine.run(
-          {'op': 'resource.categories', 'type': kind},
+          {'op': 'resource.categories', 'type': kind, 'source': provider},
           title: tr("正在读取分类")));
       if (mounted) setState(() => b.categories = result);
     } catch (e) {
@@ -260,12 +291,16 @@ class _ResourceMarketState extends State<ResourceMarket> {
   }
 
   Future<List<Choice>> gameOptions() async {
-    if (games.isEmpty) {
-      games = maps(
-          await engine.run({'op': 'resource.games'}, title: tr("正在读取游戏版本")));
+    final provider = source, curseForge = isCurseForge;
+    if (!games.containsKey(provider)) {
+      final result = await engine.run(
+          {'op': curseForge ? 'game.versions' : 'resource.games'},
+          title: tr("正在读取游戏版本"));
+      games[provider] = maps(curseForge ? (result as Map)['versions'] : result);
     }
-    return games
-        .map((v) => Choice(v['version'] as String, v['version'] as String,
+    final key = curseForge ? 'id' : 'version';
+    return games[provider]!
+        .map((v) => Choice(v[key] as String, v[key] as String,
             group: v['channel'] as String? ?? 'snapshot'))
         .toList();
   }
@@ -289,11 +324,11 @@ class _ResourceMarketState extends State<ResourceMarket> {
   }
 
   Future<void> pickLoader() async {
-    final options = ['forge', 'neoforge', 'fabric', 'quilt'];
     final result = await showChoicePicker(context,
         title: tr("选择加载器"),
         value: browse.loader,
-        load: () async => options.map((s) => Choice(s, tagName(s))).toList(),
+        load: () async =>
+            marketLoaders.map((s) => Choice(s, tagName(s))).toList(),
         clearLabel: tr("全部加载器"));
     if (result != null && mounted) {
       setState(() => browse.loader = result);
@@ -303,10 +338,13 @@ class _ResourceMarketState extends State<ResourceMarket> {
 
   Future<void> openProject(Data hit) async {
     final generation = ++detailGeneration;
+    final provider = source;
     setState(() {
       project = hit;
       files = [];
       detailError = null;
+      fileError = null;
+      nextFileOffset = null;
       detailsLoading = true;
       fileGame = browse.game;
       fileLoader = browse.loader;
@@ -314,18 +352,15 @@ class _ResourceMarketState extends State<ResourceMarket> {
       installedNotice = null;
     });
     try {
-      final info = Map<String, dynamic>.from(await engine.run(
-          {'op': 'resource.project', 'project': hit['project_id'] ?? hit['id']},
-          title: tr("正在读取项目详情")) as Map);
+      final info = Map<String, dynamic>.from(await engine.run({
+        'op': 'resource.project',
+        'source': provider,
+        'project': hit['project_id'] ?? hit['id']
+      }, title: tr("正在读取项目详情")) as Map);
       if (!mounted || generation != detailGeneration) return;
       setState(() =>
           project = {...hit, ...info, 'title': info['title'] ?? hit['title']});
-      final versions = maps(await engine.run(
-          {'op': 'resource.versions', 'project': info['id']},
-          title: tr("正在读取可下载版本")));
-      if (mounted && generation == detailGeneration) {
-        setState(() => files = versions);
-      }
+      await loadFiles(generation);
     } catch (e) {
       if (mounted && generation == detailGeneration) {
         setState(() => detailError = problem(e));
@@ -335,6 +370,53 @@ class _ResourceMarketState extends State<ResourceMarket> {
         setState(() => detailsLoading = false);
       }
     }
+  }
+
+  Future<void> loadFiles(int generation, {int offset = 0}) async {
+    final curseForge = isCurseForge;
+    setState(() {
+      detailsLoading = true;
+      fileError = null;
+    });
+    try {
+      final result = await engine.run({
+        'op': 'resource.versions',
+        'source': source,
+        'project': project!['id'],
+        if (curseForge) ...{
+          'offset': offset,
+          'game': fileGame,
+          'loader': fileLoader,
+        }
+      }, title: tr("正在读取可下载版本"));
+      if (!mounted || generation != detailGeneration) return;
+      final page = curseForge ? result as Map : null;
+      final versions = maps(curseForge ? page!['files'] : result);
+      setState(() {
+        files = offset == 0 ? versions : [...files, ...versions];
+        nextFileOffset = page?['next_offset'] as int?;
+      });
+    } catch (e) {
+      if (mounted && generation == detailGeneration) {
+        setState(() => fileError = problem(e));
+      }
+    } finally {
+      if (mounted && generation == detailGeneration) {
+        setState(() => detailsLoading = false);
+      }
+    }
+  }
+
+  void changeFileFilters({String? game, String? loader}) {
+    setState(() {
+      fileGame = game ?? fileGame;
+      fileLoader = loader ?? fileLoader;
+      if (isCurseForge) {
+        files = [];
+        nextFileOffset = null;
+      }
+    });
+    if (isCurseForge) unawaited(loadFiles(++detailGeneration));
   }
 
   Future<void> openLink(String? url) async {
@@ -349,6 +431,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
 
   Future<void> install(Data file) async {
     final kind = widget.kind, info = Map<String, dynamic>.from(project!);
+    final generation = detailGeneration;
     final target = widget.initialTarget != null &&
             compatible(file, widget.initialTarget!, kind)
         ? widget.initialTarget
@@ -360,11 +443,12 @@ class _ResourceMarketState extends State<ResourceMarket> {
                 file: file,
                 kind: kind,
                 selectedVersion: widget.selectedVersion));
-    if (target == null || !mounted) return;
+    if (target == null || !mounted || generation != detailGeneration) return;
     setState(() => installedNotice = null);
     try {
       final payload = {
         ...file,
+        'source': info['source'] ?? source,
         'title': info['title'],
         'icon_url': info['icon_url'],
         'description': info['description']
@@ -380,12 +464,12 @@ class _ResourceMarketState extends State<ResourceMarket> {
                 },
           title: tr("正在检查已有组件和依赖")) as Map);
       if (kind == 'mod') await enrichModPlanProjects(engine, plan);
-      if (!mounted) return;
+      if (!mounted || generation != detailGeneration) return;
       final choice = await showDialog<Data>(
           context: context,
           barrierDismissible: false,
           builder: (_) => InstallPlanDialog(plan: plan, kind: kind));
-      if (choice == null || !mounted) return;
+      if (choice == null || !mounted || generation != detailGeneration) return;
       Data chosen = plan;
       if (kind == 'mod') {
         chosen = Map<String, dynamic>.from(await engine.run({
@@ -402,11 +486,13 @@ class _ResourceMarketState extends State<ResourceMarket> {
       final result = Map<String, dynamic>.from(await engine.run(
           {'op': kind == 'mod' ? 'mods.apply' : 'packs.apply', 'plan': chosen},
           title: tr("正在安装到 {0}", [target['id']])) as Map);
-      if (mounted) {
+      if (mounted && generation == detailGeneration) {
         setState(() => installedNotice = {...result, 'id': target['id']});
       }
     } catch (e) {
-      if (mounted) setState(() => detailError = problem(e));
+      if (mounted && generation == detailGeneration) {
+        setState(() => detailError = problem(e));
+      }
     }
   }
 
@@ -422,6 +508,20 @@ class _ResourceMarketState extends State<ResourceMarket> {
             const SizedBox(width: 14),
             const Icon(Icons.keyboard_arrow_down_rounded, size: 18)
           ]));
+
+  String get marketWebsite => isCurseForge
+      ? 'https://www.curseforge.com/minecraft/${widget.kind == 'shader' ? 'shaders' : widget.kind == 'resourcepack' ? 'texture-packs' : 'mc-mods'}'
+      : 'https://modrinth.com/${widget.kind == 'shader' ? 'shaders' : widget.kind == 'resourcepack' ? 'resourcepacks' : 'mods'}';
+
+  String? curseForgeWebsite(Data data) {
+    final url = data['website_url'] as String?;
+    return url == null || url.isEmpty ? null : url;
+  }
+
+  String? get projectWebsite => isCurseForge
+      ? curseForgeWebsite(project!)
+      : 'https://modrinth.com/${widget.kind == 'mod' ? 'mod' : widget.kind}/${project!['slug'] ?? project!['project_id'] ?? project!['id']}';
+
   Widget header() => Padding(
       padding: EdgeInsets.fromLTRB(28, Platform.isMacOS ? 44 : 22, 28, 18),
       child: Row(children: [
@@ -431,13 +531,28 @@ class _ResourceMarketState extends State<ResourceMarket> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 25, fontWeight: FontWeight.w600))),
-        TextButton.icon(
-            onPressed: engine.active
-                ? null
-                : () => openLink(
-                    'https://modrinth.com/${widget.kind == 'shader' ? 'shaders' : widget.kind == 'resourcepack' ? 'resourcepacks' : 'mods'}'),
-            icon: const Icon(Icons.open_in_new, size: 14),
-            label: const Text('Modrinth', style: TextStyle(fontSize: 12)))
+        PopupMenuButton<String>(
+            key: const Key('resourceSource'),
+            tooltip: tr("资源来源"),
+            initialValue: source,
+            onSelected: changeSource,
+            itemBuilder: (_) => [
+                  for (final provider in resourceSources.entries)
+                    PopupMenuItem(
+                        value: provider.key, child: Text(provider.value))
+                ],
+            child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(resourceSources[source]!),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 18)
+                ]))),
+        IconButton(
+            onPressed: engine.active ? null : () => openLink(marketWebsite),
+            tooltip: tr("打开来源网站"),
+            icon: const Icon(Icons.open_in_new, size: 16))
       ]));
   Widget catalog() =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -568,7 +683,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                         TextStyle(color: muted, height: 1.8)))
                             : ListView.separated(
                                 key: PageStorageKey(
-                                    'catalog-${widget.kind}-${browse.offset}'),
+                                    'catalog-${widget.kind}-$source-${browse.offset}'),
                                 itemCount: browse.hits.length,
                                 separatorBuilder: (_, __) =>
                                     const SizedBox(height: 10),
@@ -694,6 +809,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
           (fileLoader.isEmpty || (f['loaders'] as List).contains(fileLoader)))
       .toList();
   Future<void> selectFileGame() async {
+    final generation = detailGeneration;
     final values = <String>{
       for (final f in files)
         for (final v in f['game_versions'] as List) v.toString()
@@ -701,15 +817,48 @@ class _ResourceMarketState extends State<ResourceMarket> {
     final result = await showChoicePicker(context,
         title: tr("筛选适用的游戏版本"),
         value: fileGame,
-        load: () async => values
-            .map((v) => Choice(v, v,
-                group: RegExp(r'^\d+\.\d+(\.\d+)*$').hasMatch(v)
-                    ? 'release'
-                    : 'snapshot'))
-            .toList(),
-        groups: {'release': tr("正式版"), 'snapshot': tr("测试版")},
+        load: isCurseForge
+            ? gameOptions
+            : () async => values
+                .map((v) => Choice(v, v,
+                    group: RegExp(r'^\d+\.\d+(\.\d+)*$').hasMatch(v)
+                        ? 'release'
+                        : 'snapshot'))
+                .toList(),
+        groups: {
+          'release': tr("正式版"),
+          'snapshot': tr("测试版"),
+          if (isCurseForge) ...{'special': tr("特殊版"), 'historical': tr("历史版")}
+        },
         clearLabel: tr("全部版本"));
-    if (result != null && mounted) setState(() => fileGame = result);
+    if (result != null && mounted && generation == detailGeneration) {
+      changeFileFilters(game: result);
+    }
+  }
+
+  Uri get projectBase {
+    final uri = Uri.tryParse(projectWebsite ?? '') ?? Uri.parse(marketWebsite);
+    final base = uri.hasAuthority ? uri : Uri.parse(marketWebsite);
+    return base.path.endsWith('/') ? base : base.replace(path: '${base.path}/');
+  }
+
+  Widget projectProblem(Data error) {
+    final panel = ProblemPanel(error, retry: () => openProject(project!));
+    if (error['code'] != 'curseforge_unavailable') return panel;
+    final url = Uri.tryParse(error['url'] as String? ?? '');
+    if (url == null ||
+        url.scheme != 'https' ||
+        url.userInfo.isNotEmpty ||
+        (url.host != 'www.curseforge.com' && url.host != 'curseforge.com')) {
+      return panel;
+    }
+    return Column(children: [
+      Expanded(child: panel),
+      TextButton.icon(
+          onPressed: () => openLink(url.toString()),
+          icon: const Icon(Icons.open_in_new, size: 15),
+          label: Text(tr("在官网打开")))
+    ]);
   }
 
   Widget detail() =>
@@ -728,8 +877,9 @@ class _ResourceMarketState extends State<ResourceMarket> {
               label: Text(tr("返回列表"))),
           const Spacer(),
           TextButton.icon(
-              onPressed: () => openLink(
-                  'https://modrinth.com/${widget.kind == 'mod' ? 'mod' : widget.kind == 'shader' ? 'shader' : 'resourcepack'}/${project!['slug'] ?? project!['project_id'] ?? project!['id']}'),
+              onPressed: projectWebsite == null
+                  ? null
+                  : () => openLink(projectWebsite),
               icon: const Icon(Icons.open_in_new, size: 15),
               label: Text(tr("项目主页")))
         ]),
@@ -746,7 +896,7 @@ class _ResourceMarketState extends State<ResourceMarket> {
                         fontSize: 20, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 5),
                 Text(
-                    '${project!['author'] ?? tr("社区项目")} · ${project!['license'] is Map ? (project!['license'] as Map)['id'] ?? tr("作者许可") : 'Modrinth'}',
+                    '${project!['author'] ?? tr("社区项目")} · ${project!['license'] is Map ? (project!['license'] as Map)['id'] ?? tr("作者许可") : resourceSources[source]}',
                     style: TextStyle(fontSize: 12, color: muted))
               ]))
         ]),
@@ -761,59 +911,59 @@ class _ResourceMarketState extends State<ResourceMarket> {
         ]),
         Expanded(
             child: detailError != null
-                ? ProblemPanel(detailError!, retry: () => openProject(project!))
+                ? projectProblem(detailError!)
                 : detailTab == 'description'
                     ? ProjectDescription(
                         body: project!['body'] as String? ??
                             project!['description'] as String? ??
                             '',
-                        base: Uri.parse(
-                            'https://modrinth.com/project/${project!['slug'] ?? project!['id']}/'),
+                        base: projectBase,
                         open: openLink)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                            Flexible(
-                                flex: 0,
-                                child: ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxHeight: 140),
-                                    child: SingleChildScrollView(
-                                        child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                          Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: SelectableText(
-                                                  project!['description']
-                                                          as String? ??
-                                                      '',
-                                                  style: TextStyle(
-                                                      fontSize: 13,
-                                                      height: 1.6,
-                                                      color: muted))),
-                                          if ((project!['gallery'] as List? ?? [])
-                                              .isNotEmpty)
-                                            Padding(
-                                                padding: const EdgeInsets.only(
-                                                    top: 10),
-                                                child: SizedBox(
-                                                    height: 86,
-                                                    child: ListView.separated(
-                                                        scrollDirection:
-                                                            Axis.horizontal,
-                                                        itemCount: (project!['gallery'] as List)
-                                                            .length
-                                                            .clamp(0, 6),
-                                                        separatorBuilder: (_, __) =>
-                                                            const SizedBox(
-                                                                width: 8),
-                                                        itemBuilder: (_, i) => ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius.circular(7),
-                                                            child: Image.network((project!['gallery'] as List)[i]['url'] as String, width: 150, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox(width: 0))))))
-                                        ])))),
+                            if (!isCurseForge)
+                              Flexible(
+                                  flex: 0,
+                                  child: ConstrainedBox(
+                                      constraints:
+                                          const BoxConstraints(maxHeight: 140),
+                                      child: SingleChildScrollView(
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                            Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: SelectableText(
+                                                    project!['description']
+                                                            as String? ??
+                                                        '',
+                                                    style: TextStyle(
+                                                        fontSize: 13,
+                                                        height: 1.6,
+                                                        color: muted))),
+                                            if ((project!['gallery'] as List? ?? [])
+                                                .isNotEmpty)
+                                              Padding(
+                                                  padding: const EdgeInsets.only(
+                                                      top: 10),
+                                                  child: SizedBox(
+                                                      height: 86,
+                                                      child: ListView.separated(
+                                                          scrollDirection:
+                                                              Axis.horizontal,
+                                                          itemCount: (project!['gallery'] as List)
+                                                              .length
+                                                              .clamp(0, 6),
+                                                          separatorBuilder: (_, __) =>
+                                                              const SizedBox(
+                                                                  width: 8),
+                                                          itemBuilder: (_, i) => ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius.circular(7),
+                                                              child: Image.network((project!['gallery'] as List)[i]['url'] as String, width: 150, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox(width: 0))))))
+                                          ])))),
                             const SizedBox(height: 12),
                             Wrap(
                                 spacing: 8,
@@ -824,15 +974,16 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                       fileGame.isEmpty
                                           ? tr("全部游戏版本")
                                           : fileGame,
-                                      files.isEmpty ? null : selectFileGame),
+                                      detailsLoading ||
+                                              (!isCurseForge && files.isEmpty)
+                                          ? null
+                                          : selectFileGame),
                                   if (widget.kind == 'mod')
                                     for (final loader in [
                                       '',
-                                      'forge',
-                                      'neoforge',
-                                      'fabric',
-                                      'quilt'
+                                      ...marketLoaders
                                     ].where((s) =>
+                                        isCurseForge ||
                                         s.isEmpty ||
                                         files.any((f) => (f['loaders'] as List)
                                             .contains(s))))
@@ -844,42 +995,54 @@ class _ResourceMarketState extends State<ResourceMarket> {
                                               style: const TextStyle(
                                                   fontSize: 11)),
                                           selected: fileLoader == loader,
-                                          onSelected: (_) => setState(
-                                              () => fileLoader = loader),
+                                          onSelected: detailsLoading
+                                              ? null
+                                              : (_) => changeFileFilters(
+                                                  loader: loader),
                                           visualDensity: VisualDensity.compact)
                                 ]),
                             const SizedBox(height: 10),
-                            Row(children: [
+                            Wrap(spacing: 8, children: [
                               for (final c in {
                                 'release': tr("正式版"),
                                 'beta': tr("测试版"),
                                 'alpha': tr("预览版")
                               }.entries)
-                                Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: TextButton(
-                                        onPressed: () =>
-                                            setState(() => channel = c.key),
-                                        style: TextButton.styleFrom(
-                                            foregroundColor: channel == c.key
-                                                ? accent
-                                                : muted,
-                                            backgroundColor: channel == c.key
-                                                ? seclColor(0xFFEBF1F7)
-                                                : null),
-                                        child: Text(
-                                            '${c.value} (${matching.where((f) => f['release_type'] == c.key).length})',
-                                            style:
-                                                const TextStyle(fontSize: 12))))
+                                TextButton(
+                                    onPressed: () =>
+                                        setState(() => channel = c.key),
+                                    style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            channel == c.key ? accent : muted,
+                                        backgroundColor: channel == c.key
+                                            ? seclColor(0xFFEBF1F7)
+                                            : null),
+                                    child: Text(
+                                        '${c.value} (${matching.where((f) => f['release_type'] == c.key).length})',
+                                        style: const TextStyle(fontSize: 12))),
+                              if (nextFileOffset != null && fileError == null)
+                                TextButton(
+                                    key: const Key('moreResourceFiles'),
+                                    onPressed: detailsLoading
+                                        ? null
+                                        : () => loadFiles(detailGeneration,
+                                            offset: nextFileOffset!),
+                                    child: Text(tr("加载更多版本")))
                             ]),
                             const SizedBox(height: 8),
                             Expanded(
-                                child: detailsLoading
+                                child: detailsLoading && files.isEmpty
                                     ? const BusyPanel()
-                                    : versionList())
+                                    : fileError == null
+                                        ? versionList()
+                                        : ProblemPanel(fileError!,
+                                            retry: () => loadFiles(
+                                                detailGeneration,
+                                                offset: nextFileOffset ?? 0))),
                           ]))
       ]);
   Widget versionList() {
+    final actionWidth = isCurseForge ? 138.0 : 84.0;
     final versions =
         matching.where((f) => f['release_type'] == channel).toList();
     if (versions.isEmpty) {
@@ -897,74 +1060,103 @@ class _ResourceMarketState extends State<ResourceMarket> {
     }
     return SurfaceCard(
         padding: EdgeInsets.zero,
-        child: Column(children: [
-          Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                  color: seclColor(0xFFEEF1F5),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(9))),
-              child: Row(children: [
-                Expanded(
-                    child: Text(tr("版本 / 适用环境"),
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600))),
-                SizedBox(
-                    width: 84,
-                    child: Text(tr("安装"),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w600)))
-              ])),
-          Expanded(
-              child: ListView.separated(
-                  itemCount: versions.length,
-                  separatorBuilder: (_, __) => const Divider(),
-                  itemBuilder: (_, i) {
-                    final f = versions[i];
-                    return Padding(
+        child: LayoutBuilder(
+            builder: (_, constraints) => Column(children: [
+                  if (constraints.maxHeight >= 120)
+                    Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 13),
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                            color: seclColor(0xFFEEF1F5),
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(9))),
                         child: Row(children: [
                           Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                Tooltip(
-                                    message: f['filename'] as String,
-                                    child: Text(
-                                        f['version'] as String? ??
-                                            f['name'] as String,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500))),
-                                const SizedBox(height: 5),
-                                Text(
-                                    '${(f['game_versions'] as List).take(3).join('、')} · ${(f['loaders'] as List).map((s) => tagName(s.toString())).join(' / ')} · ${byteLabel(f['size'] as num? ?? 0)}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style:
-                                        TextStyle(color: muted, fontSize: 11))
-                              ])),
-                          const SizedBox(width: 12),
+                              child: Text(tr("版本 / 适用环境"),
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600))),
                           SizedBox(
-                              width: 84,
-                              child: OutlinedButton.icon(
-                                  key: Key('install-$i'),
-                                  onPressed:
-                                      engine.active ? null : () => install(f),
-                                  icon: const Icon(Icons.download_rounded,
-                                      size: 16),
-                                  label: Text(tr("安装"),
-                                      style: const TextStyle(fontSize: 12)),
-                                  style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 10))))
-                        ]));
-                  }))
-        ]));
+                              width: actionWidth,
+                              child: Text(tr("操作"),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)))
+                        ])),
+                  Expanded(
+                      child: ListView.separated(
+                          key: const Key('resourceFileList'),
+                          itemCount: versions.length,
+                          separatorBuilder: (_, __) => const Divider(),
+                          itemBuilder: (_, i) {
+                            final f = versions[i];
+                            final downloadable =
+                                !isCurseForge || f['downloadable'] == true;
+                            final website =
+                                curseForgeWebsite(f) ?? projectWebsite;
+                            return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 13),
+                                child: Row(children: [
+                                  Expanded(
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                        Tooltip(
+                                            message: f['filename'] as String,
+                                            child: Text(
+                                                f['version'] as String? ??
+                                                    f['name'] as String,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight:
+                                                        FontWeight.w500))),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                            '${(f['game_versions'] as List).take(3).join('、')} · ${(f['loaders'] as List).map((s) => tagName(s.toString())).join(' / ')} · ${byteLabel(f['size'] as num? ?? 0)}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                                color: muted, fontSize: 11))
+                                      ])),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                      width: actionWidth,
+                                      child: OutlinedButton.icon(
+                                          key: Key(
+                                              '${downloadable ? 'install' : 'website'}-$i'),
+                                          onPressed: detailsLoading || engine.active
+                                              ? null
+                                              : downloadable
+                                                  ? () => install(f)
+                                                  : website == null
+                                                      ? null
+                                                      : () => openLink(website),
+                                          icon: Icon(
+                                              downloadable
+                                                  ? Icons.download_rounded
+                                                  : Icons.open_in_new,
+                                              size: 16),
+                                          label: Text(
+                                              tr(downloadable
+                                                  ? "安装"
+                                                  : website == null
+                                                      ? "无法下载"
+                                                      : "在官网打开"),
+                                              style: const TextStyle(
+                                                  fontSize: 12)),
+                                          style: OutlinedButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 10))))
+                                ]));
+                          }))
+                ])));
   }
 
   Widget footer() => FooterBar(
@@ -1012,10 +1204,13 @@ class _ResourceMarketState extends State<ResourceMarket> {
                           notice.isEmpty
                               ? project == null
                                   ? browse.error == null
-                                      ? tr("共 {0} 个项目 · Modrinth",
-                                          [browse.total])
-                                      : 'Modrinth'
-                                  : tr("来源：Modrinth · 下载时选择目标实例")
+                                      ? tr("共 {0} 个项目 · {1}", [
+                                          browse.total,
+                                          resourceSources[source]
+                                        ])
+                                      : resourceSources[source]!
+                                  : tr("来源为 {0} · 下载时选择目标实例",
+                                      [resourceSources[source]])
                               : notice,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,

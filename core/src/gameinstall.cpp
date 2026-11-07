@@ -33,6 +33,18 @@ static void files(const Json &entries, const fs::path &root, const Task &t) {
                 auto target = checked_path(root, f.at("path"));
                 auto worker = t;
                 worker.progress = {};
+                if(!t.game_cache_root.empty() && !fs::exists(target)) {
+                    auto cached=checked_path(fs::u8path(t.game_cache_root),f.at("path"));
+                    if(fs::is_regular_file(cached) && !fs::is_symlink(cached)) {
+                        fs::create_directories(target.parent_path());std::error_code ec;
+                        // Executable permission changes must never affect the
+                        // source inode. Other cache links are rehashed below;
+                        // a mismatch is replaced atomically by download().
+                        if(!f.value("executable",false))fs::create_hard_link(cached,target,ec);
+                        else ec=std::make_error_code(std::errc::operation_not_supported);
+                        if(ec)fs::copy_file(cached,target,fs::copy_options::none,ec);
+                    }
+                }
                 download(f, target, worker);
                 if (f.value("executable", false))
                     fs::permissions(target,

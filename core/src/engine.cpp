@@ -62,6 +62,7 @@ Json dispatch(const Json &r, const Task &t) {
                 "shaders.support",
                 "quilt.rules",
                 "quilt.update",
+                "modpacks.inspect", "modpacks.plan", "modpacks.apply",
                 "game.versions",
                 "game.install",
                 "loader.versions",
@@ -127,12 +128,15 @@ Json dispatch(const Json &r, const Task &t) {
         save_instance_settings(path("directory"), r.at("settings"));
         return {{"saved", true}};
     }
+    const bool curseforge = r.value("source", "") == "curseforge";
     if (op == "resource.search")
-        return resource_search(r, t);
+        return curseforge ? curseforge_search(r, t) : resource_search(r, t);
     if (op == "resource.tags")
         return resource_tags(r.value("type", "mod"), t);
-    if (op == "resource.categories")
-        return resource_categories(r.value("type", "mod"), t);
+    if (op == "resource.categories") {
+        const auto kind = r.value("type", "mod");
+        return curseforge ? curseforge_categories(kind, t) : resource_categories(kind, t);
+    }
     if (op == "resource.games") {
         auto versions = fetch_json("https://api.modrinth.com/v2/tag/game_version", t);
         for (auto &version : versions)
@@ -148,15 +152,23 @@ Json dispatch(const Json &r, const Task &t) {
         return {{"opened", true}};
     }
     if (op == "resource.project")
-        return resource_project(r.at("project"), t);
+        return curseforge ? curseforge_project(r.at("project"), t) : resource_project(r.at("project"), t);
     if (op == "resource.projects") {
-        const auto ids = r.at("ids");
+        const auto &ids = r.at("ids");
         if (!ids.is_array() || ids.size() > 128)
             throw Error("resources", "invalid_ids", "项目数量超过限制。");
+        if (curseforge) return curseforge_projects(ids, t);
         return fetch_json("https://api.modrinth.com/v2/projects?ids=" + url_encode(ids.dump()), t);
     }
-    if (op == "resource.versions")
-        return resource_versions(r.at("project"), r.value("game", ""), r.value("loader", ""), t);
+    if (op == "resource.versions") {
+        const auto &project = r.at("project");
+        const auto game = r.value("game", "");
+        const auto loader = r.value("loader", "");
+        if (curseforge && r.contains("offset"))
+            return curseforge_versions_page(project, game, loader, r.at("offset").get<int>(), t);
+        return curseforge ? curseforge_versions(project, game, loader, t) :
+                           resource_versions(project, game, loader, t);
+    }
     if (op == "resource.version_families")
         return version_families(r.at("versions"));
     if (op == "mods.list")
@@ -214,6 +226,9 @@ Json dispatch(const Json &r, const Task &t) {
         return compatibility_rules(path("directory"));
     if (op == "quilt.update")
         return update_compatibility(path("directory"), t, r.value("force", false));
+    if (op == "modpacks.inspect") return inspect_modpack(path("path"),t);
+    if (op == "modpacks.plan") return plan_modpack(r,t);
+    if (op == "modpacks.apply") return apply_modpack(r.at("plan"),t);
     if (op == "game.versions")
         return game_versions(t);
     if (op == "game.install")

@@ -345,6 +345,76 @@ int main() {
             rejects([&] { apply_mod_plan(plan, {}, service.transport()); }, "unresolved_conflict");
             check(!fs::exists(folder / "mods/b1.jar"), "fresh changed website declarations are checked before download or mutation");
         }
+        {
+            const auto folder = temp / "curseforge";
+            const auto base = jar("cfbase"), root = jar("cfroot");
+            const auto pack = archive({{"pack.mcmeta", R"({"pack":{"pack_format":15,"description":"test"}})"}});
+            constexpr std::uint32_t base_fingerprint = 1036310006;
+            auto raw = [](int id, int project, const std::string &name, const std::string &bytes) -> Json {
+                return {{"id", id}, {"modId", project}, {"gameId", 432}, {"fileName", name},
+                        {"isAvailable", true}, {"fileStatus", 4}, {"releaseType", 1},
+                        {"gameVersions", {"1.20.1", "Fabric"}}, {"fileLength", bytes.size()},
+                        {"downloadUrl", "https://edge.forgecdn.net/files/0/" + std::to_string(id) + "/" + name},
+                        {"hashes", {{{"algo", 1}, {"value", hash_bytes(bytes, "sha1")}}}}};
+            };
+            auto root_file = raw(101, 11, "root.jar", root);
+            auto base_file = raw(102, 12, "base.jar", base);
+            auto pack_file = raw(103, 13, "pack.zip", pack);
+            root_file["dependencies"] = {{{"modId", 12}, {"relationType", 3}}};
+            base_file["fileFingerprint"] = base_fingerprint;
+            atomic_write(folder / "mods/base.jar", base);
+            bool allowed = true;
+            int downloads = 0;
+            Task task;
+            task.transport = [&](const std::string &url, const std::string &body, const std::string &token,
+                                 const std::string &) -> HttpResponse {
+                check(token.empty(), "mock transport does not get the CurseForge key");
+                const std::string api = "https://api.curseforge.com/v1/";
+                if (url == api + "fingerprints/432") {
+                    check(Json::parse(body).at("fingerprints") == Json::array({base_fingerprint}),
+                          "only the matching CurseForge fingerprint is sent for local lookup");
+                    return {200, Json{{"data", {{"exactMatches", {{{"file", base_file}}}}}}}.dump()};
+                }
+                if (url == api + "mods/12/files/102") return {200, Json{{"data", base_file}}.dump()};
+                if (url == api + "mods/101" || url == api + "mods/102")
+                    throw std::runtime_error("a CurseForge file ID was used as a project ID");
+                if (url.rfind(api + "mods/12/files?", 0) == 0)
+                    return {200, Json{{"data", Json::array({base_file})}, {"pagination", {{"totalCount", 1}}}}.dump()};
+                if (url == api + "mods/11/files/101") return {200, Json{{"data", root_file}}.dump()};
+                if (url == api + "mods/13/files/103") return {200, Json{{"data", pack_file}}.dump()};
+                for (const auto id : {11, 12, 13}) {
+                    if (url != api + "mods/" + std::to_string(id)) continue;
+                    return {200, Json{{"data", {{"id", id}, {"gameId", 432}, {"classId", id == 13 ? 12 : 6},
+                                                {"allowModDistribution", id != 11 || allowed}}}}.dump()};
+                }
+                if (url == root_file.at("downloadUrl")) { ++downloads; return {200, root}; }
+                if (url == pack_file.at("downloadUrl")) { ++downloads; return {200, pack}; }
+                throw std::runtime_error("Unexpected CurseForge request: " + url);
+            };
+            const auto target = instance(folder);
+            const auto selected = curseforge_file("11", "101", task);
+            const auto plan = plan_mod_install(target, selected, task);
+            check(plan.at("source") == "curseforge" && plan.at("files").size() == 1 &&
+                  plan.at("reuse").size() == 1 && plan.at("reuse")[0].at("project_id") == "12",
+                  "the checked local CurseForge dependency is reused");
+            allowed = false;
+            rejects([&] { apply_mod_plan(plan, task); }, "curseforge_unavailable");
+            check(downloads == 0 && !fs::exists(folder / "mods/root.jar"),
+                  "permission removed after preview blocks download and mutation");
+            allowed = true;
+            auto altered = plan;
+            altered["files"][0]["url"] = "https://edge.forgecdn.net/files/0/999/altered.jar";
+            apply_mod_plan(altered, task);
+            check(downloads == 1 && read_file(folder / "mods/root.jar") == root && mod_inventory(folder).empty(),
+                  "install refreshes the official URL and stores no CurseForge marketplace metadata");
+            const auto resource = curseforge_file("13", "103", task);
+            const auto pack_plan = plan_pack_install(target, resource, "resourcepack");
+            apply_pack_plan(pack_plan, task);
+            check(downloads == 2 && read_file(folder / "resourcepacks/pack.zip") == pack &&
+                  !fs::exists(folder / ".solar-pack-metadata") &&
+                  plan_pack_install(target, resource, "resourcepack").at("reuse") == true,
+                  "CurseForge resource pack verifies SHA-1 and supports same-file reuse");
+        }
         fs::remove_all(temp);
         std::cout << "PASS " << checks << " mod graph checks\n";
         return 0;

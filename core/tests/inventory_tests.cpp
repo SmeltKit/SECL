@@ -328,6 +328,100 @@ int main() {
             }
         });
 
+        run("CurseForge recognition and installed conflicts", [&] {
+            const auto game = temp / "curseforge";
+            const auto i = instance(game);
+            const auto consumer = jar(mod("curse_consumer")), other = jar(mod("curse_other"));
+            const auto bad_hash = jar(mod("curse_bad_hash")), disabled = jar(mod("curse_disabled"));
+            const auto ambiguous = jar(mod("curse_ambiguous"));
+            atomic_write(game / "mods/consumer.jar", consumer);
+            atomic_write(game / "mods/other.jar", other);
+            atomic_write(game / "mods/collision.jar", bad_hash);
+            atomic_write(game / "mods/disabled.jar.disabled", disabled);
+            atomic_write(game / "mods/ambiguous.jar", ambiguous);
+            const auto other_hash = hash_bytes(other);
+            const auto raw = [](int id, int project, std::uint32_t fingerprint, const std::string &bytes) -> Json {
+                return {{"file", {{"id", id}, {"modId", project}, {"gameId", 432},
+                    {"fileFingerprint", fingerprint},
+                    {"hashes", {{{"algo", 1}, {"value", hash_bytes(bytes, "sha1")}}}}}}};
+            };
+            auto source = raw(101, 11, 1618888439u, consumer);
+            source["file"]["dependencies"] = {{{"modId", 12}, {"relationType", 5}},
+                                              {{"modId", 14}, {"relationType", 3}},
+                                              {{"modId", 15}, {"relationType", 5}}};
+            const auto matches = Json::array({source, raw(102, 12, 3987171917u, other),
+                raw(103, 13, 698138356u, "intentionally different"), raw(104, 14, 720834445u, disabled),
+                raw(105, 15, 4274214867u, ambiguous), raw(106, 16, 4274214867u, ambiguous)});
+            bool modrinth_available = true, curseforge_available = true;
+            int fingerprint_queries = 0;
+            Task task;
+            task.transport = [&](const std::string &url, const std::string &body, const std::string &,
+                                 const std::string &) -> HttpResponse {
+                if (url == "https://api.modrinth.com/v2/version_files") {
+                    if (!modrinth_available) return {503, "{}"};
+                    return {200, Json{{other_hash, {{"project_id", "mrother"}, {"id", "mrver"},
+                        {"files", {{{"hashes", {{"sha512", other_hash}}}}}}}}}.dump()};
+                }
+                if (url.rfind("https://api.modrinth.com/v2/projects?ids=", 0) == 0)
+                    return {200, R"([{"id":"mrother","title":"Modrinth Other"}])"};
+                if (url == "https://api.curseforge.com/v1/fingerprints/432") {
+                    ++fingerprint_queries;
+                    if (!curseforge_available) return {503, "{}"};
+                    check(Json::parse(body).at("fingerprints") == Json::array(
+                        {698138356u, 720834445u, 1618888439u, 3987171917u, 4274214867u}),
+                        "batch sends exact filtered Murmur2 fingerprints");
+                    return {200, Json{{"data", {{"exactMatches", matches}}}}.dump()};
+                }
+                if (url == "https://api.curseforge.com/v1/mods") {
+                    check(Json::parse(body).at("modIds") == Json::array({11, 12, 14}),
+                          "unverified and ambiguous exact matches request no project data");
+                    return {200, Json{{"data", Json::array({
+                        {{"id", 11}, {"gameId", 432}, {"classId", 6}, {"name", "CurseForge Consumer"},
+                         {"links", {{"websiteUrl", "https://www.curseforge.com/minecraft/mc-mods/example"}}},
+                         {"logo", {{"thumbnailUrl", "https://media.forgecdn.net/icon.png"}}}},
+                        {{"id", 12}, {"gameId", 432}, {"classId", 6}, {"name", "CurseForge Other"}},
+                        {{"id", 14}, {"gameId", 432}, {"classId", 6}, {"name", "CurseForge Disabled"}}})}}.dump()};
+                }
+                throw std::runtime_error("unexpected source lookup: " + url);
+            };
+            auto report = enrich_mod_inventory(i, task);
+            auto recognized = row(report, "consumer.jar");
+            check(recognized.at("source") == "curseforge" && recognized.at("project_id") == "11" &&
+                  recognized.at("name") == "CurseForge Consumer" && !recognized.at("icon_url").empty(),
+                  "a verified CurseForge-only file receives current project metadata");
+            auto both = row(report, "other.jar");
+            check(both.at("sources") == Json::array({"modrinth", "curseforge"}) &&
+                  both.at("project_id") == "mrother" && both.at("name") == "Modrinth Other",
+                  "dual-listed file preserves Modrinth identity and displays both providers");
+            check(issue(recognized, "curseforge_incompatible") && issue(both, "curseforge_incompatible") &&
+                  report.at("checks").at("selection_status") == "conflict", "verified incompatibility applies to both rows");
+            check(issue(recognized, "curseforge_dependency_unverified") &&
+                  !issue(row(report, "disabled.jar.disabled"), "curseforge_incompatible"),
+                  "disabled file cannot satisfy an active requirement and is not itself a conflict");
+            for (const auto *filename : {"collision.jar", "ambiguous.jar"})
+                check(row(report, filename).at("detection").at("source") == "unmatched",
+                      "a fingerprint collision or ambiguous exact file is not attributed to a provider");
+            auto manifest = mod_inventory(game);
+            check(!manifest.contains("CurseForge") && !manifest.at("consumer.jar").contains("projectId") &&
+                  manifest.at("other.jar").at("projectId") == "mrother", "only Modrinth identities persist");
+            auto offline = instance_inventory(i, "mod");
+            check(fingerprint_queries == 1 && row(offline, "other.jar").at("sources") == Json::array({"modrinth"}) &&
+                  !issue(row(offline, "consumer.jar"), "curseforge_incompatible"),
+                  "ordinary browsing uses local data and retains no CurseForge response");
+            modrinth_available = false;
+            auto partial = enrich_mod_inventory(i, task);
+            check(partial.at("source_error").at("source") == "modrinth" &&
+                  row(partial, "consumer.jar").at("source") == "curseforge",
+                  "Modrinth failure preserves CurseForge recognition");
+            modrinth_available = true;
+            curseforge_available = false;
+            partial = enrich_mod_inventory(i, task);
+            check(partial.at("source_error").at("source") == "curseforge" &&
+                  row(partial, "other.jar").at("source") == "modrinth" &&
+                  row(partial, "consumer.jar").at("known") == true,
+                  "CurseForge failure preserves Modrinth identity and local metadata");
+        });
+
         fs::remove_all(temp);
         if (failures) {
             std::cerr << "FAIL " << failures << " inventory cases after " << checks << " checks\n";

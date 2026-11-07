@@ -9,7 +9,10 @@ import 'package:secl/resource_market.dart';
 
 class CatalogCore implements LauncherCore {
   bool fail = false;
+  String? curseForgeKeyError;
   int total = 45;
+  static const curseForgeProject =
+      'https://www.curseforge.com/minecraft/mc-mods/sample';
   final requests = <Map<String, dynamic>>[];
   final hit = <String, dynamic>{
     'project_id': 'test',
@@ -33,6 +36,23 @@ class CatalogCore implements LauncherCore {
         'game_versions': ['1.20.1'],
         'dependencies': []
       };
+  Map<String, dynamic> get curseHit => {
+        ...hit,
+        'source': 'curseforge',
+        'project_id': '200',
+        'id': '200',
+        'title': 'CurseForge Sample',
+        'website_url': curseForgeProject,
+      };
+  Map<String, dynamic> curseVersion(int offset) => {
+        ...version,
+        'source': 'curseforge',
+        'project_id': '200',
+        'version_id': offset == 0 ? '80' : '81',
+        'version': offset == 0 ? 'Website only' : 'Downloadable',
+        'website_url': '$curseForgeProject/files/80',
+        'downloadable': offset != 0,
+      };
   @override
   Future<Map<String, dynamic>> call(Map<String, dynamic> request) async {
     requests.add(request);
@@ -47,9 +67,21 @@ class CatalogCore implements LauncherCore {
     };
     if (request['action'] == 'engine') {
       final r = request['request'] as Map;
+      final curseForge = r['source'] == 'curseforge';
       dynamic result;
       switch (r['op']) {
         case 'resource.search':
+          if (curseForge && curseForgeKeyError != null) {
+            return {
+              ...state,
+              'error': {
+                'code': curseForgeKeyError,
+                'message': curseForgeKeyError == 'curseforge_key_missing'
+                    ? '此构建未配置 CurseForge 访问。'
+                    : 'CurseForge 访问密钥格式无效。'
+              }
+            };
+          }
           if (fail) {
             return {
               ...state,
@@ -61,7 +93,7 @@ class CatalogCore implements LauncherCore {
             };
           }
           result = {
-            'hits': [hit],
+            'hits': [curseForge ? curseHit : hit],
             'total_hits': total
           };
           break;
@@ -71,10 +103,18 @@ class CatalogCore implements LauncherCore {
           ];
           break;
         case 'resource.project':
-          result = hit;
+          result = curseForge ? curseHit : hit;
           break;
         case 'resource.versions':
-          result = [version];
+          if (curseForge) {
+            final offset = r['offset'] as int;
+            result = {
+              'files': [curseVersion(offset)],
+              'next_offset': offset == 0 ? 50 : null,
+            };
+          } else {
+            result = [version];
+          }
           break;
         case 'resource.games':
           result = [
@@ -123,6 +163,71 @@ void main() {
         core.requests
             .where((r) => r['action'] == 'launch' || r['action'] == 'login'),
         isEmpty);
+    await t.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+      'CurseForge keeps a separate catalog and offers official file links',
+      (t) async {
+    viewport(t);
+    AppLanguage.instance.select('en');
+    final core = CatalogCore()..curseForgeKeyError = 'curseforge_key_missing';
+    final engine = ResourceEngine(core);
+    addTearDown(engine.dispose);
+    await t.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: ResourceMarket(
+                kind: 'mod', engine: engine, root: '', selectedVersion: ''))));
+    await t.pumpAndSettle();
+    final search = find.byKey(const Key('resourceSearch'));
+    await t.enterText(search, 'Modrinth query');
+    await t.tap(find.text('Search'));
+    await t.pumpAndSettle();
+
+    Future<void> switchTo(String name) async {
+      await t.tap(find.byKey(const Key('resourceSource')));
+      await t.pumpAndSettle();
+      await t.tap(find.text(name).last);
+      await t.pumpAndSettle();
+    }
+
+    await switchTo('CurseForge');
+    expect(t.widget<TextField>(search).controller!.text, isEmpty);
+    expect(find.text('This build has no CurseForge access configured.'),
+        findsOneWidget);
+    core.curseForgeKeyError = 'curseforge_key_invalid';
+    await t.tap(find.text('Retry'));
+    await t.pumpAndSettle();
+    expect(find.text('The CurseForge access key has an invalid format.'),
+        findsOneWidget);
+    await switchTo('Modrinth');
+    expect(t.widget<TextField>(search).controller!.text, 'Modrinth query');
+    expect(find.text('Test Resource'), findsOneWidget);
+
+    core.curseForgeKeyError = null;
+    await switchTo('CurseForge');
+    await t.tap(find.text('CurseForge Sample'));
+    await t.pumpAndSettle();
+    await t.tap(find.text(tr('下载')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('install-0')), findsNothing);
+    await t.tap(find.byKey(const Key('website-0')));
+    await t.pumpAndSettle();
+    final requests = core.requests
+        .where((r) => r['action'] == 'engine')
+        .map((r) => r['request'] as Map);
+    expect(requests.last,
+        containsPair('url', '${CatalogCore.curseForgeProject}/files/80'));
+    await t.tap(find.byKey(const Key('moreResourceFiles')));
+    await t.pumpAndSettle();
+    expect(requests.last, containsPair('offset', 50));
+    expect(requests.last, containsPair('source', 'curseforge'));
+    final install = find.byKey(const Key('install-1'));
+    await t.scrollUntilVisible(install, 75,
+        scrollable: find.descendant(
+            of: find.byKey(const Key('resourceFileList')),
+            matching: find.byType(Scrollable)));
+    expect(install.hitTestable(), findsOneWidget);
+    expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });
   testWidgets(

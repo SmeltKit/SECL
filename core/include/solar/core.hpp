@@ -23,6 +23,7 @@ struct Error : std::runtime_error {
 struct HttpResponse {
     int status = 0;
     std::string body;
+    std::string location; // Optional redirect destination for native transports.
 };
 using Transport = std::function<HttpResponse(const std::string &, const std::string &,
                                              const std::string &, const std::string &)>;

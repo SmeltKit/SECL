@@ -97,7 +97,7 @@ class _InstanceResourcesState extends State<InstanceResources>
   ResourceEngine get engine => widget.engine;
   List<Data> rows = [];
   Data checks = {}, support = {};
-  Data? sourceError;
+  List<Data> sourceErrors = [];
   String query = '', filter = 'all';
   Set<String> selected = {};
   bool updatesOpen = false;
@@ -134,9 +134,11 @@ class _InstanceResourcesState extends State<InstanceResources>
         rows = dataRows(response['items']);
         checks = Map<String, dynamic>.from(response['checks'] as Map? ?? {});
         support = Map<String, dynamic>.from(response['support'] as Map? ?? {});
-        sourceError = response['source_error'] is Map
-            ? Map<String, dynamic>.from(response['source_error'] as Map)
-            : null;
+        sourceErrors = response['source_errors'] is List
+            ? dataRows(response['source_errors'])
+            : response['source_error'] is Map
+                ? [Map<String, dynamic>.from(response['source_error'] as Map)]
+                : [];
         selected.removeWhere((n) => !rows.any((r) => r['filename'] == n));
       });
     }
@@ -224,7 +226,7 @@ class _InstanceResourcesState extends State<InstanceResources>
             await read();
           }
         } on EngineFailure catch (e) {
-          if (mounted) setState(() => sourceError = e.details);
+          if (mounted) setState(() => sourceErrors = [e.details]);
         }
       });
   Future<void> compatibility() => perform(() async {
@@ -381,8 +383,8 @@ class _InstanceResourcesState extends State<InstanceResources>
                   child: Text(tr('更新兼容提醒')))
           ]),
       const SizedBox(height: 14),
-      if (sourceError != null) ...[
-        ResourceSourceFailure(sourceError!, retry: locked ? null : enrich),
+      if (sourceErrors.isNotEmpty) ...[
+        ResourceSourceFailure(sourceErrors, retry: locked ? null : enrich),
         const SizedBox(height: 12)
       ],
       Row(children: [

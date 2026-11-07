@@ -1,4 +1,5 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:secl/core_bridge.dart';
@@ -32,6 +33,29 @@ class TestCore implements LauncherCore {
     }
     if (request['action'] == 'clear_error') state = {...state, 'error': null};
     return {...state};
+  }
+}
+
+class PendingLibraryCore extends TestCore {
+  final library = Completer<void>();
+
+  @override
+  Future<Map<String, dynamic>> call(Map<String, dynamic> request) async {
+    if (request['action'] == 'engine' &&
+        (request['request'] as Map)['op'] == 'instances.scan') {
+      requests.add(request);
+      await library.future;
+      return {
+        ...state,
+        'result': {'instances': []}
+      };
+    }
+    if (request['action'] == 'login') {
+      requests.add(request);
+      state = {...state, 'busy': true, 'stage': 'browser'};
+      return {...state};
+    }
+    return super.call(request);
   }
 }
 
@@ -75,6 +99,67 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('sidebar actions stay stable and wait for their own turn',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final core = PendingLibraryCore();
+    await tester.pumpWidget(SeclApp(core: core));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final login = find.byKey(const Key('loginButton'));
+    final settings = find.byKey(const Key('settingsButton'));
+    final refresh = find.byWidgetPredicate(
+        (widget) => widget is IconButton && widget.tooltip == '刷新本地版本');
+    Iterable<Map<String, dynamic>> actions(String action) =>
+        core.requests.where((request) => request['action'] == action);
+
+    await tester.tap(find.byKey(const Key('nav-library')));
+    await tester.pump();
+    expect(actions('engine'), hasLength(1));
+    await tester.pump();
+    expect(tester.widget<OutlinedButton>(login).onPressed, isNotNull);
+    expect(tester.widget<IconButton>(refresh).onPressed, isNotNull);
+    expect(tester.widget<IconButton>(settings).onPressed, isNotNull);
+    expect(actions('login'), isEmpty);
+    expect(actions('scan'), isEmpty);
+
+    await tester.tap(settings);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const Key('languageSelector')), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, '完成'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const Key('nav-home')));
+    await tester.pump();
+    expect(find.byKey(const Key('launchButton')), findsOneWidget);
+    await tester.tap(login);
+    await tester.pump();
+    expect(actions('login'), isEmpty);
+    expect(tester.widget<OutlinedButton>(login).onPressed, isNull);
+    expect(tester.widget<IconButton>(refresh).onPressed, isNotNull);
+    expect(tester.widget<IconButton>(settings).onPressed, isNotNull);
+
+    core.library.complete();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(actions('login'), hasLength(1));
+    await tester.ensureVisible(refresh);
+    await tester.pump();
+    await tester.tap(refresh);
+    await tester.pump();
+    expect(actions('scan'), isEmpty);
+
+    core.state = {...core.state, 'busy': false, 'stage': 'ready'};
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+    expect(actions('scan'), hasLength(1));
+    expect(actions('cancel'), isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('compact window retains controls without overflow',
       (tester) async {
     tester.view.physicalSize = const Size(880, 640);

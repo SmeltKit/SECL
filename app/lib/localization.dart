@@ -75,8 +75,9 @@ final _nativePattern = RegExp(
       .join('|'),
 );
 
-// Native diagnostics ending in a colon append IDs, paths, field names, or other
-// literal data. Translate their prefix once, without translating the payload.
+// Native diagnostics and modpack progress ending in a colon append IDs, paths,
+// field names, or other literal data. Translate only the registered prefix so
+// a filename or dependency that happens to match UI text stays unchanged.
 final _nativeLiteralPrefixes = nativeMessages
     .where(
       (message) =>

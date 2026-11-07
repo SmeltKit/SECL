@@ -40,7 +40,7 @@ class Core {
                    {"account", nullptr},   {"versions", Json::array()}, {"javas", Json::array()},
                    {"game_running", false}};
     std::int64_t game_ = 0;
-    std::string root_ = default_game_root(), client_ = "7ed24288-81a6-4814-8271-25a1529d2e9d", java_, language_ = "system", source_ = "auto", appearance_="system", tone_="blue";
+    std::string root_ = default_game_root(), client_ = "7ed24288-81a6-4814-8271-25a1529d2e9d", java_, language_ = "system", source_ = "auto", appearance_="system", tone_="blue", home_background_="auto";
     void stage(const std::string &s) {
         std::lock_guard<std::mutex> g(state_mutex_);
         state_["stage"] = s;
@@ -80,7 +80,7 @@ class Core {
         return result;
     }
     void save() {
-        Json config{{"client_id", client_}, {"game_root", root_}, {"java", java_}, {"language", language_}, {"download_source", source_},{"appearance",appearance_},{"tone",tone_}};
+        Json config{{"client_id", client_}, {"game_root", root_}, {"java", java_}, {"language", language_}, {"download_source", source_},{"appearance",appearance_},{"tone",tone_},{"home_background",home_background_}};
         auto dir = fs::u8path(user_data_root());
         fs::create_directories(dir);
         auto file = dir / "settings.json";
@@ -358,6 +358,7 @@ class Core {
                 root_ = j.value("game_root", root_);
                 java_ = j.value("java", "");
                 appearance_=j.value("appearance","system");tone_=j.value("tone","blue");
+                home_background_=j.value("home_background","auto");
                 auto source = j.value("download_source", "auto");
                 if (source == "auto" || source == "official" || source == "bmclapi") source_ = source;
                 auto language = j.value("language", "system");
@@ -375,7 +376,7 @@ class Core {
         state_["client_id"] = client_;
         state_["java"] = java_;
         state_["language"] = language_;
-        state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;
+        state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;state_["home_background"]=home_background_;
         state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
     }
     ~Core() { cancel(); }
@@ -430,7 +431,12 @@ class Core {
             auto appearance=r.value("appearance",appearance_),tone=r.value("tone",tone_);
             if(appearance!="system"&&appearance!="light"&&appearance!="dark")throw Error("settings","invalid_appearance","主题无效。");
             if(tone!="blue"&&tone!="forest"&&tone!="violet")throw Error("settings","invalid_tone","配色无效。");
-            appearance_=appearance;tone_=tone;
+            const auto background=r.value("home_background",home_background_);
+            // Only built-in identifiers are persisted; never accept an asset path.
+            if(background!="auto" && background!="default" &&
+               !std::regex_match(background,std::regex("1\\.(?:[0-9]|1[0-9]|2[01])|26\\.[123]")))
+                throw Error("settings","invalid_background","背景选项无效。");
+            appearance_=appearance;tone_=tone;home_background_=background;
             source_ = source;
             language_ = language;
             client_ = next_client;
@@ -453,7 +459,7 @@ class Core {
             state_["java"] = java_;
             if (!updated_versions.is_null()) state_["versions"] = updated_versions;
             state_["language"] = language_;
-            state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;
+            state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;state_["home_background"]=home_background_;
             state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
             state_["error"] = nullptr; publish_accounts();
         } else if (action == "engine") {
@@ -535,7 +541,23 @@ class Core {
             auto c = launch_command(fs::u8path(root_), r.value("version", ""), fs::u8path(chosen),
                                     session, platform());
             game_ = spawn_game(c);
+            const auto launched_at = now();
+            const auto launched_id = r.value("version", "");
+            // Record only a successfully created game process. A history write
+            // failure must not turn a running game into a failed launch.
+            try {
+                auto directory = engine::checked_path(fs::u8path(root_), "versions/" + launched_id);
+                auto settings = engine::load_instance_settings(directory);
+                if (!settings.contains("history") || !settings["history"].is_object())
+                    settings["history"] = Json::object();
+                settings["history"]["last_launch"] = launched_at;
+                engine::save_instance_settings(directory, settings);
+            } catch (const std::exception &) {
+                // History is optional; the game process already owns its state.
+            }
             std::lock_guard<std::mutex> g(state_mutex_);
+            for (auto &version : state_["versions"])
+                if (version.value("id", "") == launched_id) version["last_launch"] = launched_at;
             state_["game_running"] = true;
             state_["running_game_directory"] = c.directory.u8string();
             state_["error"] = nullptr;

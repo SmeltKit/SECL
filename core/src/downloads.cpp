@@ -1,8 +1,10 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Derived from M2CL; see LICENSE and ADDITIONAL_TERMS.md in the repository
 // root.
-#include "solar/engine.hpp"
+#include "install_internal.hpp"
+#include "secl_build_config.hpp"
 #include <curl/curl.h>
+#include <cstdlib>
 #include <fstream>
 #include <optional>
 #include <regex>
@@ -83,7 +85,44 @@ struct Curl {
     }
     ~Curl() { curl_easy_cleanup(c); }
 };
-static void perform(Curl &curl, const std::string &url, const Task &task) {
+struct Headers {
+    curl_slist *list = nullptr;
+    ~Headers() { curl_slist_free_all(list); }
+    void append(const std::string &value) {
+        auto *next = curl_slist_append(list, value.c_str());
+        if (!next)
+            throw Error("network", "curl_init", "无法创建网络请求。");
+        list = next;
+    }
+};
+
+static const char *curseforge_key() {
+    const auto *env = std::getenv("SECL_CURSEFORGE_API_KEY");
+    return env && *env ? env : secl_embedded_curseforge_key;
+}
+
+bool detail::curseforge_configured() { return *curseforge_key() != '\0'; }
+
+static void authenticate_curseforge(Curl &curl, Headers &headers) {
+    const std::string key = curseforge_key();
+    if (key.empty())
+        throw Error("curseforge", "curseforge_key_missing", "此构建未配置 CurseForge 访问。");
+    if (key.size() > 512 || std::any_of(key.begin(), key.end(), [](unsigned char c) {
+            return c < 33 || c > 126;
+        }))
+        throw Error("curseforge", "curseforge_key_invalid", "CurseForge 访问密钥格式无效。");
+    headers.append("x-api-key: " + key);
+    curl_easy_setopt(curl.c, CURLOPT_HTTPHEADER, headers.list);
+    curl_easy_setopt(curl.c, CURLOPT_FOLLOWLOCATION, 0L);
+    curl_easy_setopt(curl.c, CURLOPT_PROXY, "");
+}
+
+static const Json &curseforge_cdn_hosts() {
+    static const auto hosts = Json::array({"edge.forgecdn.net", "mediafilez.forgecdn.net"});
+    return hosts;
+}
+
+static void perform(Curl &curl, const std::string &url, const Task &task, bool redirect_response = false) {
     task.check();
     curl_easy_setopt(curl.c, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl.c, CURLOPT_NOPROGRESS, 0L);
@@ -112,34 +151,86 @@ static void perform(Curl &curl, const std::string &url, const Task &task) {
                         ? "网络请求超时，请手动重试。"
                         : std::string("下载失败：") + curl_easy_strerror(e),
                     int(status), url);
+    if (status >= 300 && status < 400 && redirect_response) return;
     if (status < 200 || status >= 300)
         throw Error("download", "http_" + std::to_string(status),
                     "下载服务返回 HTTP " + std::to_string(status), int(status), url);
 }
+static std::string read_data(Curl &curl, const std::string &url, const Task &task, size_t limit) {
+    struct Buffer {
+        std::string bytes;
+        size_t limit;
+    };
+    Buffer buffer{{}, limit};
+    curl_easy_setopt(curl.c, CURLOPT_TIMEOUT_MS, 30000L);
+    curl_easy_setopt(curl.c, CURLOPT_WRITEDATA, &buffer);
+    curl_easy_setopt(
+        curl.c, CURLOPT_WRITEFUNCTION, +[](char *p, size_t a, size_t b, void *ctx) -> size_t {
+            auto &v = *static_cast<Buffer *>(ctx);
+            auto n = a * b;
+            if (n > v.limit || v.bytes.size() > v.limit - n)
+                return 0;
+            v.bytes.append(p, n);
+            return n;
+        });
+    perform(curl, url, task);
+    return buffer.bytes;
+}
+
+Json fetch_curseforge_json(const std::string &path, const Task &task, const Json &body) {
+    if (path.rfind("/v1/", 0) != 0 || path.find('#') != path.npos ||
+        std::any_of(path.begin(), path.end(), [](unsigned char c) {
+            return c <= 32 || c >= 127 || c == '\\';
+        }))
+        throw Error("curseforge", "invalid_url", "CurseForge 请求地址无效。");
+    const auto url = "https://api.curseforge.com" + path;
+    constexpr size_t limit = 32 * 1024 * 1024;
+    std::string bytes;
+    task.check();
+    if (task.transport) {
+        auto response = task.transport(url, body.is_null() ? "" : body.dump(), "", "application/json");
+        task.check();
+        if (response.status < 200 || response.status >= 300)
+            throw Error("curseforge", "http_" + std::to_string(response.status),
+                        "CurseForge API 请求失败。", response.status, url);
+        if (response.body.size() > limit)
+            throw Error("curseforge", "response_limit", "CurseForge 响应超过大小限制。");
+        bytes = std::move(response.body);
+    } else {
+        Headers headers;
+        Curl curl;
+        authenticate_curseforge(curl, headers);
+        headers.append("Accept: application/json");
+        std::string payload;
+        if (!body.is_null()) {
+            headers.append("Content-Type: application/json");
+            payload = body.dump();
+            curl_easy_setopt(curl.c, CURLOPT_POSTFIELDS, payload.c_str());
+            curl_easy_setopt(curl.c, CURLOPT_POSTFIELDSIZE_LARGE, curl_off_t(payload.size()));
+        }
+        curl_easy_setopt(curl.c, CURLOPT_HTTPHEADER, headers.list);
+        bytes = read_data(curl, url, task, limit);
+    }
+    auto result = Json::parse(bytes, nullptr, false);
+    if (!result.is_object())
+        throw Error("curseforge", "invalid_response", "CurseForge 返回的元数据无法解析。", 0, url);
+    return result;
+}
+
 std::string fetch_data(const std::string &url, const Task &task, size_t limit) {
     std::optional<Error> last;
     for (auto &candidate : download_candidates(url, task)) {
         task.check();
         try {
+            if (task.transport) {
+                auto response=task.transport(candidate,"","","");task.check();
+                if(response.status<200 || response.status>=300)
+                    throw Error("download","http_"+std::to_string(response.status),"下载服务返回 HTTP "+std::to_string(response.status),response.status,candidate);
+                if(response.body.size()>limit)throw Error("download","response_limit","下载响应超过大小限制。");
+                return response.body;
+            }
             Curl c;
-            curl_easy_setopt(c.c, CURLOPT_TIMEOUT_MS, 30000L);
-            struct Buffer {
-                std::string bytes;
-                size_t limit;
-            };
-            Buffer buffer{{}, limit};
-            curl_easy_setopt(c.c, CURLOPT_WRITEDATA, &buffer);
-            curl_easy_setopt(
-                c.c, CURLOPT_WRITEFUNCTION, +[](char *p, size_t a, size_t b, void *ctx) -> size_t {
-                    auto &v = *static_cast<Buffer *>(ctx);
-                    auto n = a * b;
-                    if (n > v.limit || v.bytes.size() > v.limit - n)
-                        return 0;
-                    v.bytes.append(p, n);
-                    return n;
-                });
-            perform(c, candidate, task);
-            return buffer.bytes;
+            return read_data(c, candidate, task, limit);
         } catch (const Error &e) {
             last = e;
         }
@@ -156,6 +247,15 @@ Json post_json(const std::string &url, const Json &body, const Task &task) {
     // The same cancellable HTTPS transport as downloads, with one attempt and a
     // bounded response. No OAuth bearer tokens are sent to metadata services.
     download_candidates(url, task);
+    if(task.transport) {
+        auto response=task.transport(url,body.dump(),"","application/json");task.check();
+        if(response.status<200 || response.status>=300)
+            throw Error("download","http_"+std::to_string(response.status),"下载服务返回 HTTP "+std::to_string(response.status),response.status,url);
+        if(response.body.size()>32*1024*1024)throw Error("download","response_limit","下载响应超过大小限制。");
+        auto result=Json::parse(response.body,nullptr,false);
+        if(!result.is_object())throw Error("updates","invalid_response","更新服务返回格式无效。",0,url);
+        return result;
+    }
     Curl c;
     std::string bytes, payload = body.dump();
     auto headers = curl_slist_append(nullptr, "Content-Type: application/json");
@@ -175,90 +275,141 @@ Json post_json(const std::string &url, const Json &body, const Task &task) {
     if (!result.is_object()) throw Error("updates", "invalid_response", "更新服务返回格式无效。", 0, url);
     return result;
 }
+static void restricted_url(const std::string &url,const Json &hosts) {
+    if(hosts.is_null())return;
+    std::smatch match;
+    bool valid=hosts.is_array() && !hosts.empty() && hosts.size()<=32 &&
+        std::regex_match(url,match,std::regex(R"(https://([A-Za-z0-9.-]+)(/[^#]*)?)"));
+    for(size_t n=0;n<url.size() && valid;++n) {
+        const auto c=static_cast<unsigned char>(url[n]);
+        if(c<=32 || c>=127 || c=='\\')valid=false;
+        if(c=='%') {
+            if(n+2>=url.size() || !std::isxdigit(static_cast<unsigned char>(url[n+1])) || !std::isxdigit(static_cast<unsigned char>(url[n+2])))valid=false;
+            else n+=2;
+        }
+    }
+    std::string host=valid?match[1].str():"";
+    std::transform(host.begin(),host.end(),host.begin(),[](unsigned char c){return char(std::tolower(c));});
+    bool allowed=false;
+    if(valid)for(const auto &item:hosts)if(item.is_string() && item.get<std::string>()==host)allowed=true;
+    if(!allowed)throw Error("modpack","download_host","整合包下载地址或重定向域名不在允许列表中。",0,url);
+}
+bool curseforge_download_url(const std::string &url) {
+    try {
+        restricted_url(url, curseforge_cdn_hosts());
+        return true;
+    } catch (const Error &) {
+        return false;
+    }
+}
+
+static void restrict_download_url(const std::string &url, const Json &hosts, bool curseforge) {
+    if (curseforge) {
+        if (!curseforge_download_url(url))
+            throw Error("curseforge", "download_host", "CurseForge 下载地址不在官方域名列表中。");
+    } else {
+        restricted_url(url, hosts);
+    }
+}
+
 void download(const Json &d, const fs::path &target, const Task &task) {
     auto url = d.value("url", "");
+    const bool curseforge = d.value("source", "") == "curseforge";
+    const auto hosts = curseforge ? curseforge_cdn_hosts() : d.value("allowed_hosts", Json());
+    restrict_download_url(url, hosts, curseforge);
     std::string algorithm, expected;
-    if (d.contains("sha512")) {
-        algorithm = "sha512";
-        expected = d.at("sha512").get<std::string>();
-    } else if (d.contains("sha256")) {
-        algorithm = "sha256";
-        expected = d.at("sha256").get<std::string>();
-    } else {
-        algorithm = "sha1";
-        expected = d.value("sha1", "");
-    }
-    if (!std::regex_match(expected, std::regex(algorithm == "sha512"   ? "[a-fA-F0-9]{128}"
-                                               : algorithm == "sha256" ? "[a-fA-F0-9]{64}"
-                                                                       : "[a-fA-F0-9]{40}")))
-        throw Error("download", "hash_required", "文件必须提供有效的 SHA 校验值。");
-    std::transform(expected.begin(), expected.end(), expected.begin(), ::tolower);
-    auto size = d.value("size", -1LL);
-    if (size < -1 || size > 4LL * 1024 * 1024 * 1024)
-        throw Error("download", "invalid_size", "下载文件大小无效。");
-    if (fs::is_regular_file(target) && (size < 0 || fs::file_size(target) == std::uint64_t(size)) &&
-        hash_file(target, algorithm, task.cancel) == expected)
-        return;
+    if (d.contains("sha512")) {algorithm="sha512";expected=d.at("sha512").get<std::string>();}
+    else if (d.contains("sha256")) {algorithm="sha256";expected=d.at("sha256").get<std::string>();}
+    else {algorithm="sha1";expected=d.value("sha1","");}
+    if (!std::regex_match(expected, std::regex(algorithm == "sha512" ? "[a-fA-F0-9]{128}" : algorithm == "sha256" ? "[a-fA-F0-9]{64}" : "[a-fA-F0-9]{40}")))
+        throw Error("download","hash_required","文件必须提供有效的 SHA 校验值。");
+    std::transform(expected.begin(),expected.end(),expected.begin(),::tolower);
+    auto secondary=d.value("sha1","");
+    std::transform(secondary.begin(),secondary.end(),secondary.begin(),::tolower);
+    if(!secondary.empty() && !std::regex_match(secondary,std::regex("[a-f0-9]{40}")))
+        throw Error("download","hash_required","文件必须提供有效的 SHA 校验值。");
+    auto size=d.value("size",-1LL);
+    if(size < -1 || size > 4LL*1024*1024*1024)throw Error("download","invalid_size","下载文件大小无效。");
+    if(fs::is_regular_file(target) && (size<0 || fs::file_size(target)==std::uint64_t(size)) && hash_file(target,algorithm,task.cancel)==expected && (secondary.empty() || hash_file(target,"sha1",task.cancel)==secondary))return;
     std::optional<Error> last;
-    for (auto &candidate : download_candidates(url, task)) {
-        auto temporary = target;
-        temporary += ".part-" + random_url_token();
+    for(auto candidate:download_candidates(url,task)) {
+        auto temporary=target;temporary+=".part-"+random_url_token();
         try {
-            task.check();
-            fs::create_directories(target.parent_path());
-            std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
-            if (!out)
-                throw Error("download", "write_failed", "无法创建下载暂存文件。");
-            struct Output {
-                std::ofstream *stream;
-                std::int64_t size, received = 0;
-            };
-            Output output{&out, size};
-            Curl c;
-            curl_easy_setopt(c.c, CURLOPT_TIMEOUT_MS, 300000L);
-            curl_easy_setopt(c.c, CURLOPT_WRITEDATA, &output);
-            curl_easy_setopt(
-                c.c, CURLOPT_WRITEFUNCTION, +[](char *p, size_t a, size_t b, void *ctx) -> size_t {
-                    auto &v = *static_cast<Output *>(ctx);
-                    auto n = a * b;
-                    if (n > 4ULL * 1024 * 1024 * 1024 ||
-                        v.received > 4LL * 1024 * 1024 * 1024 - std::int64_t(n) ||
-                        (v.size >= 0 && v.received + std::int64_t(n) > v.size))
-                        return 0;
-                    v.stream->write(p, std::streamsize(n));
-                    if (!*v.stream)
-                        return 0;
-                    v.received += std::int64_t(n);
-                    return n;
-                });
-            perform(c, candidate, task);
-            out.close();
-            if ((size >= 0 && output.received != size) ||
-                hash_file(temporary, algorithm, task.cancel) != expected)
-                throw Error("download", "verification_failed", "下载文件大小或哈希校验失败。", 0,
-                            candidate);
-            std::error_code ec;
-            fs::rename(temporary, target, ec);
+            for(int redirects=0;;++redirects) {
+                task.check();
+                restrict_download_url(candidate, hosts, curseforge);
+                fs::create_directories(target.parent_path());
+                std::ofstream out(temporary,std::ios::binary|std::ios::trunc);
+                if(!out)throw Error("download","write_failed","无法创建下载暂存文件。");
+                std::string location;
+                std::int64_t received=0;
+                if(task.transport) {
+                    auto response=task.transport(candidate,"","","");task.check();
+                    if(response.status>=300 && response.status<400 && !hosts.is_null()) {
+                        location=response.location;
+                        if(location.empty())throw Error("download","invalid_redirect","下载重定向缺少有效地址。",response.status,candidate);
+                    }
+                    else if(response.status<200 || response.status>=300)
+                        throw Error("download","http_"+std::to_string(response.status),"下载服务返回 HTTP "+std::to_string(response.status),response.status,candidate);
+                    if(location.empty()) {
+                        if(response.body.size()>4ULL*1024*1024*1024 || (size>=0 && response.body.size()!=std::uint64_t(size)))
+                            throw Error("download","verification_failed","下载文件大小或哈希校验失败。",0,candidate);
+                        out.write(response.body.data(),std::streamsize(response.body.size()));received=std::int64_t(response.body.size());
+                    }
+                } else {
+                    struct Output {std::ofstream *stream;std::int64_t size,received=0;bool discard=false;};
+                    Output output{&out,size};
+                    Headers headers;
+                    Curl c;
+                    if (curseforge) authenticate_curseforge(c, headers);
+                    if(!hosts.is_null())curl_easy_setopt(c.c,CURLOPT_FOLLOWLOCATION,0L);
+                    curl_easy_setopt(c.c,CURLOPT_TIMEOUT_MS,300000L);
+                    curl_easy_setopt(c.c,CURLOPT_WRITEDATA,&output);
+                    curl_easy_setopt(c.c,CURLOPT_HEADERDATA,&output);
+                    curl_easy_setopt(c.c,CURLOPT_HEADERFUNCTION,+[](char *p,size_t a,size_t b,void *ctx)->size_t {
+                        auto &v=*static_cast<Output*>(ctx);const auto count=a*b;std::string line(p,count);
+                        if(line.rfind("HTTP/",0)==0) {
+                            const auto space=line.find(' ');const auto code=space==line.npos?0:std::atoi(line.c_str()+space+1);
+                            v.discard=code>=300 && code<400;
+                        }
+                        return count;
+                    });
+                    curl_easy_setopt(c.c,CURLOPT_WRITEFUNCTION,+[](char *p,size_t a,size_t b,void *ctx)->size_t {
+                        auto &v=*static_cast<Output*>(ctx);auto n=a*b;
+                        if(v.discard)return n;
+                        if(n>4ULL*1024*1024*1024 || v.received>4LL*1024*1024*1024-std::int64_t(n) || (v.size>=0 && v.received+std::int64_t(n)>v.size))return 0;
+                        v.stream->write(p,std::streamsize(n));if(!*v.stream)return 0;v.received+=std::int64_t(n);return n;
+                    });
+                    perform(c,candidate,task,!hosts.is_null());
+                    long status=0;curl_easy_getinfo(c.c,CURLINFO_RESPONSE_CODE,&status);
+                    if(status>=300 && status<400 && !hosts.is_null()) {
+                        char *next=nullptr;curl_easy_getinfo(c.c,CURLINFO_REDIRECT_URL,&next);
+                        if(next)location=next;
+                        if(location.empty())throw Error("download","invalid_redirect","下载重定向缺少有效地址。",int(status),candidate);
+                    }
+                    received=output.received;
+                }
+                out.close();
+                if(!location.empty()) {
+                    if(redirects>=3)throw Error("download","redirect_limit","下载重定向次数超过限制。",0,candidate);
+                    // Validate before the next connection, not after bytes have
+                    // already been requested from an arbitrary destination.
+                    restrict_download_url(location, hosts, curseforge);
+                    candidate=location;continue;
+                }
+                if(!out || (size>=0 && received!=size) || hash_file(temporary,algorithm,task.cancel)!=expected ||
+                    (!secondary.empty() && hash_file(temporary,"sha1",task.cancel)!=secondary))
+                    throw Error("download","verification_failed","下载文件大小或哈希校验失败。",0,candidate);
+                std::error_code ec;fs::rename(temporary,target,ec);
 #ifdef _WIN32
-            if (ec && MoveFileExW(temporary.c_str(), target.c_str(),
-                                  MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-                ec.clear();
+                if(ec && MoveFileExW(temporary.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))ec.clear();
 #endif
-            if (ec)
-                throw Error("download", "commit_failed", "无法提交已验证的下载文件。");
-            if (d.value("executable", false)) {
-                std::error_code pe;
-                fs::permissions(
-                    target, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec,
-                    fs::perm_options::add, pe);
+                if(ec)throw Error("download","commit_failed","无法提交已验证的下载文件。");
+                if(d.value("executable",false))fs::permissions(target,fs::perms::owner_exec|fs::perms::group_exec|fs::perms::others_exec,fs::perm_options::add);
+                return;
             }
-            return;
-        } catch (const Error &e) {
-            std::error_code ec;
-            fs::remove(temporary, ec);
-            last = e;
-            task.check();
-        }
+        } catch(const Error &e) {std::error_code ec;fs::remove(temporary,ec);last=e;task.check();}
+        catch(...) {std::error_code ec;fs::remove(temporary,ec);throw;}
     }
     throw *last;
 }

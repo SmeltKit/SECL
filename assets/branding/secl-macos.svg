@@ -1,0 +1,64 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="#ffffff" />
+  <rect x="24.5" y="24.5" width="463" height="463" rx="103.5" fill="none" stroke="#dce2dc" stroke-opacity="0.7" stroke-width="1" />
+  <g transform="translate(40 40) scale(.84)">
+    <svg width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+      <title id="title">SECL terrain S</title>
+      <desc id="description">A compact original S built from grass terraces, earth and stone. Editable vector geometry, with one consistent projection and shared stroke thickness.</desc>
+      <defs>
+        <linearGradient id="grass" x1="0" y1="0" x2="1" y2="1">
+          <stop stop-color="#a2c843" />
+          <stop offset="1" stop-color="#82ab2d" />
+        </linearGradient>
+        <clipPath id="front">
+          <path d="M 64.00 86.00 L 352.00 146.00 L 352.00 221.00 L 154.00 179.75 L 154.00 217.25 L 352.00 258.50 L 352.00 446.00 L 64.00 386.00 L 64.00 311.00 L 262.00 352.25 L 262.00 314.75 L 64.00 273.50 Z" />
+        </clipPath>
+      </defs>
+      <g id="mark" transform="translate(256 0) scale(.76 1) translate(-256 0)">
+        <g id="lower-terrace">
+          <polygon points="64.00,311.00 262.00,352.25 358.00,332.25 160.00,291.00" fill="url(#grass)" />
+          <polygon points="99.28,313.55 154.72,325.10 196.96,316.30 141.52,304.75" fill="#a5cb45" opacity=".65" />
+          <polygon points="235.60,324.75 281.14,334.24 324.34,325.24 278.80,315.75" fill="#8fb638" opacity=".65" />
+          <polygon points="262.00,352.25 262.00,362.45 358.00,342.45 358.00,332.25" fill="#5c7e24" />
+        </g>
+        <g id="right-faces">
+          <polygon points="352.00,146.00 352.00,221.00 448.00,201.00 448.00,126.00" fill="#735039" />
+          <polygon points="154.00,179.75 154.00,217.25 250.00,197.25 250.00,159.75" fill="#735039" />
+          <polygon points="352.00,258.50 352.00,446.00 448.00,426.00 448.00,238.50" fill="#735039" />
+          <polygon points="352.00,416.00 352.00,446.00 448.00,426.00 448.00,396.00" fill="#4f5a63" />
+        </g>
+        <g id="grass-terraces">
+          <polygon points="64.00,86.00 352.00,146.00 448.00,126.00 160.00,66.00" fill="url(#grass)" />
+          <polygon points="110.08,90.80 190.72,107.60 232.96,98.80 152.32,82.00" fill="#a5cb45" opacity=".65" />
+          <polygon points="289.60,111.00 355.84,124.80 399.04,115.80 332.80,102.00" fill="#8fb638" opacity=".65" />
+          <polygon points="352.00,146.00 352.00,156.20 448.00,136.20 448.00,126.00" fill="#5c7e24" />
+          <polygon points="154.00,217.25 352.00,258.50 448.00,238.50 250.00,197.25" fill="url(#grass)" />
+          <polygon points="189.28,219.80 244.72,231.35 286.96,222.55 231.52,211.00" fill="#a5cb45" opacity=".65" />
+          <polygon points="325.60,231.00 371.14,240.49 414.34,231.49 368.80,222.00" fill="#8fb638" opacity=".65" />
+          <polygon points="352.00,258.50 352.00,268.70 448.00,248.70 448.00,238.50" fill="#5c7e24" />
+        </g>
+        <g id="front-face" clip-path="url(#front)">
+          <path d="M 64.00 86.00 L 352.00 146.00 L 352.00 221.00 L 154.00 179.75 L 154.00 217.25 L 352.00 258.50 L 352.00 446.00 L 64.00 386.00 L 64.00 311.00 L 262.00 352.25 L 262.00 314.75 L 64.00 273.50 Z" fill="#946948" />
+          <polygon points="64.00,125.00 125.20,137.75 125.20,170.75 64.00,158.00" fill="#9e7250" />
+          <polygon points="143.20,129.50 236.80,149.00 236.80,185.00 143.20,165.50" fill="#9d7050" />
+          <polygon points="258.40,163.70 352.00,183.20 352.00,222.20 258.40,202.70" fill="#8b6041" />
+          <polygon points="64.00,194.00 154.00,212.75 154.00,251.75 64.00,233.00" fill="#825c40" />
+          <polygon points="179.20,254.00 254.80,269.75 254.80,311.75 179.20,296.00" fill="#9e7350" />
+          <polygon points="280.00,329.00 352.00,344.00 352.00,392.00 280.00,377.00" fill="#845d40" />
+          <polygon points="64.00,356.00 352.00,416.00 352.00,446.00 64.00,386.00" fill="#68727b" />
+          <polygon points="64.00,356.00 136.00,371.00 136.00,401.00 64.00,386.00" fill="#727d84" />
+          <polygon points="136.00,371.00 208.00,386.00 208.00,402.20 136.00,387.20" fill="#606c75" />
+          <polygon points="208.00,398.00 280.00,413.00 280.00,431.00 208.00,416.00" fill="#717c83" />
+          <polygon points="280.00,401.00 352.00,416.00 352.00,446.00 280.00,431.00" fill="#5d6872" />
+          <polygon points="64.00,86.00 352.00,146.00 352.00,156.80 64.00,96.80" fill="#6d9028" />
+          <polygon points="110.80,95.75 136.00,101.00 136.00,118.40 110.80,113.15" fill="#6d9028" />
+          <polygon points="154.00,217.25 352.00,258.50 352.00,269.30 154.00,228.05" fill="#6d9028" />
+          <polygon points="200.80,227.00 226.00,232.25 226.00,249.65 200.80,244.40" fill="#6d9028" />
+          <polygon points="64.00,311.00 262.00,352.25 262.00,363.05 64.00,321.80" fill="#6d9028" />
+          <polygon points="110.80,320.75 136.00,326.00 136.00,343.40 110.80,338.15" fill="#6d9028" />
+        </g>
+      </g>
+    </svg>
+  </g>
+</svg>

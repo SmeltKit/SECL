@@ -106,29 +106,49 @@ Json plan_pack_install(const Json &instance, const Json &file, const std::string
     if (name.empty() || name.find_first_of("/\\:\0", 0, 4) != name.npos ||
         fs::u8path(name).extension() != ".zip")
         throw Error("packs", "invalid_filename", "资源文件必须是有效的 ZIP 文件名。");
-    if (!std::regex_match(file.value("sha512", ""), std::regex("[a-fA-F0-9]{128}")))
-        throw Error("packs", "hash_required", "资源文件缺少有效的 SHA-512 校验值。");
+    const auto source = file.value("source", "modrinth");
+    if (source != "modrinth" && source != "curseforge")
+        throw Error("packs", "invalid_source", "资源包来源无效。");
+    const auto algorithm = source == "curseforge" ? "sha1" : "sha512";
+    const auto expected = file.value(algorithm, "");
+    if (!std::regex_match(expected, std::regex(source == "curseforge" ? "[a-f0-9]{40}" : "[a-fA-F0-9]{128}")))
+        throw Error("packs", "hash_required", "资源文件缺少有效的校验值。");
+    if (source == "curseforge" && (!file.value("downloadable", false) ||
+                                  file.value("project_type", "") != kind ||
+                                  !curseforge_download_url(file.value("url", ""))))
+        throw Error("packs", "curseforge_unavailable", "此 CurseForge 文件不可通过启动器安装。", 0,
+                    file.value("website_url", ""));
     const auto versions = file.value("game_versions", Json::array());
     if (std::find(versions.begin(), versions.end(), instance.value("version", "")) == versions.end())
         throw Error("packs", "incompatible_version", "资源文件不支持目标实例的游戏版本。");
     auto game = fs::u8path(instance.at("game_directory").get<std::string>());
     auto target = checked_path(game, folder(kind) + "/" + name);
     std::string old_hash;
+    bool reuse = false;
     if (fs::exists(target)) {
         if (!fs::is_regular_file(target) || fs::is_symlink(target))
             throw Error("packs", "target_exists", "同名目标不是普通文件，不能替换。");
         old_hash = hash_file(target);
+        reuse = (source == "curseforge" ? hash_file(target, "sha1") : old_hash) == expected;
     }
     Json plan{{"target", instance}, {"file", file}, {"kind", kind},
-              {"expected_hash", old_hash}, {"reuse", old_hash == file.value("sha512", "")},
+              {"expected_hash", old_hash}, {"reuse", reuse},
               {"replace", false}};
     if (kind == "shader")
         plan["support"] = shader_support(instance);
     return plan;
 }
 Json apply_pack_plan(const Json &plan, const Task &task) {
-    const auto instance = plan.at("target"), file = plan.at("file");
+    const auto instance = plan.at("target");
+    auto file = plan.at("file");
     const auto kind = plan.at("kind").get<std::string>();
+    const bool curseforge = file.value("source", "modrinth") == "curseforge";
+    if (curseforge) {
+        const auto verified = curseforge_file(file.at("project_id"), file.at("version_id"), task);
+        if (verified.at("filename") != file.at("filename") || verified.at("sha1") != file.at("sha1"))
+            throw Error("packs", "version_mismatch", "所选文件与网站版本记录不一致，请重新确认。");
+        file = verified;
+    }
     auto fresh = plan_pack_install(instance, file, kind);
     if (fresh.at("expected_hash") != plan.at("expected_hash"))
         throw Error("packs", "plan_stale", "资源目录在确认后发生变化，请重新确认。");
@@ -157,12 +177,13 @@ Json apply_pack_plan(const Json &plan, const Task &task) {
         }
         fs::rename(payload, destination);
         installed = true;
-        atomic_write(game / ".solar-pack-metadata" / (file.at("sha512").get<std::string>() + ".json"),
-                     Json{{"name", file.value("title", file.value("name", ""))},
-                          {"version", file.value("version", "")},
-                          {"description", file.value("description", "")},
-                          {"icon_url",file.value("icon_url",Json())},
-                          {"project_id", file.value("project_id", "")}}.dump());
+        if (!curseforge)
+            atomic_write(game / ".solar-pack-metadata" / (file.at("sha512").get<std::string>() + ".json"),
+                         Json{{"name", file.value("title", file.value("name", ""))},
+                              {"version", file.value("version", "")},
+                              {"description", file.value("description", "")},
+                              {"icon_url",file.value("icon_url",Json())},
+                              {"project_id", file.value("project_id", "")}}.dump());
         std::error_code ec;
         fs::remove_all(stage, ec);
         return {{"installed", file.at("filename")}, {"reused", false}};

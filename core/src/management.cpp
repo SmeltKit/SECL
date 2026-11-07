@@ -83,6 +83,10 @@ Json instance_inventory(const Json &instance, const std::string &kind, bool fres
                     {"message",row["source_problem"]},{"files",Json::array({filename})}});
                 row["warnings"].push_back(row["source_problem"]);
             }
+            if (row.value("source_status", "") == "matched") {
+                row["source"] = "modrinth";
+                row["sources"] = Json::array({"modrinth"});
+            }
             const bool enabled = row.value("enabled", true), known = row.value("known", false);
             row["detection"] = {
                 {"local", known ? "recognized" : row.value("valid_archive", false) ? "unknown" : "invalid"},
@@ -94,10 +98,11 @@ Json instance_inventory(const Json &instance, const std::string &kind, bool fres
     }
     return {{"items", rows}, {"checks", checks}, {"support", shader_support(instance, mods)}};
 }
-Json enrich_mod_inventory(const Json &instance, const Task &task) {
+static Json enrich_modrinth_inventory(const Json &instance, const Task &task) {
     auto game = fs::u8path(instance.at("game_directory").get<std::string>());
     try {
         auto mods = local_mods(game, instance.value("loader", ""));
+        if (mods.empty()) return instance_inventory(instance, "mod");
         auto manifest = mod_inventory(game);
         const auto original_manifest = manifest;
         Json identities = Json::object(), ids = Json::array(); std::set<std::string> seen;
@@ -179,7 +184,7 @@ Json enrich_mod_inventory(const Json &instance, const Task &task) {
         for(auto &m:current)actual[m.at("filename").get<std::string>()]=m.at("sha512");
         if (expected != actual || mod_inventory(game) != original_manifest)
             throw Error("mods","plan_stale","模组文件发生变化，请刷新后重试。");
-        atomic_write(game/"mods/.solar-mods.json",manifest.dump(2));
+        if (manifest != original_manifest) atomic_write(game/"mods/.solar-mods.json",manifest.dump(2));
         auto result = instance_inventory(instance,"mod");
         if (!project_error.is_null()) result["source_error"] = project_error;
         return result;
@@ -199,6 +204,172 @@ Json enrich_mod_inventory(const Json &instance, const Task &task) {
         return result;
     }
 }
+static void inventory_source_error(Json &result, const std::string &source, Json error) {
+    error["source"] = source;
+    if (!result.contains("source_error")) result["source_error"] = error;
+    if (!result.contains("source_errors")) result["source_errors"] = Json::array();
+    result["source_errors"].push_back(std::move(error));
+}
+
+static Json inventory_hashes(const Json &rows) {
+    Json hashes = Json::object();
+    for (const auto &row : rows)
+        hashes[row.at("filename").get<std::string>()] = row.at("sha512");
+    return hashes;
+}
+
+static void add_curseforge_issues(Json &result, const std::map<std::string, Json> &identities,
+                                 const std::map<std::string, Json> &projects) {
+    std::map<std::string, Json *> enabled;
+    std::map<std::string, std::vector<std::string>> by_project;
+    for (auto &row : result.at("items")) {
+        const auto filename = row.at("filename").get<std::string>();
+        const auto identity = identities.find(filename);
+        if (identity == identities.end() || !row.value("enabled", true)) continue;
+        enabled.emplace(filename, &row);
+        by_project[identity->second.at("project_id").get<std::string>()].push_back(filename);
+    }
+    auto &checks = result.at("checks");
+    std::set<std::pair<std::string, std::string>> conflicts, requirements;
+    auto report = [&](const char *code, const std::string &message, const Json &files, bool error) {
+        Json issue{{"severity", error ? "error" : "warning"}, {"code", code},
+                   {"message", message}, {"files", files}, {"source", "curseforge"}};
+        const auto type = error ? "errors" : "warnings";
+        checks[type].push_back(message);
+        checks["issues"].push_back(issue);
+        if (error) checks["selection_status"] = "conflict";
+        for (const auto &file : files) {
+            auto &row = *enabled.at(file.get<std::string>());
+            auto &detection = row.at("detection");
+            detection["issues"].push_back(issue);
+            row[type].push_back(message);
+            if (error) detection["compatibility"] = "conflict";
+            else if (detection.at("compatibility") == "no_known_conflict")
+                detection["compatibility"] = "needs_review";
+        }
+    };
+    for (const auto &entry : enabled) {
+        const auto &name = entry.first;
+        const auto &row = *entry.second;
+        for (const auto &dependency : identities.at(name).at("dependencies")) {
+            const auto project = dependency.at("project_id").get<std::string>();
+            const auto type = dependency.at("dependency_type").get<std::string>();
+            const auto targets = by_project.find(project);
+            if (type == "required" && targets == by_project.end() &&
+                requirements.emplace(name, project).second) {
+                // Exact top-level matches are positive evidence only. An
+                // embedded or unlisted file may still provide the dependency.
+                const auto target = projects.find(project);
+                const auto title = target == projects.end() ? project : target->second.value("title", project);
+                report("curseforge_dependency_unverified", "CurseForge 必需依赖未核实：" +
+                       row.value("name", name) + " → " + (title.empty() ? project : title),
+                       Json::array({name}), false);
+            }
+            if (type != "incompatible" || targets == by_project.end()) continue;
+            for (const auto &target : targets->second) {
+                if (name == target || !conflicts.emplace(std::min(name, target), std::max(name, target)).second)
+                    continue;
+                report("curseforge_incompatible", "CurseForge 作者声明不兼容：" +
+                       row.value("name", name) + " / " + enabled.at(target)->value("name", target),
+                       Json::array({name, target}), true);
+            }
+        }
+    }
+}
+
+Json enrich_mod_inventory(const Json &instance, const Task &task) {
+    auto result = enrich_modrinth_inventory(instance, task);
+    if (result.contains("source_error")) {
+        auto error = result.at("source_error");
+        result.erase("source_error");
+        inventory_source_error(result, "modrinth", std::move(error));
+    }
+    if (result.at("items").empty() || (!task.transport && !detail::curseforge_configured())) return result;
+
+    try {
+        const auto game = fs::u8path(instance.at("game_directory").get<std::string>());
+        const auto matches = detail::curseforge_existing(instance, result.at("items"), task);
+        std::map<std::string, Json> identities, projects;
+        std::set<std::string> ambiguous, project_ids;
+        for (const auto &match : matches) {
+            const auto filename = match.at("filename").get<std::string>();
+            if (ambiguous.count(filename)) continue;
+            if (!identities.emplace(filename, match).second) {
+                identities.erase(filename);
+                ambiguous.insert(filename);
+            }
+        }
+        for (const auto &entry : identities)
+            project_ids.insert(entry.second.at("project_id").get<std::string>());
+        try {
+            Json batch = Json::array();
+            for (auto it = project_ids.begin(); it != project_ids.end();) {
+                for (size_t n = 0; it != project_ids.end() && n < 128; ++it, ++n) batch.push_back(*it);
+                for (auto &project : curseforge_projects(batch, task)) {
+                    const auto id = project.at("id").get<std::string>();
+                    projects.emplace(id, std::move(project));
+                }
+                batch.clear();
+            }
+        } catch (const Error &e) {
+            task.check();
+            inventory_source_error(result, "curseforge", e.json());
+        }
+        // Do not attach a website identity or issue to a file changed while
+        // requests were in flight.
+        const auto current = local_mods(game, instance.value("loader", ""), true, true);
+        if (inventory_hashes(result.at("items")) != inventory_hashes(current)) {
+            auto refreshed = instance_inventory(instance, "mod");
+            if (result.contains("source_errors")) {
+                refreshed["source_error"] = result.at("source_error");
+                refreshed["source_errors"] = result.at("source_errors");
+            }
+            result = std::move(refreshed);
+            throw Error("mods", "plan_stale", "模组文件发生变化，请刷新后重试。");
+        }
+        for (auto &row : result.at("items")) {
+            const auto filename = row.at("filename").get<std::string>();
+            const auto identity = identities.find(filename);
+            if (identity == identities.end()) continue;
+            const auto id = identity->second.at("project_id").get<std::string>();
+            const auto project = projects.find(id);
+            if (project != projects.end() && project->second.at("project_type") != "mod") {
+                identities.erase(identity);
+                continue;
+            }
+            if (row.value("source_status", "") == "matched") {
+                row["sources"].push_back("curseforge");
+                continue;
+            }
+            row["source"] = "curseforge";
+            row["sources"] = Json::array({"curseforge"});
+            row["source_status"] = "matched";
+            row["detection"]["source"] = "matched";
+            row["project_id"] = id;
+            row["version_id"] = identity->second.at("version_id");
+            if (project != projects.end()) {
+                const auto title = project->second.value("title", "");
+                if (!title.empty()) row["name"] = title;
+                row["icon_url"] = project->second.at("icon_url");
+                row["website_url"] = project->second.at("website_url");
+            }
+        }
+        add_curseforge_issues(result, identities, projects);
+    } catch (const Error &e) {
+        task.check();
+        inventory_source_error(result, "curseforge", e.json());
+        for (auto &row : result.at("items"))
+            if (row.at("detection").at("source") != "matched") row["detection"]["source"] = "failed";
+    } catch (const std::exception &) {
+        task.check();
+        inventory_source_error(result, "curseforge",
+            Error("curseforge", "invalid_response", "CurseForge 依赖元数据格式无效。").json());
+        for (auto &row : result.at("items"))
+            if (row.at("detection").at("source") != "matched") row["detection"]["source"] = "failed";
+    }
+    return result;
+}
+
 Json instance_logs(const Json &instance, const Task &task) {
     auto directory=fs::u8path(instance.at("game_directory").get<std::string>());
     Json files=Json::array();

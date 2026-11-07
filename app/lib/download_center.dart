@@ -21,12 +21,14 @@ class DownloadCenter extends StatefulWidget {
       required this.source,
       required this.onSource,
       required this.onInstalled,
+      this.onImport,
       this.initialTab = 'game'});
   final ResourceEngine engine;
   final String root, javaDirectory, source, initialTab;
   final List<Map<String, dynamic>> javas;
   final Future<void> Function(String) onSource;
   final DownloadComplete onInstalled;
+  final VoidCallback? onImport;
   @override
   State<DownloadCenter> createState() => _DownloadCenterState();
 }
@@ -749,10 +751,20 @@ class _DownloadCenterState extends State<DownloadCenter> {
             padding:
                 EdgeInsets.fromLTRB(28, Platform.isMacOS ? 44 : 22, 28, 16),
             child: Row(children: [
-              Text(tr('下载'),
-                  style: const TextStyle(
-                      fontSize: 25, fontWeight: FontWeight.w600)),
-              const Spacer(),
+              Expanded(
+                  child: Text(tr('下载'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 25, fontWeight: FontWeight.w600))),
+              if (widget.onImport != null && tab == 'game') ...[
+                OutlinedButton.icon(
+                    key: const Key('importModpackDownload'),
+                    onPressed: locked ? null : widget.onImport,
+                    icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                    label: Text(tr('导入整合包'))),
+                const SizedBox(width: 12)
+              ],
               SizedBox(
                   width: 200,
                   child: DropdownButtonFormField<String>(

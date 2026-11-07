@@ -1,4 +1,5 @@
 import 'appearance.dart';
+import 'cover_art.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -14,8 +15,12 @@ class InstanceCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cover = instance['cover'] as String? ?? '';
-    Widget fallback() => Image.asset('assets/solar-dawn.jpg',
-        height: height, width: double.infinity, fit: BoxFit.cover);
+    Widget fallback() => Image.asset(
+        versionCoverAsset(
+            instance['version'] as String? ?? instance['id'] as String? ?? ''),
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover);
     return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: cover.isNotEmpty
@@ -35,11 +40,13 @@ class InstanceLibrary extends StatefulWidget {
       required this.root,
       required this.onOpen,
       required this.onInstall,
+      this.onImport,
       required this.onLaunch});
   final ResourceEngine engine;
   final String root;
   final void Function(Data, String) onOpen;
   final VoidCallback onInstall;
+  final VoidCallback? onImport;
   final ValueChanged<Data> onLaunch;
   @override
   State<InstanceLibrary> createState() => _InstanceLibraryState();
@@ -104,6 +111,14 @@ class _InstanceLibraryState extends State<InstanceLibrary>
     return ManagementPage(
         title: tr('游戏库'),
         actions: [
+          if (widget.onImport != null) ...[
+            OutlinedButton.icon(
+                key: const Key('importModpackLibrary'),
+                onPressed: locked ? null : widget.onImport,
+                icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                label: Text(tr('导入整合包'))),
+            const SizedBox(width: 10)
+          ],
           FilledButton.icon(
               onPressed: locked ? null : widget.onInstall,
               icon: const Icon(Icons.add_rounded, size: 18),

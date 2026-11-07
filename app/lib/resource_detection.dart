@@ -5,6 +5,8 @@ import 'app_widgets.dart';
 import 'localization.dart';
 import 'management_widgets.dart';
 
+const _providerNames = {'modrinth': 'Modrinth', 'curseforge': 'CurseForge'};
+
 /// Keeps file identity, website identity and instance checks independent.
 class ResourceDetection {
   ResourceDetection(Data row) {
@@ -21,6 +23,12 @@ class ResourceDetection {
         ((row['project_id']?.toString() ?? '').isNotEmpty
             ? 'matched'
             : 'not_checked');
+    providers = {
+      if (_providerNames[row['source']] case final provider?) provider,
+      if (row['sources'] case final List sources)
+        for (final id in sources)
+          if (_providerNames[id] case final provider?) provider,
+    };
     issues = dataRows(detection['issues']);
     errors = (row['errors'] as List? ?? []).map((e) => e.toString()).toList();
     warnings =
@@ -40,6 +48,7 @@ class ResourceDetection {
   }
 
   late final String local, source, compatibility;
+  late final Set<String> providers;
   late final List<Data> issues;
   late final List<String> errors, warnings;
 
@@ -64,7 +73,7 @@ class ResourceDetection {
         _ => tr('本地元数据未知'),
       };
   String get sourceLabel => switch (source) {
-        'matched' => tr('来源已匹配'),
+        'matched' => providers.isEmpty ? tr('来源已匹配') : providers.join(' / '),
         'unmatched' => tr('来源未匹配'),
         'failed' => tr('来源查询失败'),
         _ => tr('来源未查询'),
@@ -119,8 +128,8 @@ class ResourceDetectionStatus extends StatelessWidget {
 }
 
 class ResourceSourceFailure extends StatelessWidget {
-  const ResourceSourceFailure(this.error, {super.key, this.retry});
-  final Data error;
+  const ResourceSourceFailure(this.errors, {super.key, this.retry});
+  final List<Data> errors;
   final VoidCallback? retry;
 
   @override
@@ -133,15 +142,22 @@ class ResourceSourceFailure extends StatelessWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr('来源查询失败，本地资源仍可查看。'), style: const TextStyle(fontSize: 12)),
-          const SizedBox(height: 4),
-          Text(errorMessage(error),
-              style: TextStyle(color: muted, fontSize: 12)),
-          SelectableText(
-              '${error['code'] ?? ''}${(error['http_status'] as num? ?? 0) > 0 ? ' · HTTP ${error['http_status']}' : ''}',
-              style: TextStyle(color: muted, fontSize: 11)),
-          if ((error['url']?.toString() ?? '').isNotEmpty)
-            SelectableText(error['url'].toString(),
-                style: TextStyle(color: muted, fontSize: 10))
+          for (final error in errors) ...[
+            const SizedBox(height: 4),
+            Text(
+                [
+                  if (_providerNames[error['source']] case final provider?)
+                    provider,
+                  errorMessage(error),
+                ].join(' · '),
+                style: TextStyle(color: muted, fontSize: 12)),
+            SelectableText(
+                '${error['code'] ?? ''}${(error['http_status'] as num? ?? 0) > 0 ? ' · HTTP ${error['http_status']}' : ''}',
+                style: TextStyle(color: muted, fontSize: 11)),
+            if ((error['url']?.toString() ?? '').isNotEmpty)
+              SelectableText(error['url'].toString(),
+                  style: TextStyle(color: muted, fontSize: 10))
+          ]
         ])),
         const SizedBox(width: 8),
         TextButton(onPressed: retry, child: Text(tr('重试来源查询')))

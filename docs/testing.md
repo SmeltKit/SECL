@@ -150,7 +150,7 @@ Services authentication, Java Edition entitlement and player profile checks were
 verified on this macOS ARM64 host on 2026-11-03. No account name, email, token or
 administrative screenshot is published as test evidence. Actual game startup
 has not yet been validated. API allow-list approval is not official endorsement.
-A new CurseForge application was submitted on 2026-11-03 and is awaiting review.
+The CurseForge application submitted on 2026-11-03 was subsequently approved.
 
 The Downloads UI now calls the migrated Qt-free C++ installers. New checks cover
 three-language minimum-window layouts, grouped game channels, passing nested
@@ -421,3 +421,66 @@ repository and the app's third-party license list.
 The final rebuilt macOS ARM64 Release was reopened after the last graph-warning
 fix and verified on the four-mod instance list. Strict ad-hoc signature validation
 passed; the ZIP is 10,683,325 bytes. This is not a notarized distribution.
+
+
+## Modrinth modpack import (2026-11-05)
+
+- Eleven C++ CTest suites and 103 Flutter tests pass; full Flutter analysis is
+  clean. New parser fixtures contain 278 checks; new installer fixtures contain
+  179 checks. Both new native suites also pass with AddressSanitizer and
+  UndefinedBehaviorSanitizer.
+- Parser fixtures cover ZIP structure/CRC/index limits, malformed UTF-8 and
+  duplicate JSON keys, paths and portable device names, case/prefix collisions,
+  reserved launcher files, dependency/game/loader requirements, client/server
+  flags, optional files, URL allowlists and exact override layering.
+- Offline installer tests run the real game installer through an injected
+  native transport and a self-executable Java probe fixture. They exercise
+  vanilla and Fabric, both file hashes and sizes, URL fallback/redirect bounds,
+  edited and stale plans, existing targets, wrong shared caches, cancellation,
+  retained verified files, client override ordering, corrupted override CRC,
+  orphan ownership/recovery, stale legacy locks, and warm shared-cache reuse.
+  Completed imports do not retain a duplicate prepared game/Java tree or alter
+  existing shared-file permissions. Synthetic Java and game data are confined
+  to tests and are never bundled with the launcher.
+- UI tests cover both entry points, required/default-off optional files, editable
+  plan errors, cancel without mutation, retry with the exact plan, cancellation
+  after commit, three languages, narrow headers, virtualized long lists and the
+  distinction between pack-file bytes and additional game/Java/loader downloads.
+- Opt-in real acceptance via `tools/modpack_smoke.py` downloaded the pinned
+  official Adrenaline release `dN5QXu6n` / project `BYN9yKrV`, verified its
+  5,593-byte archive SHA-512, and imported all 14 files and 10 common overrides
+  for Minecraft 1.20.1 / Fabric Loader 0.15.9 through the public C ABI. Final
+  file SHA-1/SHA-512, client JAR, configuration bytes, isolated paths, settings,
+  Java path and instance scan were checked. Duplicate target import was rejected.
+  Existing test assets/libraries were seeded read-only; their hashes, sizes,
+  modification times and permissions were unchanged afterwards. The temporary
+  imported instance was removed on exit. This public pack has no client-specific
+  overrides; that layering is covered by offline fixtures.
+- No game was launched and no account was accessed during this acceptance.
+  Windows/Linux filesystem behavior, Forge/NeoForge/Quilt pack execution and
+  arbitrary pack runtime compatibility remain unverified. Custom install
+  scripts are not supported by this importer. Cached complete
+  files are reused after interruption; incomplete bytes are not range-resumed.
+
+The final macOS ARM64 Release was opened through the native interface. The game
+library import entry loaded the pinned archive and displayed its file list,
+Minecraft/loader requirements, target directory, download-size scope and full
+confirmation plan without overflow. This UI check stopped at confirmation;
+complete installation was exercised separately through the C ABI above. Strict
+ad-hoc signature verification passed; the ZIP is 10,794,752 bytes. It is not a
+notarized distribution.
+
+
+## 2026-11-07 submission validation
+
+The current C++ Release core builds successfully and passes all eleven CTest
+suites, including CurseForge/modpack metadata and installation checks. The current
+Flutter sources pass 135 tests and static analysis reports no issues. Home
+carousel input, responsive layouts, cover selection, market source controls and
+modpack UI contracts are included. Native test fixtures remain isolated; these
+checks do not establish compatibility for every real game/mod combination.
+
+The ARM64 macOS Release bundle with the version cover artwork and vector terrain-S
+branding is 33,599,088 bytes (33.6 MB); its ZIP is 17,380,159 bytes (17.4 MB).
+Strict deep ad hoc signature verification passes. Build products, private notes,
+credentials and validation logs are excluded from source control.

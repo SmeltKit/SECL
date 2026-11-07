@@ -23,5 +23,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/solar-dawn.jpg
+    - assets/branding/
+    - assets/default-background.webp
+    - assets/version-covers/
     - assets/legal/

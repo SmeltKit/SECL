@@ -50,6 +50,14 @@ existing file hash; `packs.apply` downloads to staging, verifies the archive and
 hash, rejects stale plans and requires confirmation before replacing different
 same-name content. Identical installed packs are reused without downloading.
 
+`resource.search`, `resource.categories`, `resource.project`, `resource.projects`
+and `resource.versions` accept `source: "curseforge"`. The default is
+`"modrinth"`. CurseForge versions requests can supply `offset` to receive
+`files` and `next_offset`. Project and file IDs are specific to their source.
+CurseForge files carry an official webpage link and are installable only when
+the API supplies an allowed download URL and SHA-1. Downloads go directly to
+the approved CDN hosts, with the host validated again after each redirect.
+
 Source modes: `auto`, `official`, `bmclapi`, `auto-mirror-first`,
 `auto-official-first`. Automatic mode prefers mirrors for Asia/Shanghai, official
 URLs elsewhere. Only supported endpoints have mirror mappings. Each candidate
@@ -173,11 +181,15 @@ Missing Java information produces a warning, not a fabricated Java 0 mismatch.
 A source match never certifies loader or runtime compatibility.
 
 `mods.enrich` returns the same inventory shape. It batches SHA-512 lookups against
-Modrinth, verifies the returned file hash and stores hash-bound source identities
-in `.solar-mods.json`. Project names / artwork are optional. Lookup failure returns
-`source_error` with normal structured error fields while retaining local rows and
-previously verified identities; it neither persists a failed negative lookup nor
-retries indefinitely. A changed source index or file set aborts publication.
+Modrinth and stores verified, hash-bound Modrinth identities in `.solar-mods.json`.
+With CurseForge access configured, it also batches file fingerprints and
+confirms each exact match using SHA-1. Rows report the verified providers in
+`sources`. CurseForge metadata is used in the current response and is not
+persisted. When both enabled files have verified CurseForge identities, an
+author-declared incompatibility is an error. An unverified required dependency
+is reported as a warning. Provider failures appear in `source_errors` and
+retain local results and any successful lookup from the other provider.
+A changed source index or file set aborts publication.
 
 The bounded process-memory scan cache separates content metadata from filenames,
 enabled state and source records. Browsing validates file identity, size, write
@@ -239,3 +251,77 @@ Reference semantics: [Fabric metadata](https://wiki.fabricmc.net/documentation:f
 [Quilt reader](https://github.com/QuiltMC/quilt-loader/blob/develop/src/main/java/org/quiltmc/loader/impl/metadata/qmj/V1ModMetadataReader.java),
 [NeoForge mod files](https://docs.neoforged.net/docs/gettingstarted/modfiles/), and
 [Maven version ordering](https://maven.apache.org/pom.html#version-order-specification).
+
+
+## Modpack import
+
+`modpacks.inspect {path}` validates a local `.mrpack` ZIP and returns its archive
+SHA-512, name/version/summary, Minecraft and primary loader requirements, normalized
+file descriptors (`path`, SHA-1/SHA-512, size, URL alternatives, client requirement),
+override layers and environment counts. Only format v1 / Minecraft is accepted;
+unknown required dependency IDs and multiple primary loaders fail explicitly.
+
+`modpacks.plan {path,root,id,name?,optional_files?}` reads the archive again,
+requires an unused target `versions/id` and `instances/id`, and returns a review
+plan. Client-required files are always included, optional files default off, and
+server-only files are omitted. The download byte count covers pack files only;
+game, Java and loader downloads are additional. Native callers may pass `java`
+with an explicit local executable; otherwise the existing game installer selects
+or installs an appropriate runtime.
+
+`modpacks.apply {plan}` reconstructs the plan from the archive and verifies that
+its hash is unchanged. Client files require both SHA-1 and SHA-512. URLs are
+restricted to Modrinth's documented CDN/GitHub/GitLab hosts; supported GitHub
+release-asset redirect hosts are also explicitly listed. Each redirect is checked
+before connecting (at most three); at most three alternative file URLs are tried,
+without automatic retry loops. Ordinary game downloads retain the configured
+Official/BMCLAPI/Automatic policy.
+
+`overrides/` is applied first and `client-overrides/` second. No server overrides,
+path escapes, symlinks, device names, case/prefix ambiguities, duplicate JSON keys,
+or overwrites of launcher-owned version/library/runtime/settings files are
+allowed. The actual destination filesystem also detects aliases during staging.
+Override data is CRC-checked before publication.
+
+Verified pack downloads and unfinished game preparation are retained under hidden
+`.solar-mrpack/<archive-hash>/`. Successful imports remove the duplicate prepared
+game tree; subsequent imports reuse matching shared game caches. Retrying
+revalidates and reuses complete files;
+this is file-level reuse, not byte-range resumption of an incomplete download.
+OS-held locks release on process exit. An owned game-directory orphan left before
+metadata publication can be moved into retained recovery storage and reinstalled;
+unrelated existing directories are never adopted or deleted. Existing shared
+libraries/assets/runtime files are reused only when bytes match; differing files
+are not overwritten. The final game directory and version directory are published
+with atomic no-replace renames, version metadata last. Java and game paths are
+rebased and Java is re-probed before publication. The result includes `committed`,
+`id`, `root`, `directory`, `java`, `metadata`, `modpack`, `checks`, and `warnings`.
+Late cancellation cannot conceal an already committed success.
+
+Bounds: archive 256 MiB, 10,000 ZIP entries and 2 GiB expanded data, index 16 MiB,
+10,000 listed files, 2 GiB per download / 16 GiB aggregate, and 256 MiB per client
+override. ZIP64 and unsupported compression fail explicitly. Custom modpack
+scripts are not executed.
+The original archive is never edited, and authentication/ownership gates still
+apply to launching the resulting game.
+
+For a CurseForge `.zip`, `modpacks.inspect` reads the root `manifest.json` without
+contacting the API. The result has `format: "curseforge"`; file selections use
+`projectID/fileID` as the `path` key. `modpacks.plan` resolves exact manifest
+entries for mods, resource packs and shaders, using the configured CurseForge
+Key. Optional files remain off by default. The response lists items that need
+attention in `blocked_files`, with their IDs and official links when available.
+Callers may pass `supplement_directory` for files downloaded manually; matching
+filenames must also match the official file size and SHA-1. Selected blocked
+entries prevent installation until resolved or, for optional files, deselected.
+
+Apply revalidates the archive and pinned file identities before staging. It
+installs the selected manifest entries and applies the pack's overrides. It
+checks author-declared conflicts and local JAR metadata before publishing the
+isolated instance. CurseForge API metadata and its download URLs are not
+written to disk.
+
+Format references
+
+- [Modrinth .mrpack specification](https://support.modrinth.com/en/articles/8802351-modrinth-modpack-format-mrpack)
+- [CurseForge modpack ZIP format](https://support.curseforge.com/support/solutions/articles/9000198500-exporting-a-modpack-for-curseforge-project-submission)

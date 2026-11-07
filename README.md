@@ -12,7 +12,7 @@
 
 > **0.1.0 早期开发预览。** 当前用于开发、验证和功能反馈，界面、配置格式及平台支持仍可能调整。
 > 本项目自有 AppID 已于 **2026-11-02** 获准加入 Minecraft Services API 白名单；**2026-11-03** 已完成真实 Microsoft 登录、Java 版资格与角色信息校验。macOS 原版及 Fabric + Iris / Sodium 实际启动已验证，其他组合仍待验收。
-> CurseForge 新申请已提交，等待审核；当前资源市场使用 Modrinth。
+> SECL 的 CurseForge 第三方 API 申请已获批准。配置项目 Key 后可浏览 CurseForge 资源、导入其整合包并查询本地模组的 CurseForge 来源。
 > 当前主要验证平台为 macOS Apple Silicon；其他平台的完整应用兼容性仍待实测。
 
 ## 界面预览
@@ -43,10 +43,11 @@
 | 游戏安装 | 正式版、测试版、特殊版和历史版本分组；创建隔离实例，下载客户端、依赖、资源及所需官方 Java；可选择主加载器 |
 | 本地版本 | 识别已有游戏目录与已安装版本，选择本地版本启动 |
 | Java | 检测本地 Java，识别版本、发行来源与架构，合并指向同一运行时的路径，支持手动选择可执行文件；按主版本、Zulu / Temurin / Microsoft / Oracle OpenJDK 和具体构建下载，自动检测系统与架构 |
-| 资源市场 | Modrinth 模组、光影、材质包独立入口；搜索、分类、游戏版本筛选、模组加载器筛选、排序与分页 |
+| 资源市场 | 模组、光影、材质包独立入口，可选 Modrinth 或 CurseForge；搜索、分类、游戏版本筛选、模组加载器筛选、排序与分页 |
 | 项目详情 | 完整 Markdown / HTML 项目介绍、图集、项目主页链接，按正式版 / 测试版 / 预览版查看可下载文件 |
+| 整合包导入 | 导入 Modrinth `.mrpack` 或 CurseForge `.zip`，确认可选文件与独立实例目录；按整合包指定的版本安装，校验文件并应用配置。受限文件可从官网手动补齐 |
 | 实例安装 | 下载时选择匹配的本地实例，先展示安装方案；递归依赖、已有组件、重复文件与作者声明冲突检查 |
-| 本地模组检测 | 联合 JAR 元数据、SHA-512 来源匹配与完整实例依赖检查；分别显示本地识别、网站来源及冲突状态，未知来源不等于不兼容；列表缓存，安装与修改前重新校验 |
+| 本地模组检测 | 读取 JAR 元数据检查加载器和依赖，可手动查询 Modrinth（SHA-512）和 CurseForge（指纹与 SHA-1）来源；分别显示文件身份、网站来源和已知冲突 |
 | 资源更新 | 按本地文件哈希检查 Modrinth 新版，按实例游戏版本、加载器和正式 / 测试频道筛选；勾选更新、审核依赖与冲突，保留禁用状态，失败回滚 |
 | 存档管理 | 实例独立存档列表、文件夹 / ZIP 导入、流式 ZIP 导出、本机及跨实例复制、手动备份与恢复副本、移到系统废纸篓；游戏运行或存档被锁定时拒绝修改 |
 | 下载与反馈 | 暂存下载、哈希验证、重复副本复用、取消、进度显示；明确的错误提示与手动重试 |
@@ -96,11 +97,14 @@ python3 tools/build.py --flutter /path/to/flutter-3.19.6/bin/flutter --test
 ```
 
 脚本默认构建 Release；添加 `--debug` 可构建调试版。
+开发时可为启动器进程设置 `SECL_CURSEFORGE_API_KEY`，让客户端直连 CurseForge。
+SmeltKit/SECL 的 macOS Release 构建可在 GitHub Actions 手动运行。它读取仓库的
+`CURSEFORGE_API_KEY` Secret，并以 `--embed-curseforge-key` 编入原生核心。
 上述完整应用流程已在 macOS ARM64 验证；Windows / Linux 仍需分别完成原生库部署与运行验收。
 macOS 产物位于 `app/build/macos/Build/Products/Release/SECL.app`，原生核心位于 `build/native/`。
 
 Flutter 3.19.6 的 macOS Release AOT 构建工具需要 Rosetta 才能在 Apple Silicon 上执行；
-生成的应用本身是原生 ARM64。当前本地 Release 约 **25.5 MB**，ZIP 约 **10.2 MB**。
+生成的应用本身是原生 ARM64。当前本地 Release 约 **33.6 MB**，ZIP 约 **17.4 MB**。
 当前签名仅用于本机测试，正式分发仍需处理签名与公证。
 
 只构建并测试 C++ 核心：
@@ -111,14 +115,14 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-当前通过 9 组 C++ 测试与 88 项 Flutter 测试。
+当前通过 11 组 C++ 测试与 135 项 Flutter 测试。
 测试范围、真实资源下载记录及尚未验收的项目见[测试说明](docs/testing.md)。
 
 ## 数据、来源与账号
 
 - 可以下载游戏或使用已有本地安装；构建包不捆绑游戏文件或 Java 运行时。
 - 游戏下载源可选择 **自动 / 官方 / BMCLAPI**。自动模式仅使用本机时区：`Asia/Shanghai` 优先镜像，其他时区优先官方；失败后切换一次备用源，不进行无限重试。时区不是精确地理定位。Java 发行版从各自官方来源下载。镜像服务由 [BMCLAPI](https://bmclapidoc.bangbang93.com/) 提供。
-- 资源市场目前接入 **Modrinth**。CurseForge 新申请已于 2026-11-03 提交，尚待审核和接入。
+- 资源市场默认使用 **Modrinth**，也可切换至 **CurseForge**。CurseForge 下载遵循作者的第三方分发设置。
 - 微软登录默认使用本项目自有的公共客户端 Application（client）ID；用户无需填写应用配置，也不需要 Client Secret。
   Entra 桌面应用回调为 `http://localhost/oauth/callback`，运行时使用随机本机端口与 PKCE S256。
   本项目使用的公共 Client ID 为 `7ed24288-81a6-4814-8271-25a1529d2e9d`，已获 API 白名单许可。该许可不代表 Mojang / Microsoft 对本启动器的官方背书。
@@ -132,7 +136,7 @@ ctest --test-dir build/core --output-on-failure
 - 继续覆盖不同游戏、Java 与加载器组合，以及实际世界内游玩和长期稳定性。
 - 验证实例启动设置、加载器与 OptiFine 的完整安装和更新组合。
 - 完成 Windows / Linux 构建、原生库部署与平台兼容性测试。
-- 在获得授权后接入 CurseForge；继续完善存档管理与更多实例功能。
+- 继续完善整合包导入、存档管理与更多实例功能。
 - 持续校对三种语言、长文本布局，以及模组与光影兼容性提示。
 
 计划按开发与验证情况调整，不代表已经提供这些功能。

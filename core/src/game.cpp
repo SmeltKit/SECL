@@ -129,9 +129,23 @@ Json scan_versions(const fs::path &input) {
         try {
             auto m = load_version(root, id);
             auto settings = engine::load_instance_settings(entry.path());
+            const auto display = settings.value("display", Json::object());
+            const auto loaders = engine::loader_components(m);
+            std::int64_t last_launch = 0;
+            if (settings.contains("history") && settings["history"].is_object()) {
+                const auto &history = settings["history"];
+                if (history.contains("last_launch") && history["last_launch"].is_number_integer())
+                    last_launch = std::max(std::int64_t(0), history["last_launch"].get<std::int64_t>());
+            }
             result.push_back(
                 {{"java", settings.value("java", Json::object()).value("path", "")},
                  {"id", id},
+                 {"version", m.value("_baseId", m.value("id", id))},
+                 {"name", display.value("name", "").empty() ? id : display.value("name", id)},
+                 {"cover", display.value("cover", "")},
+                 {"last_launch", last_launch},
+                 {"loader", loaders.empty() ? "vanilla" : loaders.begin().key()},
+                 {"loader_version", loaders.empty() ? "" : loaders.begin().value().get<std::string>()},
                  {"type", m.value("type", "unknown")},
                  {"required_java", m.value("javaVersion", Json::object()).value("majorVersion", 0)},
                  {"available", true}});

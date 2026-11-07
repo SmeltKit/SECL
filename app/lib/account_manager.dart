@@ -8,16 +8,20 @@ import 'skin_avatar.dart';
 
 class AccountManager extends StatefulWidget {
   const AccountManager(
-      {super.key, required this.snapshot, required this.action});
+      {super.key,
+      required this.snapshot,
+      required this.action,
+      this.pending = false,
+      this.authenticating = false});
   final Data snapshot;
   final Future<void> Function(Data) action;
+  final bool pending, authenticating;
   @override
   State<AccountManager> createState() => _AccountManagerState();
 }
 
 class _AccountManagerState extends State<AccountManager> {
   bool remember = false;
-  bool get busy => widget.snapshot['busy'] == true;
   Future<void> login([Data? account]) async {
     await widget.action({
       'action': 'login',
@@ -54,7 +58,7 @@ class _AccountManagerState extends State<AccountManager> {
         subtitle: tr('微软账号与游戏资格分别验证，凭据保存在系统凭据库。'),
         actions: [
           FilledButton.icon(
-              onPressed: busy ? null : login,
+              onPressed: widget.pending ? null : login,
               icon: const Icon(Icons.add_rounded, size: 18),
               label: Text(tr('添加微软账号')))
         ],
@@ -63,13 +67,14 @@ class _AccountManagerState extends State<AccountManager> {
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
               value: remember,
-              onChanged:
-                  busy ? null : (v) => setState(() => remember = v ?? false),
+              onChanged: widget.pending
+                  ? null
+                  : (v) => setState(() => remember = v ?? false),
               title: Text(tr('记住本次登录（系统凭据库）')),
               subtitle: Text(tr('启用后请求离线访问权限，用于刷新微软登录；不提供离线账号。'),
                   style: const TextStyle(fontSize: 12, height: 1.5))),
           const SizedBox(height: 16),
-          if (busy)
+          if (widget.authenticating)
             SurfaceCard(
                 child: Row(children: [
               const SizedBox(
@@ -82,6 +87,7 @@ class _AccountManagerState extends State<AccountManager> {
                   onPressed: () => widget.action({'action': 'cancel'}),
                   child: Text(tr('取消')))
             ])),
+          if (widget.pending && !widget.authenticating) Text(tr('等待当前任务完成')),
           if (widget.snapshot['error'] is Map)
             Expanded(
                 child: ProblemPanel(
@@ -156,7 +162,7 @@ class _AccountManagerState extends State<AccountManager> {
                                             : tr('需要重新登录'),
                                 style: const TextStyle(fontSize: 12)),
                             PopupMenuButton<String>(
-                                enabled: !busy,
+                                enabled: !widget.pending,
                                 tooltip: tr('更多操作'),
                                 icon: const Icon(Icons.more_horiz_rounded),
                                 onSelected: (action) =>

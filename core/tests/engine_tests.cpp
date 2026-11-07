@@ -135,6 +135,106 @@ int main(int argc, char **argv) {
                   "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
               "SHA256");
         check(hash_bytes("abc", "sha1") == "a9993e364706816aba3e25717850c26c9cd0d89d", "SHA1");
+        Task curseforge;
+        int curseforge_requests = 0;
+        curseforge.transport = [&](const std::string &url, const std::string &,
+                                   const std::string &credential, const std::string &) {
+            ++curseforge_requests;
+            check(credential.empty(), "transport seam receives no CurseForge key");
+            if (url == "https://api.curseforge.com/v1/mods/search")
+                return HttpResponse{403, "{}"};
+            check(url == "https://edge.forgecdn.net/files/1/2/demo.jar", "only official CDN contacted");
+            return HttpResponse{302, "", "https://edge.forgecdn.net.example.org/demo.jar"};
+        };
+        try {
+            fetch_curseforge_json("/v1/mods/search", curseforge);
+            check(false, "CurseForge auth error");
+        } catch (const Error &e) {
+            check(e.status == 403, "CurseForge auth error retains status");
+        }
+        rejects([&] { fetch_curseforge_json("https://example.org/v1/mods", curseforge); });
+        rejects([&] {
+            download({{"source", "curseforge"}, {"url", "https://edge.forgecdn.net/files/1/2/demo.jar"},
+                      {"sha1", hash_bytes("abc", "sha1")}}, temp / "demo.jar", curseforge);
+        });
+        check(curseforge_requests == 2 && !fs::exists(temp / "demo.jar"),
+              "unauthorized CDN redirect is blocked before a second request");
+        const auto cf_category = Json{{"id", 421}, {"gameId", 432}, {"classId", 6}, {"name", "API and Library"}};
+        auto cf_project = Json{{"id", 123}, {"gameId", 432}, {"classId", 6}, {"name", "Demo"},
+                               {"allowModDistribution", true},
+                               {"links", {{"websiteUrl", "https://www.curseforge.com/minecraft/mc-mods/demo"}}},
+                               {"categories", Json::array({cf_category})}};
+        const auto cf_file = Json{{"id", 456}, {"modId", 123}, {"gameId", 432}, {"isAvailable", true},
+                                  {"fileStatus", 4}, {"fileName", "demo.jar"}, {"displayName", "Demo 2"},
+                                  {"fileLength", 3}, {"releaseType", 2},
+                                  {"downloadUrl", "https://edge.forgecdn.net/files/1/2/demo.jar"},
+                                  {"hashes", Json::array({{{"algo", 1}, {"value", hash_bytes("abc", "sha1")}}})},
+                                  {"gameVersions", {"1.21.1", "NeoForge"}},
+                                  {"dependencies", Json::array({{{"modId", 42}, {"relationType", 3}}})}};
+        curseforge.transport = [&](const std::string &url, const std::string &,
+                                   const std::string &, const std::string &) {
+            const auto api = std::string("https://api.curseforge.com");
+            if (url == api + "/v1/mods/123") return HttpResponse{200, Json{{"data", cf_project}}.dump()};
+            if (url == api + "/v1/mods/123/files/456") return HttpResponse{200, Json{{"data", cf_file}}.dump()};
+            if (url == api + "/v1/categories?gameId=432&classId=6")
+                return HttpResponse{200, Json{{"data", Json::array({cf_category})}}.dump()};
+            const auto pagination = Json{{"totalCount", 57}};
+            if (url == api + "/v1/mods/search?gameId=432&classId=6&index=20&pageSize=20"
+                             "&categoryId=421&gameVersion=1.21.1&modLoaderType=6&searchFilter=A%26B"
+                             "&sortField=6&sortOrder=desc")
+                return HttpResponse{200, Json{{"data", Json::array({cf_project})}, {"pagination", pagination}}.dump()};
+            if (url == api + "/v1/mods/123/files?index=50&pageSize=50&gameVersion=1.21.1&modLoaderType=6")
+                return HttpResponse{200, Json{{"data", Json::array({cf_file})}, {"pagination", pagination}}.dump()};
+            throw std::runtime_error("unexpected CurseForge request");
+        };
+        const auto categories = dispatch({{"op", "resource.categories"}, {"source", "curseforge"}}, curseforge);
+        check(categories.at(0).at("name") == "421", "CurseForge category preserves numeric provider ID");
+        const auto hits = dispatch({{"op", "resource.search"}, {"source", "curseforge"}, {"query", "A&B"},
+                                    {"category", "421"}, {"version", "1.21.1"}, {"loader", "neoforge"},
+                                    {"sort", "downloads"}, {"offset", 20}}, curseforge);
+        check(hits.at("total_hits") == 57 && hits.at("hits").at(0).at("id") == "123",
+              "CurseForge search sends filters and returns the API total");
+        const auto page = dispatch({{"op", "resource.versions"}, {"source", "curseforge"}, {"project", "123"},
+                                    {"game", "1.21.1"}, {"loader", "neoforge"}, {"offset", 50}}, curseforge);
+        const auto &file = page.at("files").at(0);
+        check(page.at("next_offset") == 51 && file.at("game_versions") == Json::array({"1.21.1"}) &&
+              file.at("loaders") == Json::array({"neoforge"}) && file.at("release_type") == "beta" &&
+              file.at("dependencies").at(0).at("project_id") == "42" && file.at("downloadable") == true,
+              "CurseForge file page normalizes tags, dependencies and verified download metadata");
+        cf_project["allowModDistribution"] = false;
+        const auto restricted = curseforge_file("123", "456", curseforge);
+        check(restricted.at("downloadable") == false && restricted.at("url") == "" &&
+              restricted.at("website_url") == "https://www.curseforge.com/minecraft/mc-mods/demo/files/456",
+              "CurseForge opt-out retains the official page without permitting direct download");
+        auto wrong_project = cf_file;
+        wrong_project["id"] = 457;
+        wrong_project["modId"] = 124;
+        auto unrequested = cf_file;
+        unrequested["id"] = 999;
+        int pack_file_batches = 0, pack_project_batches = 0;
+        curseforge.transport = [&](const std::string &url, const std::string &body,
+                                   const std::string &, const std::string &) {
+            if (url == "https://api.curseforge.com/v1/mods/files") {
+                ++pack_file_batches;
+                const auto ids = Json::parse(body).at("fileIds");
+                check(ids.size() <= 100, "CurseForge modpack requests bounded batches");
+                return HttpResponse{200, Json{{"data", ids.size() == 100 ?
+                    Json::array({wrong_project, unrequested, cf_file}) : Json::array()}}.dump()};
+            }
+            check(url == "https://api.curseforge.com/v1/mods", "exact CurseForge batch endpoints");
+            ++pack_project_batches;
+            check(Json::parse(body).at("modIds") == Json::array({123}),
+                  "only resolve projects for exact returned file matches");
+            return HttpResponse{200, Json{{"data", Json::array({cf_project})}}.dump()};
+        };
+        Json refs = Json::array({{{"project_id", "123"}, {"file_id", "456"}},
+                                 {{"project_id", "123"}, {"file_id", "457"}}});
+        for (int i = 500; i < 600; ++i)
+            refs.push_back({{"project_id", "125"}, {"file_id", std::to_string(i)}});
+        const auto pack_files = curseforge_pack_files(refs, curseforge);
+        check(pack_file_batches == 2 && pack_project_batches == 1 && pack_files.size() == 1 &&
+              pack_files.at(0) == restricted,
+              "CurseForge modpack resolves exact IDs without enabling restricted downloads");
         rejects([&] { checked_path(temp, "../escape"); });
         rejects([&] { checked_path(temp, "/absolute"); });
         auto z = zip({{"test.txt", "payload"}});

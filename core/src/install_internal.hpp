@@ -6,6 +6,8 @@
 #include <set>
 #include <thread>
 namespace solar::engine::detail {
+bool curseforge_configured();
+Json curseforge_existing(const Json &instance, const Json &mods, const Task &task);
 inline void require(bool ok, const std::string &code, const std::string &message) {
     if (!ok)
         throw Error("install", code, message);
