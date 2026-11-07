@@ -24,6 +24,25 @@ Color get line => AppAppearance.instance.dark
     ? const Color(0xff3a4858)
     : const Color(0xffe2e7ed);
 
+/// Makes secondary page artwork follow the current home scene without
+/// replacing the page or its search, scroll and selection state.
+class PageArtworkScope extends InheritedWidget {
+  const PageArtworkScope({
+    super.key,
+    required this.asset,
+    required super.child,
+  });
+
+  final String? asset;
+
+  static String? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PageArtworkScope>()?.asset;
+
+  @override
+  bool updateShouldNotify(PageArtworkScope oldWidget) =>
+      asset != oldWidget.asset;
+}
+
 /// Shared page heading with a quiet landscape echo of the home scene.
 /// Content determines its height; actions wrap instead of compressing the title.
 class PageMasthead extends StatelessWidget {
@@ -42,6 +61,7 @@ class PageMasthead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = AppAppearance.instance.dark;
+    final artwork = PageArtworkScope.of(context);
     final heading = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -62,43 +82,34 @@ class PageMasthead extends StatelessWidget {
     final actionWidgets =
         actions.where((w) => !(w is SizedBox && w.child == null)).toList();
     return Stack(children: [
-      Positioned.fill(
-          child: IgnorePointer(
-              child: ExcludeSemantics(
-                  child: Align(
-                      alignment: Alignment.topRight,
-                      child: FractionallySizedBox(
-                          widthFactor: .78,
-                          child: Opacity(
-                              opacity: dark ? .15 : .26,
-                              child: ShaderMask(
-                                  blendMode: BlendMode.dstIn,
-                                  shaderCallback: (rect) => const LinearGradient(colors: [Colors.transparent, Colors.white], stops: [.04, .7])
-                                      .createShader(rect),
-                                  child: ShaderMask(
-                                      blendMode: BlendMode.dstIn,
-                                      shaderCallback: (rect) => const LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                Colors.white,
-                                                Colors.transparent
-                                              ],
-                                              stops: [
-                                                0,
-                                                1
-                                              ]).createShader(rect),
-                                      child: Image.asset('assets/version-covers/minecraft-1.20.webp',
-                                          alignment: Alignment.topRight,
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 1000,
-                                          gaplessPlayback: true))))))))),
+      if (artwork != null)
+        Positioned.fill(
+            child: IgnorePointer(
+                child: ExcludeSemantics(
+                    child: Align(
+                        alignment: Alignment.topRight,
+                        child: FractionallySizedBox(
+                            widthFactor: .78,
+                            child: Opacity(
+                                opacity: dark ? .15 : .26,
+                                child: ShaderMask(
+                                    blendMode: BlendMode.dstIn,
+                                    shaderCallback: (rect) => const LinearGradient(
+                                            colors: [Colors.transparent, Colors.white], stops: [.04, .7])
+                                        .createShader(rect),
+                                    child: ShaderMask(
+                                        blendMode: BlendMode.dstIn,
+                                        shaderCallback: (rect) =>
+                                            const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.white, Colors.transparent], stops: [0, 1])
+                                                .createShader(rect),
+                                        child: Image.asset(artwork,
+                                            key: const Key('pageMastheadBackground'),
+                                            alignment: Alignment.topRight,
+                                            fit: BoxFit.cover,
+                                            cacheWidth: 1000,
+                                            gaplessPlayback: true))))))))),
       Padding(
-          padding: EdgeInsets.fromLTRB(
-              28,
-              Theme.of(context).platform == TargetPlatform.macOS ? 44 : 24,
-              28,
-              20),
+          padding: const EdgeInsets.fromLTRB(28, 44, 112, 20),
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

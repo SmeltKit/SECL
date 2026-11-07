@@ -23,7 +23,9 @@ import 'instance_library.dart';
 import 'instance_page.dart';
 import 'java_manager.dart';
 import 'account_manager.dart';
-import 'task_panel.dart';
+import 'download_button.dart';
+import 'launcher_icons.dart';
+import 'about_project.dart';
 import 'settings_page.dart';
 
 void main() {
@@ -552,14 +554,17 @@ class _LauncherHomeState extends State<LauncherHome> {
                   ]))
           ]);
 
-  Widget navigation(String value, String label, IconData icon,
+  Widget navigation(String value, String label, LauncherIconKind icon,
           {Widget? trailing}) =>
       SidebarNavItem(
           key: Key('nav-$value'),
           label: label,
           selected: page == value || value == 'library' && page == 'instance',
-          leading: Icon(icon,
-              size: 21, color: page == value ? accent : ink.withOpacity(.88)),
+          leading: LauncherIcon(icon,
+              size: 21,
+              color: page == value || value == 'library' && page == 'instance'
+                  ? accent
+                  : ink.withOpacity(.88)),
           trailing: trailing,
           onTap: () => setState(() {
                 page = value;
@@ -571,7 +576,7 @@ class _LauncherHomeState extends State<LauncherHome> {
 
   Widget sidebarTool(
           {required String tooltip,
-          required IconData icon,
+          required LauncherIconKind icon,
           required VoidCallback? onPressed}) =>
       IconButton(
           tooltip: tooltip,
@@ -580,21 +585,9 @@ class _LauncherHomeState extends State<LauncherHome> {
           padding: EdgeInsets.zero,
           style: IconButton.styleFrom(
               tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-          icon: Icon(icon, size: 16, color: muted));
+          icon: LauncherIcon(icon, size: 16, color: muted));
 
-  void showProjectAbout() => showAboutDialog(
-      context: context,
-      applicationName: 'SECL',
-      applicationVersion: tr('0.1.0 · 开发预览'),
-      children: [
-        const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('SUPREME ETERNITY CRAFT LAUNCHER',
-                style: TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600, height: 1.5)))
-      ],
-      applicationLegalese: tr(
-          'Copyright © 2026 ppm203\n基于 M²CL 迁移与重写 · GPL-3.0-only + 第 7 节附加条款\n非官方项目，与 Mojang 或 Microsoft 无隶属或背书关系。'));
+  void showProjectAbout() => unawaited(showProjectAboutDialog(context));
 
   Widget sidebar() => LauncherSidebar(
           onAbout: showProjectAbout,
@@ -610,29 +603,26 @@ class _LauncherHomeState extends State<LauncherHome> {
                   constraints:
                       const BoxConstraints.tightFor(width: 22, height: 22),
                   padding: EdgeInsets.zero,
-                  icon: Icon(Icons.settings_outlined,
-                      size: 21, color: ink.withOpacity(.88)))),
+                  icon: LauncherIcon(LauncherIconKind.settings,
+                      size: 21,
+                      color:
+                          page == 'settings' ? accent : ink.withOpacity(.88)))),
           items: [
-            navigation('home', tr('开始'), Icons.sports_esports_outlined),
-            navigation('library', tr('游戏库'), Icons.grid_view_outlined,
+            navigation('home', tr('开始'), LauncherIconKind.home),
+            navigation('library', tr('游戏库'), LauncherIconKind.library,
                 trailing: sidebarTool(
                     tooltip: tr('刷新本地版本'),
-                    icon: Icons.refresh_rounded,
+                    icon: LauncherIconKind.refresh,
                     onPressed: pendingActions.contains('scan')
                         ? null
                         : () => action({'action': 'scan'}))),
             const SizedBox(height: 9),
-            navigation('mod', tr('模组'), Icons.extension_outlined),
-            navigation('shader', tr('光影'), Icons.wb_twilight_outlined),
-            navigation('resourcepack', tr('材质包'), Icons.layers_outlined),
-            navigation('download', tr('下载'), Icons.download_outlined,
-                trailing: sidebarTool(
-                    tooltip: tr('下载任务'),
-                    icon: Icons.downloading_outlined,
-                    onPressed: () => showDialog<void>(
-                        context: context,
-                        builder: (_) => TaskPanel(engine: resources)))),
-            navigation('java', 'Java', Icons.coffee_outlined),
+            navigation('mod', tr('模组'), LauncherIconKind.mod),
+            navigation('shader', tr('光影'), LauncherIconKind.shader),
+            navigation(
+                'resourcepack', tr('材质包'), LauncherIconKind.resourcepack),
+            navigation('download', tr('下载'), LauncherIconKind.download),
+            navigation('java', 'Java', LauncherIconKind.java),
             const SizedBox(height: 9),
           ]);
   Widget errorBox(Map<String, dynamic> error) => Container(
@@ -815,9 +805,11 @@ class _LauncherHomeState extends State<LauncherHome> {
                   }));
                 }));
 
+  String get sceneBackgroundAsset => homeBackgroundAsset(
+      state['home_background'] as String? ?? 'auto', selectedGameVersion);
+
   Widget homeScene(Map<String, dynamic>? error) => HomeScene(
-      backgroundAsset: homeBackgroundAsset(
-          state['home_background'] as String? ?? 'auto', selectedGameVersion),
+      backgroundAsset: sceneBackgroundAsset,
       title: selectedEntry?['name'] as String? ?? selected,
       versionLabel: versionDescription(selectedEntry),
       versionSelector: instanceSelector(),
@@ -922,27 +914,34 @@ class _LauncherHomeState extends State<LauncherHome> {
   @override
   Widget build(BuildContext context) {
     final error = localError ?? state['error'] as Map<String, dynamic>?;
-    return Scaffold(
-        body: Row(children: [
-      sidebar(),
-      Expanded(
-          child: Stack(fit: StackFit.expand, children: [
-        Offstage(
-            offstage: page == 'settings',
-            child: ExcludeFocus(
-                excluding: page == 'settings',
-                child: pageBody(error,
-                    route: page == 'settings' ? settingsReturnPage : page))),
-        if (page == 'settings')
-          SettingsPage(
-              background: state['home_background'] as String? ?? 'auto',
-              version: selectedGameVersion,
-              onAppearanceChanged: setAppearance,
-              onLanguageChanged: setLanguage,
-              onChooseBackground: chooseBackground,
-              onDone: () => setState(() => page = settingsReturnPage),
-              onAbout: showProjectAbout)
-      ]))
-    ]));
+    return PageArtworkScope(
+        asset: selectedEntry == null ? null : sceneBackgroundAsset,
+        child: Scaffold(
+            body: Row(children: [
+          sidebar(),
+          Expanded(
+              child: Stack(fit: StackFit.expand, children: [
+            Offstage(
+                offstage: page == 'settings',
+                child: ExcludeFocus(
+                    excluding: page == 'settings',
+                    child: pageBody(error,
+                        route:
+                            page == 'settings' ? settingsReturnPage : page))),
+            if (page == 'settings')
+              SettingsPage(
+                  background: state['home_background'] as String? ?? 'auto',
+                  version: selectedGameVersion,
+                  onAppearanceChanged: setAppearance,
+                  onLanguageChanged: setLanguage,
+                  onChooseBackground: chooseBackground,
+                  onDone: () => setState(() => page = settingsReturnPage),
+                  onAbout: showProjectAbout),
+            Positioned(
+                top: 42,
+                right: 16,
+                child: DownloadTaskButton(engine: resources)),
+          ]))
+        ])));
   }
 }

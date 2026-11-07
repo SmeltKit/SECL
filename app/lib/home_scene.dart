@@ -112,8 +112,7 @@ class HomeScene extends StatelessWidget {
             ]))),
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Padding(
-              padding: EdgeInsets.fromLTRB(
-                  inset, Platform.isMacOS ? 42 : 22, inset - 8, 14),
+              padding: EdgeInsets.fromLTRB(inset, 42, inset + 76, 14),
               child: Row(children: [
                 Text(tr('开始'),
                     style: TextStyle(

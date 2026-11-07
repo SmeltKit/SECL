@@ -13,6 +13,11 @@ void viewport(WidgetTester t, {Size size = const Size(880, 640)}) {
   addTearDown(t.view.resetDevicePixelRatio);
 }
 
+ImageProvider backgroundImage(WidgetTester t, String key) {
+  final provider = t.widget<Image>(find.byKey(Key(key))).image;
+  return provider is ResizeImage ? provider.imageProvider : provider;
+}
+
 TestCore readyCore({String language = 'zh_Hans', String appearance = 'light'}) {
   final core = TestCore();
   core.state = {
@@ -104,6 +109,69 @@ void main() {
     await t.pumpAndSettle();
     expect(core.requests.where((r) => r['action'] == 'launch').last['version'],
         'Nether adventure');
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('secondary headings follow the selected home instance',
+      (t) async {
+    viewport(t, size: const Size(1080, 720));
+    final core = readyCore();
+    await t.pumpWidget(SeclApp(core: core));
+    await t.pumpAndSettle();
+    String headingAsset() =>
+        (backgroundImage(t, 'pageMastheadBackground') as AssetImage).assetName;
+
+    await t.tap(find.byKey(const Key('nav-mod')));
+    await t.pumpAndSettle();
+    expect(headingAsset(), 'assets/version-covers/minecraft-1.20.webp');
+    await t.tap(find.byKey(const Key('nav-home')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('instanceSelector')));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Nether adventure').last);
+    await t.pumpAndSettle();
+    for (final route in [
+      'mod',
+      'shader',
+      'resourcepack',
+      'library',
+      'java',
+      'download'
+    ]) {
+      await t.tap(find.byKey(Key('nav-$route')));
+      await t.pumpAndSettle();
+      expect(headingAsset(), 'assets/version-covers/minecraft-1.16.webp',
+          reason: route);
+    }
+    await t.tap(find.byKey(const Key('settingsButton')));
+    await t.pumpAndSettle();
+    expect(headingAsset(), 'assets/version-covers/minecraft-1.16.webp');
+    expect(t.takeException(), isNull);
+    await t.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'manual home background is shared and no selection hides heading art',
+      (t) async {
+    viewport(t, size: const Size(1080, 720));
+    for (final preference in ['1.18', 'default']) {
+      final core = readyCore();
+      core.state = {...core.state, 'home_background': preference};
+      await t.pumpWidget(SeclApp(core: core));
+      await t.pumpAndSettle();
+      final home = backgroundImage(t, 'homeBackground');
+      await t.tap(find.byKey(const Key('settingsButton')));
+      await t.pumpAndSettle();
+      expect(backgroundImage(t, 'pageMastheadBackground'), home);
+      expect(t.takeException(), isNull);
+      await t.pumpWidget(const SizedBox());
+    }
+    await t.pumpWidget(SeclApp(core: TestCore()));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('settingsButton')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('pageMastheadBackground')), findsNothing);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox());
   });

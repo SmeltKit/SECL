@@ -5,8 +5,8 @@ import 'app_widgets.dart';
 import 'appearance.dart';
 import 'localization.dart';
 
-/// Shared navigation shell. Account actions stay in the identity area, while
-/// library refresh and downloads remain beside the pages they relate to.
+/// Shared navigation shell. Account actions stay in the identity area;
+/// download activity is available from the global top-right task button.
 class LauncherSidebar extends StatelessWidget {
   const LauncherSidebar(
       {super.key,

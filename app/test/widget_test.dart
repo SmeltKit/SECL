@@ -82,6 +82,32 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets('download activity lives in the global top right on every page',
+      (tester) async {
+    tester.view.physicalSize = const Size(1080, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(SeclApp(core: TestCore()));
+    await tester.pumpAndSettle();
+    final button = find.byKey(const Key('downloadTasksButton'));
+    expect(tester.getTopRight(button).dx, greaterThan(1020));
+    expect(tester.getTopRight(button).dy, inInclusiveRange(40, 48));
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.text('还没有下载任务'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
+    for (final route in ['java', 'library', 'download']) {
+      await tester.tap(find.byKey(Key('nav-$route')));
+      await tester.pumpAndSettle();
+      expect(button, findsOneWidget);
+      expect(tester.getTopRight(button).dy, inInclusiveRange(40, 48));
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('authentication failures appear in a dedicated panel',
       (tester) async {
     tester.view.physicalSize = const Size(1080, 720);

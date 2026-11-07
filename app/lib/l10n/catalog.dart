@@ -1,6 +1,42 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
+  "清除已结束": ["清除已結束", "Clear finished"],
+  "取消全部待完成任务": ["取消所有待完成任務", "Cancel pending tasks"],
+  "进行中": ["進行中", "In progress"],
+  "已完成": ["已完成", "Completed"],
+  "失败": ["失敗", "Failed"],
+  "等待中": ["等待中", "Queued"],
+  "已取消": ["已取消", "Cancelled"],
+  "整合包": ["整合包", "Modpack"],
+  "GPL-3.0-only + 第 7 节附加条款": [
+    "GPL-3.0-only + 第 7 節附加條款",
+    "GPL-3.0-only + Section 7 additional terms"
+  ],
+  "{0} 个组件": ["{0} 個元件", "{0} components"],
+  "其他组件": ["其他元件", "Other components"],
+  "基于 M²CL 迁移与重写": ["基於 M²CL 移植與重寫", "Ported and rewritten from M²CL"],
+  "开源许可": ["開源授權", "Open-source licenses"],
+  "搜索组件名称…": ["搜尋元件名稱…", "Search component names…"],
+  "无法加载许可证": ["無法載入授權條款", "Could not load license"],
+  "没有匹配的组件": ["沒有符合的元件", "No matching components"],
+  "清除搜索": ["清除搜尋", "Clear search"],
+  "返回": ["返回", "Back"],
+  "非官方项目，与 Mojang 或 Microsoft 无隶属或背书关系。": [
+    "非官方專案，與 Mojang 或 Microsoft 無隸屬或背書關係。",
+    "Unofficial project, not affiliated with or endorsed by Mojang or Microsoft."
+  ],
+  "项目来源": ["專案來源", "Project origin"],
+  "{0} 项进行中": ["{0} 項進行中", "{0} active"],
+  "Java、游戏、模组和资源的下载会显示在这里": [
+    "Java、遊戲、模組和資源的下載會顯示在這裡",
+    "Java, games, mods and resource downloads appear here"
+  ],
+  "游戏": ["遊戲", "Game"],
+  "资源": ["資源", "Resource"],
+  "安装到 {0}": ["安裝至 {0}", "Install to {0}"],
+  "准备下载与校验": ["準備下載與驗證", "Preparing download and verification"],
+  "包含 {0} 个文件": ["包含 {0} 個檔案", "Includes {0} files"],
   "类型": ["類型", "Type"],
   "下载大小": ["下載大小", "Download size"],
   "主题模式": ["主題模式", "Theme mode"],
@@ -823,7 +859,7 @@ const catalog = <String, List<String>>{
     "Memory, account, main class and game directory are managed by the launcher. Arguments are validated when saved.",
   ],
   "初始内存": ["初始記憶體", "Initial memory"],
-  "取消当前任务": ["取消當前任服", "Cancel current task"],
+  "取消当前任务": ["取消目前任務", "Cancel current task"],
   "可刷新登录": ["權刷新登錄", "Sign-in can be refreshed"],
   "可用": ["可用", "Available"],
   "可用内存": ["權用內言", "Available memory"],
