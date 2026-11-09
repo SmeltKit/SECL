@@ -65,6 +65,7 @@ Json instance_inventory(const Json &instance, const std::string &kind, bool fres
     auto mods = local_mods(game, instance.value("loader", ""), !fresh, true);
     auto checks = check_mods(instance, mods, true, false);
     Json rows = kind == "mod" ? mods : local_packs(game, kind);
+    annotate_resource_locks(instance, kind, rows);
     for (auto &row : rows) {
         auto filename = row.value("filename", "");
         auto file = checked_path(game, (kind=="mod" ? "mods/" : kind=="shader" ? "shaderpacks/" : "resourcepacks/")+filename);
@@ -380,7 +381,9 @@ Json instance_logs(const Json &instance, const Task &task) {
         stream.seekg(start); std::string bytes((std::istreambuf_iterator<char>(stream)),{});
         if(start>0) {auto newline=bytes.find('\n'); if(newline!=bytes.npos)bytes.erase(0,newline+1);}
         GameLogDecoder decoder; auto text=decoder.append(bytes,true);
-        files.push_back({{"name",name},{"text",clean_log(text,task.secrets)},{"truncated",start>0}});
+        auto sanitized=clean_log(text,task.secrets);
+        files.push_back({{"name",name},{"text",sanitized},{"truncated",start>0},
+                         {"diagnosis",diagnose_log(sanitized,start>0)}});
     }
     return files;
 }

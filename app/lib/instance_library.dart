@@ -2,11 +2,106 @@ import 'appearance.dart';
 import 'cover_art.dart';
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'dart:io';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'app_widgets.dart';
 import 'management_widgets.dart';
 import 'localization.dart';
 import 'resource_engine.dart';
+
+int instanceHistoryNumber(Data instance, String key) {
+  final value = instance[key];
+  if (value is! num || !value.isFinite || value < 0) return 0;
+  if (key == 'last_launch' && value > 253402300799) return 0;
+  return value.toInt();
+}
+
+int _compareGameVersions(String a, String b) {
+  final tokens = RegExp(r'\d+|[^\d]+');
+  final left = tokens.allMatches(a.toLowerCase()).map((m) => m[0]!).toList();
+  final right = tokens.allMatches(b.toLowerCase()).map((m) => m[0]!).toList();
+  for (var index = 0; index < left.length && index < right.length; index++) {
+    final n = int.tryParse(left[index]), m = int.tryParse(right[index]);
+    final order = n != null && m != null
+        ? n.compareTo(m)
+        : left[index].compareTo(right[index]);
+    if (order != 0) return order;
+  }
+  // A final release precedes its own preview suffix in descending version order.
+  if (left.length != right.length) {
+    final shorter = left.length < right.length ? a : b;
+    final longer = left.length < right.length ? b : a;
+    if (longer.startsWith('$shorter-')) {
+      return left.length < right.length ? 1 : -1;
+    }
+  }
+  return left.length.compareTo(right.length);
+}
+
+/// A deterministic copy: the scan's order and data stay untouched.
+List<Data> orderedLibraryInstances(Iterable<Data> instances, String order) =>
+    instances.toList()
+      ..sort((a, b) {
+        final favorite = (b['favorite'] == true ? 1 : 0)
+            .compareTo(a['favorite'] == true ? 1 : 0);
+        if (favorite != 0) return favorite;
+        int selected = 0;
+        if (order == 'recent') {
+          selected = instanceHistoryNumber(b, 'last_launch')
+              .compareTo(instanceHistoryNumber(a, 'last_launch'));
+        } else if (order == 'version') {
+          selected = _compareGameVersions(
+              '${b['version'] ?? ''}', '${a['version'] ?? ''}');
+        }
+        if (selected != 0) return selected;
+        final name = '${a['name'] ?? a['id']}'
+            .toLowerCase()
+            .compareTo('${b['name'] ?? b['id']}'.toLowerCase());
+        return name != 0 ? name : '${a['id']}'.compareTo('${b['id']}');
+      });
+
+String libraryRuntimeLabel(int seconds) {
+  if (seconds < 60) return '<1m';
+  if (seconds < 3600) return '${seconds ~/ 60}m';
+  return '${seconds ~/ 3600}h ${(seconds % 3600) ~/ 60}m';
+}
+
+String libraryHistorySummary(Data instance) {
+  if (instance['history_warning'] is Map) return tr('统计暂不可用');
+  final launched = instanceHistoryNumber(instance, 'last_launch');
+  final count = instanceHistoryNumber(instance, 'launch_count');
+  if (launched == 0 && count == 0) return tr('尚无启动记录');
+  final date = launched > 0
+      ? DateFormat('MM-dd HH:mm').format(
+          DateTime.fromMillisecondsSinceEpoch(launched * 1000).toLocal())
+      : '';
+  return [
+    if (date.isNotEmpty) date,
+    tr('{0} 次启动', [count]),
+    libraryRuntimeLabel(instanceHistoryNumber(instance, 'runtime_seconds'))
+  ].join(' · ');
+}
+
+String libraryHistoryDetails(Data instance) {
+  if (instance['history_warning'] is Map) {
+    return nativeText(
+        (instance['history_warning'] as Map)['message']?.toString() ??
+            tr('统计暂不可用'));
+  }
+  final launched = instanceHistoryNumber(instance, 'last_launch');
+  return [
+    if (launched > 0)
+      tr('最近启动：{0}', [
+        DateFormat('yyyy-MM-dd HH:mm').format(
+            DateTime.fromMillisecondsSinceEpoch(launched * 1000).toLocal())
+      ]),
+    tr('已记录 {0} 次启动', [instanceHistoryNumber(instance, 'launch_count')]),
+    tr('已观察运行时间：{0}', [
+      libraryRuntimeLabel(instanceHistoryNumber(instance, 'runtime_seconds'))
+    ]),
+    tr('运行时间包括挂起和闲置，仅记录启动器观察到的进程运行时长。'),
+  ].join('\n');
+}
 
 class InstanceCover extends StatelessWidget {
   const InstanceCover(this.instance, {super.key, this.height = 110});
@@ -54,14 +149,29 @@ class InstanceLibrary extends StatefulWidget {
 
 class _InstanceLibraryState extends State<InstanceLibrary>
     with ManagedState<InstanceLibrary> {
+  int _replayRevision = 0;
+  void _downloadReplayed() {
+    if (_replayRevision == engine.replayRevision) return;
+    _replayRevision = engine.replayRevision;
+    if (mounted && !loading) load();
+  }
+
+  @override
+  void dispose() {
+    engine.removeListener(_downloadReplayed);
+    super.dispose();
+  }
+
   @override
   ResourceEngine get engine => widget.engine;
   List<Data> instances = [];
-  String query = '';
+  String query = '', order = 'recent';
   bool favorites = false;
   @override
   void initState() {
     super.initState();
+    _replayRevision = engine.replayRevision;
+    engine.addListener(_downloadReplayed);
     load();
   }
 
@@ -99,15 +209,13 @@ class _InstanceLibraryState extends State<InstanceLibrary>
       });
   @override
   Widget build(BuildContext context) {
-    final visible = instances
-        .where((i) =>
+    final visible = orderedLibraryInstances(
+        instances.where((i) =>
             (!favorites || i['favorite'] == true) &&
             '${i['name']} ${i['id']} ${i['version']} ${i['loader']}'
                 .toLowerCase()
-                .contains(query.toLowerCase()))
-        .toList()
-      ..sort((a, b) => (b['favorite'] == true ? 1 : 0)
-          .compareTo(a['favorite'] == true ? 1 : 0));
+                .contains(query.toLowerCase())),
+        order);
     return ManagementPage(
         title: tr('游戏库'),
         actions: [
@@ -138,6 +246,38 @@ class _InstanceLibraryState extends State<InstanceLibrary>
                 selected: favorites,
                 onSelected: (v) => setState(() => favorites = v)),
             const SizedBox(width: 8),
+            PopupMenuButton<String>(
+                key: const Key('librarySort'),
+                tooltip: tr('排序'),
+                initialValue: order,
+                onSelected: (value) => setState(() => order = value),
+                itemBuilder: (_) => [
+                      for (final entry in {
+                        'recent': tr('最近启动'),
+                        'name': tr('名称'),
+                        'version': tr('游戏版本')
+                      }.entries)
+                        PopupMenuItem(
+                            value: entry.key, child: Text(entry.value))
+                    ],
+                child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.sort_rounded, size: 18, color: muted),
+                      const SizedBox(width: 6),
+                      Text(
+                          {
+                            'recent': tr('最近启动'),
+                            'name': tr('名称'),
+                            'version': tr('游戏版本')
+                          }[order]!,
+                          style: TextStyle(fontSize: 12, color: ink)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.keyboard_arrow_down_rounded,
+                          size: 16, color: muted)
+                    ]))),
+            const SizedBox(width: 8),
             IconButton(
                 onPressed: locked ? null : load,
                 tooltip: tr('刷新'),
@@ -159,7 +299,7 @@ class _InstanceLibraryState extends State<InstanceLibrary>
                                   crossAxisCount: columns,
                                   crossAxisSpacing: 14,
                                   mainAxisSpacing: 24,
-                                  mainAxisExtent: 232),
+                                  mainAxisExtent: 252),
                           itemCount: visible.length,
                           itemBuilder: (context, index) {
                             final i = visible[index];
@@ -292,7 +432,31 @@ class _InstanceLibraryState extends State<InstanceLibrary>
                                                     Icons.play_arrow_rounded,
                                                     size: 21,
                                                     color: accent)))
-                                      ])
+                                      ]),
+                                      const SizedBox(height: 5),
+                                      Tooltip(
+                                          message: libraryHistoryDetails(i),
+                                          child: Row(children: [
+                                            Icon(
+                                                i['history_warning'] is Map
+                                                    ? Icons.info_outline_rounded
+                                                    : Icons.history_rounded,
+                                                size: 12,
+                                                color: muted),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                                child: Text(
+                                                    libraryHistorySummary(i),
+                                                    key: ValueKey(
+                                                        'library-history-${i['id']}'),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        height: 1.5,
+                                                        color: muted)))
+                                          ]))
                                     ]));
                           });
                     })))

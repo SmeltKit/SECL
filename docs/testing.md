@@ -1,6 +1,6 @@
 # Test record and limits
 
-Updated: 2026-11-05. Host: Apple Silicon macOS, Xcode 27.2.
+Updated: 2026-11-07. Host: Apple Silicon macOS, Xcode 27.2.
 Flutter 3.19.6 (revision `54e66469a933b60ddf175f858f82eaeb97e48c8d`), Dart 3.3.4.
 
 Commands:
@@ -459,8 +459,9 @@ passed; the ZIP is 10,683,325 bytes. This is not a notarized distribution.
 - No game was launched and no account was accessed during this acceptance.
   Windows/Linux filesystem behavior, Forge/NeoForge/Quilt pack execution and
   arbitrary pack runtime compatibility remain unverified. Custom install
-  scripts are not supported by this importer. Cached complete
-  files are reused after interruption; incomplete bytes are not range-resumed.
+  scripts are not supported by this importer. At this historical acceptance point, only cached
+  complete files were reused. The 2026-11-07 follow-up below supersedes that earlier limitation
+  with hash-bound HTTP Range resumption of incomplete downloads.
 
 The final macOS ARM64 Release was opened through the native interface. The game
 library import entry loaded the pinned archive and displayed its file list,
@@ -501,3 +502,108 @@ the ZIP is 17,391,371 bytes. The library, markets, independent settings page,
 Java runtime details and a live Java build query have been visually inspected in
 the running application. Generated design references and
 prompts are private development artifacts, excluded from the repository.
+
+
+### Basic client features follow-up (2026-11-07)
+
+The updated C++ core passes 14 CTest suites and the Flutter interface passes 161
+tests; static analysis reports no issues. The macOS ARM64 Release shell also builds.
+New checks exercise content-bound resource locks: skipped metadata queries, stale
+plans, ordinary market replacements, indirect dependency upgrades, optional
+dependencies, same-build repair, and locking during download before commit.
+Original files remain intact on rejected replacement. OptiFine component updates
+check the same policy before replacing a managed mod file.
+
+Log diagnosis tests cover seven known rule families, bounded evidence and UTF-8
+excerpts, unknown results, explicit analysis, changing logs, original log access,
+compact three-language layouts and redacted input. These are diagnostic hints,
+not verified attribution of a real-world crash to any particular mod.
+
+History tests cover legacy migration, damaged/future records, stale settings
+snapshots, incremental process observations, no double settlement, failed
+checkpoints and cross-process writes. Only launcher-observed process runtime is
+recorded; idle time can be included, a launcher crash can lose the uncommitted
+checkpoint, and runtime after launcher exit is not reconstructed.
+
+A running Release was visually checked with an isolated synthetic local instance:
+Java rows and the home selector use the shared vector Java symbol; library sorting
+and history labels render; pinning a mod appears in inventory and skips update
+queries; log analysis displays evidence alongside the unchanged original log.
+No account was used and no game was launched in this check. Windows/Linux runtime
+behavior remains unverified.
+
+
+## Instance backups, screenshot management and resumable downloads (2026-11-07)
+
+This follow-up adds focused native and Flutter regressions to the existing suites. Final combined
+suite/test totals are recorded separately after the complete validation run; the historical
+counts above describe their dated runs, not a claim about this working tree.
+
+### Isolated instance backups
+
+Local fixtures exercise isolated-instance directory backup and restore into a different new
+instance. The format is a `.secl-backup` directory plus a SHA-256 manifest, not a ZIP archive.
+Checks cover data/configuration retention, directory preservation, checksum and manifest failures,
+links and path traversal, existing-target refusal, running-game/world-lock refusal, cancellation
+cleanup, source changes before publication and safe restored path rebasing. The source instance
+and existing shared files must remain unchanged. Known launcher account files, system credentials,
+shared assets/libraries and Java are excluded. Shared-root instances are deliberately refused;
+restored copies still require the current root's shared dependencies, so these tests do not
+establish portable cross-computer or cross-platform restore support.
+
+### Local screenshot gallery
+
+Native fixtures use actual PNG, JPEG and WebP bytes and exercise dimensions, size/time metadata,
+newest-first ordering, pagination, bounded scanning, unsupported/damaged entries, non-recursive
+listing, missing directories, symlink/path rejection and canceled operations. Export preserves
+original bytes and refuses an existing destination. A same-size same-mtime external replacement
+changes the file-identity snapshot and is refused for preview/export/removal. No real user's
+screenshot or Trash is modified by these regressions.
+
+Widget tests cover gallery and large-preview layouts in Simplified Chinese, Traditional Chinese
+and English at the minimum window size with a narrower instance content column and long filenames.
+They exercise Left/Right navigation, Escape, stale-preview rejection and explicit Trash
+confirmation, including cancel without mutation. Local image files are decoded in
+Flutter with bounded cache dimensions and stable snapshot keys; full images are not Base64-encoded
+through the API. No screenshot is uploaded or discovered outside the chosen instance folder.
+
+### Streaming download retry and cache safety
+
+Native fixtures exercise streaming interruption, retaining a prefix and issuing the next HTTP
+Range request, conditional validators, `200` restart versus `206` append, `416` handling, changed
+ETags/representations, invalid range/length/encoding responses, hash/size failures, cancellation,
+redirect/source allowlists, finite fallback and publication to an existing target only after
+verification. Cross-process cache locks and maintenance cover in-use entries, the seven-day idle
+limit, the soft 2 GiB cache budget and the 4 GiB per-file maximum. The actual Curl transport is also
+exercised against an isolated loopback server; that HTTP exception is a native test seam, not a
+production non-HTTPS download option.
+
+The download center's task list is intentionally session-only. After application restart, the
+user initiates the same resource again; the expected hash permits the core to locate and verify
+retained partial bytes. This does not promise recovery of a persisted installation queue. Network
+conditions, long-duration transfers and Windows/Linux filesystem behavior still need platform
+acceptance. These fixture checks do not use credentials, download real game data or launch a game.
+
+
+### Final client-feature validation (2026-11-07)
+
+The combined source passes all 17 CTest suites, all 188 Flutter tests and static
+analysis with no issues. Download resumption has 159 protocol/cache checks,
+including a real interrupted loopback HTTP transfer resumed in a new process.
+The production path remains HTTPS-only. A public C ABI smoke also exercised
+backup creation, new-ID restoration, preserving changed original files, refusing
+an existing restore target, screenshot inspection/export and refusing an existing
+export target; committed mutation snapshots were checked. No account was used and
+no game was launched.
+
+The ARM64 macOS Release builds and passes strict deep ad hoc signature verification.
+The bundle contains 34,112,284 bytes of files without counting symlink aliases;
+the local ZIP is 17,572,260 bytes. This is a local validation build, not a notarized
+distribution and not a replacement for the existing keyed distribution package.
+
+A separate running application with isolated synthetic instances was used to
+inspect the backup list, restore confirmation, successful new-copy restoration,
+screenshot gallery and large-image/keyboard navigation. Real-image export was
+verified independently through C ABI. The backup page additionally has three-language
+checks in the actual instance-page container at 656×640 content size. Windows/Linux
+runtime and removable filesystem behavior still require hardware acceptance.

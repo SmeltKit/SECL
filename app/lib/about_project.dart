@@ -53,7 +53,7 @@ class _ProjectAboutDialog extends StatelessWidget {
                                     letterSpacing: -.5,
                                     color: ink)),
                             const SizedBox(height: 6),
-                            Text(tr('0.1.0 · 开发预览'),
+                            Text(tr('0.5.0 · 测试版'),
                                 style: TextStyle(
                                     fontSize: 12, height: 1.5, color: muted)),
                           ])),

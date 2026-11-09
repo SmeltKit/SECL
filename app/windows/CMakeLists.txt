@@ -107,7 +107,19 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
 
-# Solar native engine; compiled by the desktop runner, without Qt.
-set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../core" "${CMAKE_BINARY_DIR}/solar_core")
-install(TARGETS solar_core RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+# Package the exact core built by tools/build.py (including its Key setting).
+# Plain Flutter development builds can still compile a local core.
+set(SECL_PREBUILT_CORE "$ENV{SECL_PREBUILT_WINDOWS_CORE}")
+if(NOT SECL_PREBUILT_CORE STREQUAL "")
+  if(NOT IS_ABSOLUTE "${SECL_PREBUILT_CORE}" OR
+     NOT EXISTS "${SECL_PREBUILT_CORE}" OR IS_DIRECTORY "${SECL_PREBUILT_CORE}")
+    message(FATAL_ERROR "SECL_PREBUILT_WINDOWS_CORE must point to the built solar_core.dll.")
+  endif()
+  install(FILES "${SECL_PREBUILT_CORE}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    RENAME solar_core.dll COMPONENT Runtime)
+else()
+  set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+  add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../core" "${CMAKE_BINARY_DIR}/solar_core")
+  install(TARGETS solar_core RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    LIBRARY DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+endif()

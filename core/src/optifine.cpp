@@ -382,6 +382,10 @@ Json install_optifine(const Json &r, const Task &t) {
     }
     t.check();
     require(read_file(document) == original, "version_changed", "确认后版本配置发生变化。");
+    if (action == "install" && !previous.empty())
+        assert_resource_replacement_unlocked({{"game_directory", directory.u8string()}}, "mod",
+            {{"filename", previous.filename().u8string()}, {"sha512", hash_file(previous)}},
+            staged.empty() ? Json::object() : Json{{"sha512", hash_file(staged)}});
     auto backup = work.path / "old.jar";
     bool moved = false, added = false;
     try {

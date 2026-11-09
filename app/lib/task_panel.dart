@@ -82,6 +82,7 @@ class TaskPanel extends StatelessWidget {
                                 Divider(height: 1, color: line),
                             itemBuilder: (_, index) => _DownloadTask(
                                 engine.downloadHistory[index],
+                                engine: engine,
                                 key:
                                     ObjectKey(engine.downloadHistory[index])))),
                 Divider(height: 1, color: line),
@@ -89,9 +90,11 @@ class TaskPanel extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(10, 5, 10, 7),
                     child: Row(children: [
                       TextButton.icon(
-                          onPressed: engine.downloadHistory.any((task) =>
-                                  task['status'] != 'running' &&
-                                  task['status'] != 'queued')
+                          onPressed: engine.downloadHistory.any((task) => [
+                                    'complete',
+                                    'failed',
+                                    'cancelled'
+                                  ].contains(task['status']))
                               ? engine.clearFinished
                               : null,
                           icon: const Icon(Icons.done_all_rounded, size: 17),
@@ -106,14 +109,28 @@ class TaskPanel extends StatelessWidget {
 }
 
 class _DownloadTask extends StatefulWidget {
-  const _DownloadTask(this.task, {super.key});
+  const _DownloadTask(this.task, {super.key, required this.engine});
   final Map<String, dynamic> task;
+  final ResourceEngine engine;
   @override
   State<_DownloadTask> createState() => _DownloadTaskState();
 }
 
 class _DownloadTaskState extends State<_DownloadTask> {
   bool expanded = false;
+  Future<void> control(Future<dynamic> Function() action) async {
+    try {
+      await action();
+    } on EngineFailure {
+      // The task record retains its own error/status, including failed replay.
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)
+            ?.showSnackBar(SnackBar(content: Text(tr('下载控制失败，请重试。'))));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final task = widget.task;
@@ -140,7 +157,8 @@ class _DownloadTaskState extends State<_DownloadTask> {
           'complete': '已完成',
           'failed': '失败',
           'queued': '等待中',
-          'cancelled': '已取消'
+          'cancelled': '已取消',
+          'paused': '已暂停'
         }[task['status']] ??
         '');
     final statusColor = task['status'] == 'failed'
@@ -217,6 +235,19 @@ class _DownloadTaskState extends State<_DownloadTask> {
                         style: TextStyle(fontSize: 11, color: muted)),
                   ]
                 ],
+                if (task['status'] == 'paused' ||
+                    task['status'] == 'cancelled') ...[
+                  const SizedBox(height: 7),
+                  Text(tr('再次下载时会尝试续传；服务器不支持时重新下载。'),
+                      style:
+                          TextStyle(fontSize: 11, height: 1.5, color: muted)),
+                ],
+                if (task['refresh_warning'] == true) ...[
+                  const SizedBox(height: 7),
+                  Text(tr('下载已完成，请刷新对应列表查看。'),
+                      style:
+                          TextStyle(fontSize: 11, height: 1.5, color: muted)),
+                ],
                 if (items.length > 1) ...[
                   const SizedBox(height: 5),
                   InkWell(
@@ -257,11 +288,46 @@ class _DownloadTaskState extends State<_DownloadTask> {
           const SizedBox(width: 10),
           Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: active
-                  ? Text(ratio == null ? status : '${(ratio * 100).round()}%',
-                      style: TextStyle(fontSize: 11, color: accent))
-                  : Text(status,
-                      style: TextStyle(fontSize: 11, color: statusColor)))
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(
+                    active && ratio != null
+                        ? '${(ratio * 100).round()}%'
+                        : status,
+                    style: TextStyle(
+                        fontSize: 11, color: active ? accent : statusColor)),
+                if (widget.engine.canPause(task) ||
+                    widget.engine.canCancel(task) ||
+                    widget.engine.canResume(task))
+                  const SizedBox(height: 6),
+                if (widget.engine.canPause(task))
+                  IconButton(
+                      key: ValueKey('pause-download-${task['id']}'),
+                      tooltip: tr('暂停下载'),
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.pause_rounded, size: 19),
+                      onPressed: () =>
+                          control(() => widget.engine.pauseDownload(task))),
+                if (widget.engine.canResume(task))
+                  IconButton(
+                      key: ValueKey('resume-download-${task['id']}'),
+                      tooltip: tr(task['status'] == 'failed' ? '重试下载' : '继续下载'),
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                          task['status'] == 'failed'
+                              ? Icons.refresh_rounded
+                              : Icons.play_arrow_rounded,
+                          size: 19),
+                      onPressed: () =>
+                          control(() => widget.engine.resumeDownload(task))),
+                if (widget.engine.canCancel(task))
+                  IconButton(
+                      key: ValueKey('cancel-download-${task['id']}'),
+                      tooltip: tr('取消此任务'),
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () =>
+                          control(() => widget.engine.cancelDownload(task))),
+              ]))
         ]));
   }
 }

@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """Exercise the real C ABI in an isolated config directory, with no credentials."""
-import ctypes, json, os, pathlib, sys, tempfile, time
+import argparse, ctypes, json, os, pathlib, tempfile, time
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('library',type=pathlib.Path)
+parser.add_argument('--expect-embedded',choices=('yes','no'))
+args=parser.parse_args()
+# Prove the packaged core's Key setting independently of runtime overrides.
+os.environ.pop('SECL_CURSEFORGE_API_KEY',None)
+os.environ.pop('SOLAR_CORE_LIBRARY',None)
 with tempfile.TemporaryDirectory(prefix='solar-ffi-') as temporary:
  os.environ['SOLAR_DATA_DIR']=temporary
- native=ctypes.CDLL(str(pathlib.Path(sys.argv[1]).resolve()))
+ native=ctypes.CDLL(str(args.library.resolve()))
  native.solar_command.argtypes=[ctypes.c_char_p];native.solar_command.restype=ctypes.c_void_p
  native.solar_free.argtypes=[ctypes.c_void_p]
  def call(request):
@@ -33,6 +40,15 @@ with tempfile.TemporaryDirectory(prefix='solar-ffi-') as temporary:
   time.sleep(.02);state=call({'action':'poll'})
  assert not state['busy'] and 'mods.plan' in state['result']
  assert all('offline' not in x for x in state['result'])
+ if args.expect_embedded is not None:
+  assert 'build.info' in state['result']
+  state=call({'action':'engine','request':{'op':'build.info'}})
+  deadline=time.monotonic()+5
+  while state['busy'] and time.monotonic()<deadline:
+   time.sleep(.02);state=call({'action':'poll'})
+  assert not state['busy'] and state['error'] is None
+  assert state['result']['curseforge_key_embedded'] is (args.expect_embedded=='yes'), 'Wrong embedded CurseForge Key setting'
+  print('PASS: packaged core CurseForge Key embedded:',args.expect_embedded)
  state=call({'action':'detect_java'})
  assert state['account'] is None and state['error'] is None
  print('PASS: C ABI, allocation ownership, login gates, async engine dispatch and local Java detection')

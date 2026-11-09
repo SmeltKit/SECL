@@ -175,3 +175,9 @@ accounts.json
 .solar-mrpack/
 .solar-mrpack-locks/
 .solar-modpack.json
+
+# Per-game local version locks and per-instance launch statistics
+.solar-resource-locks.json
+.solar-history.json
+
+.solar-history.lock

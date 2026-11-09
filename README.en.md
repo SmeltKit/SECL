@@ -10,7 +10,7 @@ An independent desktop launcher for **Minecraft: Java Edition**, built with a **
 Download or select local games and Java, then browse separate mod, shader and resource-pack markets.
 The native core has no Qt dependency. The interface supports Simplified Chinese, Traditional Chinese and English.
 
-> **0.1.0 early development preview.** Intended for development, validation and feedback. The interface, configuration format and platform coverage may change.
+> **0.5.0 beta.** Intended for development, validation and feedback. The interface, configuration format and platform coverage may change.
 > This project's AppID was approved for the **Minecraft Services API allow list on 2026-11-02**. Real Microsoft sign-in, Java Edition entitlement and player profile checks passed on **2026-11-03**. Real vanilla and Fabric + Iris / Sodium game startup passed on macOS; other combinations still require validation.
 > SECL's CurseForge third-party API application was approved. Configure the project key to browse CurseForge, import its modpacks, and look up installed mods.
 > The primary validated platform is currently macOS on Apple Silicon. Complete application compatibility elsewhere remains unverified.
@@ -42,7 +42,7 @@ The account state and local-version list shown here are not evidence of a succes
 | --- | --- |
 | Authentication | Microsoft browser authorization code + PKCE; Xbox / XSTS, Minecraft Services, Java Edition entitlement and profile checks; real account sign-in, entitlement and profile checks verified; square pixel avatar from the official skin |
 | Game installation | Release, snapshot, special and historical groups; isolated instances, client / library / asset downloads and official Java runtime when needed; selectable primary loader |
-| Local versions | Discover existing game folders and installed versions, then select a local version to launch |
+| Local versions | Discover existing game folders and installed versions; favorites, recent / name / game-version sorting, launch counts and locally observed process runtime |
 | Java | Local runtime detection, version / distribution / architecture identification, canonical-path deduplication and manual executable selection; download a specific Zulu / Temurin / Microsoft / Oracle OpenJDK build, with automatic OS / architecture detection |
 | Resource markets | Separate mod, shader and resource-pack pages with Modrinth and CurseForge; search, categories, game-version and mod-loader filters, sorting and pagination |
 | Project details | Description summaries, galleries, project website links and downloadable files separated into release / beta / alpha channels |
@@ -50,7 +50,9 @@ The account state and local-version list shown here are not evidence of a succes
 | Instance installation | Choose a compatible local target; review recursive dependencies, installed components, duplicates and author-declared conflicts before installing |
 | Local mod checks | Read JAR metadata for loader and dependency checks. On request, look up Modrinth by SHA-512 and CurseForge by fingerprint verified with SHA-1. Show local identity, website sources and known conflicts separately |
 | World management | Per-instance world list, folder / ZIP import, streaming ZIP export, local and cross-instance copies, manual backup and restore-as-copy, and system Trash removal; game / world locks block unsafe operations |
-| Downloads and feedback | Staged downloads, hash verification, existing-copy reuse, cancellation, progress, structured errors and explicit retry |
+| Instance backups | Local directory backups for isolated instances, with SHA-256 manifests; verified restore into a new instance without replacing the original; excludes accounts, shared dependencies and Java |
+| Screenshots | A local gallery with dates, dimensions and sizes; large previews with keyboard navigation, open original, save as, and confirmed system Trash removal |
+| Downloads and feedback | Hash-bound partial downloads with HTTP Range resumption, final hash verification, existing-file reuse, cancellation, progress and explicit retry; bounded mirror fallback |
 | Languages | Simplified Chinese, Traditional Chinese and English; system default, immediate switching and saved preference |
 
 Required dependencies default on and optional dependencies default off. Skipping required dependencies needs explicit acknowledgment.
@@ -71,13 +73,38 @@ OptiFine version components and per-instance launch settings are available from 
 Game / Java downloads and loader-build selection are now available in Downloads. Platform and loader combinations still need individual validation.
 See [migration notes](docs/migration.md) and the [core API](docs/core-api.md).
 
+Instance backups are `.secl-backup` **directories** with `manifest.json`, not ZIP modpacks.
+Only instances with isolated game directories are supported. Creation and restore check running
+state, world locks and changing files. Restore requires a new, unused instance ID and leaves the
+source instance intact. SECL accounts, system credentials, shared `assets` / `libraries`, and Java
+are excluded. Restored copies still depend on the current game root's shared files; these are
+**not portable bundles**. Screenshot management reads only the selected instance's `screenshots`
+folder, without scanning other folders or uploading images.
+
+Download task history lasts for the current application session. After restarting, initiate the
+same resource download again to reuse a partial cache bound to the same expected hash; the task
+queue is not automatically restored. Servers that do not support ranges are downloaded afresh,
+and the final hash must pass before publication. Opportunistic cache maintenance removes entries
+idle for seven days and applies a soft 2 GiB budget and a 4 GiB per-file limit; in-use entries are
+retained rather than deleted to meet the budget.
+
+Version locks are stored per game directory and resource type, bound to file content hashes.
+Instances sharing a game directory share these locks. Identical copies share the lock;
+enabling or disabling a file retains it, while externally replaced content does not inherit it.
+Locked versions are skipped during update checks and protected against dependency replacement.
+
+The library provides recent/name/game-version sorting, launch counts, and locally observed process runtime.
+Runtime includes idle time and excludes time after the launcher closes; it is not an active-play measure.
+The log page can show known diagnostic hints with evidence and suggestions. It analyzes redacted excerpts,
+and old logs or matched exceptions do not establish the cause of the current failure.
+
 ## Platforms and languages
 
 | Platform | Current validation |
 | --- | --- |
 | macOS · Apple Silicon ARM64 | Native Debug / Release builds, UI execution and local Java detection verified; deployment target is macOS 12.0, but the minimum OS version still requires testing |
 | macOS · Intel x64 | Desktop project retained; builds and execution not yet verified |
-| Windows | Desktop project provided; complete native dependencies, packaging and execution not yet verified |
+| Windows x64 | Windows 10 x64 Release packaging, native-library loading, and Flutter tests verified; game startup pending |
 | Linux | Desktop project provided; distribution dependencies, packaging and graphical execution not yet verified |
 
 Older Windows versions, 32-bit systems and other architectures require separate checks of the Flutter engine,
@@ -112,8 +139,28 @@ The complete application flow above has been validated on macOS ARM64. Windows /
 The macOS app is at `app/build/macos/Build/Products/Release/SECL.app`; native build output is under `build/native/`.
 
 Flutter 3.19.6's macOS Release AOT build tools require Rosetta on Apple Silicon build hosts;
-the resulting app itself runs natively on ARM64. The current local Release is about **33.6 MB**, or **17.4 MB** as a ZIP.
+the resulting app itself runs natively on ARM64. The current local Release is about **34.1 MB**, or **17.6 MB** as a ZIP.
 Signing is ad hoc for local testing. Distribution still requires release signing and notarization.
+
+### Build a Windows package
+
+Install 64-bit Python, Git for Windows, and Visual Studio 2022 or its Build Tools with
+**Desktop development with C++**, the Windows SDK, and CMake tools. Open PowerShell at the repository root:
+
+```powershell
+py -3 .\tools\build.py --embed-curseforge-key
+```
+
+The script prepares the pinned Flutter and vcpkg SDKs and builds Windows x64 Release.
+Enter the Key at the hidden prompt or provide it in the process environment as
+`SECL_CURSEFORGE_API_KEY`. Omit the flag for an unkeyed build; add `--test` to run the core
+and Flutter tests. Use `--flutter` (path to `flutter.bat`) and `--vcpkg-root` to reuse existing SDKs.
+
+Extract `dist/SECL-windows-x64.zip` (or `SECL-windows-x64-no-curseforge.zip` for the unkeyed build) and launch `SECL/secl.exe` with the other files still
+beside it. If needed, install the [Microsoft Visual C++ x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+The script verifies the bundled DLL and its embedded Key setting without sending the Key
+over the network. To check live API access, launch without a runtime Key override, switch
+the mod market to CurseForge, and search for a mod.
 
 Build and test only the C++ core:
 
@@ -123,7 +170,7 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-Currently passing: eleven C++ test suites and 138 Flutter tests.
+Currently passing: 17 C++ test suites and 188 Flutter tests.
 See [test notes](docs/testing.md) for coverage, real resource-download checks and validation limits.
 
 ## Data, services and accounts

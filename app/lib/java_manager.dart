@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'app_widgets.dart';
 import 'localization.dart';
+import 'launcher_icons.dart';
 import 'management_widgets.dart';
 import 'resource_engine.dart';
 
@@ -21,6 +22,19 @@ class JavaManager extends StatefulWidget {
 
 class _JavaManagerState extends State<JavaManager>
     with ManagedState<JavaManager> {
+  int _replayRevision = 0;
+  void _downloadReplayed() {
+    if (_replayRevision == engine.replayRevision) return;
+    _replayRevision = engine.replayRevision;
+    if (mounted && !loading) load();
+  }
+
+  @override
+  void dispose() {
+    engine.removeListener(_downloadReplayed);
+    super.dispose();
+  }
+
   @override
   ResourceEngine get engine => widget.engine;
   List<Data> runtimes = [];
@@ -28,6 +42,8 @@ class _JavaManagerState extends State<JavaManager>
   @override
   void initState() {
     super.initState();
+    _replayRevision = engine.replayRevision;
+    engine.addListener(_downloadReplayed);
     load();
   }
 
@@ -151,7 +167,7 @@ class _JavaManagerState extends State<JavaManager>
               size: 18,
               color: muted)),
       const SizedBox(width: 4),
-      Icon(Icons.coffee_outlined, size: 22, color: accent),
+      LauncherIcon(LauncherIconKind.java, size: 22, color: accent),
       const SizedBox(width: 10),
       Expanded(
           child: Text(runtime['version'] as String,

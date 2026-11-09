@@ -1,0 +1,154 @@
+name: Build SECL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - .github/workflows/release-build.yml
+      - app/pubspec.yaml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: secl-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'SmeltKit/SECL' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag')
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check release version
+        id: version
+        run: |
+          version=$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+)\+[0-9]+$/\1/p' app/pubspec.yaml)
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::app/pubspec.yaml needs a numeric version and build number."
+            exit 1
+          fi
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+              echo "::error::The release tag must match app/pubspec.yaml."
+              exit 1
+            fi
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+            test -f "docs/releases/$version.md"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: windows-2022
+            platform: windows-x64
+    env:
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+      SECL_PUBLISH: ${{ github.ref_type == 'tag' }}
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Prepare macOS build tools
+        if: runner.os == 'macOS'
+        run: |
+          git clone --depth 1 --branch 3.19.6 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          if ! arch -x86_64 /usr/bin/true; then
+            softwareupdate --install-rosetta --agree-to-license
+          fi
+
+      - name: Build and test macOS ARM64
+        if: runner.os == 'macOS'
+        env:
+          SECL_CURSEFORGE_API_KEY: ${{ github.ref_type == 'tag' && secrets.CURSEFORGE_API_KEY || '' }}
+        run: |
+          build_args=(--test)
+          embedded=no
+          if [[ "$SECL_PUBLISH" == true ]]; then
+            : "${SECL_CURSEFORGE_API_KEY:?Set the CURSEFORGE_API_KEY repository secret before publishing.}"
+            build_args+=(--embed-curseforge-key)
+            embedded=yes
+          fi
+          python3 tools/build.py "${build_args[@]}"
+          app=app/build/macos/Build/Products/Release/SECL.app
+          codesign --verify --deep --strict "$app"
+          python3 tools/core_smoke.py "$app/Contents/Frameworks/libsolar_core.dylib" --expect-embedded "$embedded"
+
+          package=$(mktemp -d "$RUNNER_TEMP/secl-package.XXXXXX")
+          mkdir -p "$package/licenses" dist
+          ditto "$app" "$package/SECL.app"
+          cp LICENSE ADDITIONAL_TERMS.md NOTICE "$package/"
+          cp core/third_party/{JSON-LICENSE.MIT,TINYXML2-LICENSE.txt,TOMLPLUSPLUS-LICENSE.MIT} "$package/licenses/"
+          ditto -c -k "$package" dist/SECL-macos-arm64.zip
+
+      - name: Build and test Windows x64
+        if: runner.os == 'Windows'
+        env:
+          SECL_CURSEFORGE_API_KEY: ${{ github.ref_type == 'tag' && secrets.CURSEFORGE_API_KEY || '' }}
+          VCPKG_ROOT: ''
+        run: |
+          $buildArgs = @('--test', '--windows-deps', (Join-Path $env:RUNNER_TEMP 'secl-deps'))
+          if ($env:SECL_PUBLISH -eq 'true') {
+            if (!$env:SECL_CURSEFORGE_API_KEY) {
+              throw 'Set the CURSEFORGE_API_KEY repository secret before publishing.'
+            }
+            $buildArgs += '--embed-curseforge-key'
+          }
+          python tools/build.py @buildArgs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: SECL-${{ matrix.platform }}
+          path: dist/SECL-${{ matrix.platform }}${{ matrix.platform == 'windows-x64' && github.ref_type != 'tag' && '-no-curseforge' || '' }}.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    if: github.ref_type == 'tag'
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: SECL-*
+          path: release
+          merge-multiple: true
+
+      - name: Publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECL_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          cd release
+          shasum -a 256 SECL-macos-arm64.zip SECL-windows-x64.zip > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" \
+            SECL-macos-arm64.zip SECL-windows-x64.zip SHA256SUMS.txt \
+            --verify-tag --prerelease --latest=false \
+            --title "SECL $SECL_VERSION Beta" \
+            --notes-file "../docs/releases/$SECL_VERSION.md"

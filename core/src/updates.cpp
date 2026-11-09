@@ -111,12 +111,15 @@ Json check_resource_updates(const Json &instance, const std::string &kind,
                             const std::string &channel, const Task &task, const Transport &transport) {
     update_folder(kind); channel_allowed("release", channel);
     auto locals = inventory(instance, kind);
+    annotate_resource_locks(instance, kind, locals);
     Json rows = Json::array();
     auto component = instance.value("optifine", Json::object()).value("modFile", "");
     for (auto &local : locals) {
         auto row = local; row["status"] = "unknown";
         const auto name = row.value("filename", "");
-        if (!component.empty() && (name == component || name == component + ".disabled")) {
+        if (row.value("update_locked", false)) {
+            row["status"] = "locked"; row["message"] = "此文件已锁定版本，检查更新时已跳过。";
+        } else if (!component.empty() && (name == component || name == component + ".disabled")) {
             row["status"] = "unsupported"; row["message"] = "请在版本组件中更新 OptiFine。";
         } else if (row.value("directory", false) || row.value("sha512", "").empty()) {
             row["status"] = "unsupported"; row["message"] = "文件夹或无法读取的资源暂不支持自动更新。";
@@ -171,7 +174,7 @@ Json check_resource_updates(const Json &instance, const std::string &kind,
     // libraries are not top-level update targets.
     std::map<std::string, int> counts;
     for (auto &r : rows) if (!r.value("project_id", "").empty()) ++counts[r.at("project_id")];
-    for (auto &r : rows) if (counts[r.value("project_id", "")] > 1) {
+    for (auto &r : rows) if (r.value("status", "") != "locked" && counts[r.value("project_id", "")] > 1) {
         r["status"] = "duplicate"; r["message"] = "检测到同一项目的多个副本，请先处理。";
     }
     return {{"target", instance}, {"kind", kind}, {"channel", channel}, {"items", rows},
@@ -204,6 +207,7 @@ Json plan_resource_updates(const Json &report, const Json &selected, const Task 
             !seen.insert(name.get<std::string>()).second)
             throw Error("updates", "invalid_selection", "更新选择已失效，请重新检查。");
         auto file = it->at("candidate");
+        assert_resource_replacement_unlocked(instance, kind, *it, file);
         file["previous_version"] = it->value("current_version", it->value("version", ""));
         roots.push_back(file);
         replacements.push_back({{"filename", name}, {"sha512", it->at("sha512")},
@@ -238,6 +242,8 @@ Json plan_resource_updates(const Json &report, const Json &selected, const Task 
 
 Json apply_resource_updates(const Json &plan, const Task &task) {
     assert_stopped(plan.at("target"), task); assert_unchanged(plan);
+    for (const auto &r : plan.value("replacements", Json::array()))
+        assert_resource_replacement_unlocked(plan.at("target"), plan.at("update_kind"), r, r.at("file"));
     if (plan.at("update_kind") == "mod") {
         auto result = apply_mod_plan(plan, task); result["atomic_batch"] = true; return result;
     }
@@ -264,6 +270,8 @@ Json apply_resource_updates(const Json &plan, const Task &task) {
             download(f, payload, task); inspect_pack(payload, kind);
         }
         task.check(); assert_stopped(plan.at("target"), task); assert_unchanged(plan);
+        for (const auto &r : plan.at("replacements"))
+            assert_resource_replacement_unlocked(plan.at("target"), kind, r, r.at("file"));
         // Write hash-addressed metadata before touching live payloads. An orphan
         // metadata record after failure cannot match any other file's content.
         for (auto &r : plan.at("replacements")) {

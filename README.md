@@ -10,7 +10,7 @@
 支持下载或选择本地游戏与 Java，并提供独立的模组、光影与材质包市场。
 核心不依赖 Qt；界面支持简体中文、繁体中文和英文。
 
-> **0.1.0 早期开发预览。** 当前用于开发、验证和功能反馈，界面、配置格式及平台支持仍可能调整。
+> **0.5.0 测试版。** 当前用于开发、验证和功能反馈，界面、配置格式及平台支持仍可能调整。
 > 本项目自有 AppID 已于 **2026-11-02** 获准加入 Minecraft Services API 白名单；**2026-11-03** 已完成真实 Microsoft 登录、Java 版资格与角色信息校验。macOS 原版及 Fabric + Iris / Sodium 实际启动已验证，其他组合仍待验收。
 > SECL 的 CurseForge 第三方 API 申请已获批准。配置项目 Key 后可浏览 CurseForge 资源、导入其整合包并查询本地模组的 CurseForge 来源。
 > 当前主要验证平台为 macOS Apple Silicon；其他平台的完整应用兼容性仍待实测。
@@ -41,21 +41,41 @@
 | --- | --- |
 | 账号与认证 | Microsoft 浏览器授权码 + PKCE，Xbox / XSTS、Minecraft Services、Java 版资格与角色校验流程；真实账号登录、资格和角色校验已实测通过；显示官方皮肤的方形像素头像 |
 | 游戏安装 | 正式版、测试版、特殊版和历史版本分组；创建隔离实例，下载客户端、依赖、资源及所需官方 Java；可选择主加载器 |
-| 本地版本 | 识别已有游戏目录与已安装版本，选择本地版本启动 |
+| 本地版本 | 识别已有游戏目录与已安装版本，选择本地版本启动；收藏、按最近启动 / 名称 / 游戏版本排序，本地启动次数与已观察运行时长 |
 | Java | 检测本地 Java，识别版本、发行来源与架构，合并指向同一运行时的路径，支持手动选择可执行文件；按主版本、Zulu / Temurin / Microsoft / Oracle OpenJDK 和具体构建下载，自动检测系统与架构 |
 | 资源市场 | 模组、光影、材质包独立入口，可选 Modrinth 或 CurseForge；搜索、分类、游戏版本筛选、模组加载器筛选、排序与分页 |
 | 项目详情 | 完整 Markdown / HTML 项目介绍、图集、项目主页链接，按正式版 / 测试版 / 预览版查看可下载文件 |
 | 整合包导入 | 导入 Modrinth `.mrpack` 或 CurseForge `.zip`，确认可选文件与独立实例目录；按整合包指定的版本安装，校验文件并应用配置。受限文件可从官网手动补齐 |
 | 实例安装 | 下载时选择匹配的本地实例，先展示安装方案；递归依赖、已有组件、重复文件与作者声明冲突检查 |
 | 本地模组检测 | 读取 JAR 元数据检查加载器和依赖，可手动查询 Modrinth（SHA-512）和 CurseForge（指纹与 SHA-1）来源；分别显示文件身份、网站来源和已知冲突 |
-| 资源更新 | 按本地文件哈希检查 Modrinth 新版，按实例游戏版本、加载器和正式 / 测试频道筛选；勾选更新、审核依赖与冲突，保留禁用状态，失败回滚 |
+| 资源更新 | 按本地文件哈希检查 Modrinth 新版，按实例游戏版本、加载器和正式 / 测试频道筛选；勾选更新、审核依赖与冲突，保留禁用状态，失败回滚；可锁定当前资源版本，更新查询跳过，依赖替换时再次检查 |
+| 日志诊断 | 在日志页手动查看内存、Java、缺失文件 / 前置、Mixin 等已知线索；保留原日志，显示证据行与处理建议，无法判断时明确标注 |
 | 存档管理 | 实例独立存档列表、文件夹 / ZIP 导入、流式 ZIP 导出、本机及跨实例复制、手动备份与恢复副本、移到系统废纸篓；游戏运行或存档被锁定时拒绝修改 |
-| 下载与反馈 | 暂存下载、哈希验证、重复副本复用、取消、进度显示；明确的错误提示与手动重试 |
+| 实例备份 | 隔离实例的本地目录备份，包含 SHA-256 清单；校验后恢复为新的实例副本，不覆盖原实例；不打包账号、共享依赖或 Java |
+| 截图管理 | 本实例截图图墙、文件日期 / 尺寸 / 大小、大图预览与键盘切换；打开原图、另存为，明确确认后移到系统废纸篓 |
+| 下载与反馈 | 按哈希保留下载断点，支持 HTTP Range 续传、完整哈希验证、已有文件复用、取消、进度与手动重试；镜像回退次数有界 |
 | 界面语言 | 简体中文、繁体中文、英文；默认跟随系统，设置中切换后立即生效并保存 |
 
 必需依赖默认选中，可选依赖默认不选；用户取消必需依赖时需明确确认风险。
 已有组件默认复用，重新下载需要单独确认。光影包与 Iris / OptiFine 支持组件分开处理。
 静态兼容检查不能保证每一种游戏、加载器和模组组合都能运行。
+
+实例备份使用带 `manifest.json` 的 `.secl-backup` **文件夹**，不是 ZIP 整合包。
+只支持游戏目录已隔离的实例；创建和恢复时检查运行状态、存档锁与文件变化。
+恢复必须使用尚不存在的新实例 ID，并保留源实例。备份不包含 SECL 账号、系统凭据、
+共享 `assets` / `libraries` 或 Java，仍依赖当前游戏根目录的共享文件，**不是便携包**。
+截图只读取所选实例的 `screenshots` 文件夹，不扫描其他目录或上传图片。
+
+下载任务记录仅保留当前应用会话；重启后需重新发起相同资源的下载，核心才会尝试按
+相同哈希续传已有断点，不会自动恢复整个任务队列。服务器不支持续传时重新下载，
+最终文件必须通过哈希验证才写入目标。缓存按需清理闲置 7 天的内容，容量软上限
+2 GiB、单文件上限 4 GiB；正在使用的条目不会为凑容量而被删除。
+
+版本锁绑定游戏目录、资源类型与文件内容哈希；共享游戏目录的实例共享锁，
+同内容副本一起生效，启停文件不会丢锁。手动换成其他内容不会继承旧锁。
+运行时长仅记录启动器观察到进程仍在运行的时间，包含闲置，不是活跃游玩统计；
+退出启动器后的运行时间不追记。日志诊断基于已脱敏片段，旧日志不一定对应本次启动，
+匹配到异常也不代表已经确认责任模组。
 
 内嵌前置按整体依赖约束选择共同可用的版本；Quilt 分组依赖、条件例外、别名，
 Forge / NeoForge TOML、清单版本和 JarJar 组件均参与检查。安装方案会检查间接依赖
@@ -72,7 +92,7 @@ Forge / NeoForge TOML、清单版本和 JarJar 组件均参与检查。安装方
 | --- | --- |
 | macOS · Apple Silicon ARM64 | 已完成原生 Debug / Release 构建、界面运行与本机 Java 检测；部署目标为 macOS 12.0，最低系统版本仍待实测 |
 | macOS · Intel x64 | 工程已保留，构建与运行待验证 |
-| Windows | 提供桌面工程，完整原生依赖、打包及运行仍待验证 |
+| Windows x64 | 已在 Windows 10 验证 x64 Release 打包、原生库加载和 Flutter 测试，游戏启动仍待验收 |
 | Linux | 提供桌面工程，发行版依赖、打包及图形运行仍待验证 |
 
 旧版 Windows、32 位系统与其他架构需要分别验证 Flutter 引擎、C++ 依赖和游戏运行环境，
@@ -98,14 +118,35 @@ python3 tools/build.py --flutter /path/to/flutter-3.19.6/bin/flutter --test
 
 脚本默认构建 Release；添加 `--debug` 可构建调试版。
 开发时可为启动器进程设置 `SECL_CURSEFORGE_API_KEY`，让客户端直连 CurseForge。
-SmeltKit/SECL 的 macOS Release 构建可在 GitHub Actions 手动运行。它读取仓库的
-`CURSEFORGE_API_KEY` Secret，并以 `--embed-curseforge-key` 编入原生核心。
-上述完整应用流程已在 macOS ARM64 验证；Windows / Linux 仍需分别完成原生库部署与运行验收。
+SmeltKit/SECL 的 GitHub Actions 构建 macOS ARM64 和 Windows x64。维护者推送与应用版本一致的 `vX.Y.Z` 标签后，
+两端通过测试才会发布 GitHub 预发布版。发布构建读取仓库的 `CURSEFORGE_API_KEY` Secret，
+并以 `--embed-curseforge-key` 编入原生核心。手动运行工作流可生成无 Key 的验证包。
+macOS ARM64 已完成游戏启动验证；Windows x64 已完成 Release 打包和原生库加载验证，完整游戏启动仍待测试。
 macOS 产物位于 `app/build/macos/Build/Products/Release/SECL.app`，原生核心位于 `build/native/`。
 
 Flutter 3.19.6 的 macOS Release AOT 构建工具需要 Rosetta 才能在 Apple Silicon 上执行；
-生成的应用本身是原生 ARM64。当前本地 Release 约 **33.6 MB**，ZIP 约 **17.4 MB**。
-当前签名仅用于本机测试，正式分发仍需处理签名与公证。
+生成的应用本身是原生 ARM64。当前本地 Release 约 **34.1 MB**，ZIP 约 **17.6 MB**。
+macOS 测试包使用临时签名，尚未经 Apple 公证。
+
+### 在 Windows 上打包
+
+准备 **64 位 Python、Git for Windows、Visual Studio 2022（或 2022 Build Tools）**。
+在 Visual Studio Installer 中选「使用 C++ 的桌面开发」，保留 MSVC x64、Windows SDK 和 CMake 工具。
+在项目根目录打开 PowerShell：
+
+```powershell
+py -3 .\tools\build.py --embed-curseforge-key
+```
+
+脚本会准备固定版本的 Flutter 和 vcpkg，编译 x64 Release。Key 会在终端隐藏输入；
+也可预先设置进程环境变量 `SECL_CURSEFORGE_API_KEY`。省略 `--embed-curseforge-key`
+可打不含 Key 的测试包；加 `--test` 会先跑核心和 Flutter 测试。
+有现成工具可通过 `--flutter`（指向 `flutter.bat`）和 `--vcpkg-root` 复用。
+
+带 Key 的产物在 `dist/SECL-windows-x64.zip`；无 Key 版单独输出为 `SECL-windows-x64-no-curseforge.zip`。解压整个目录后双击 `SECL/secl.exe`。
+如果另一台电脑缺 Visual C++ 运行库，安装微软的 [Visual C++ x64 运行库](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist)。
+验证 CurseForge 时请在未设置运行时 Key 的环境里启动，打开模组市场、切换到 CurseForge 并搜索。
+打包脚本会先确认最终包内的 DLL 是本次构建，且确实具有指定的 Key 配置；真实 API 可用性以市场搜索为准。
 
 只构建并测试 C++ 核心：
 
@@ -115,7 +156,7 @@ cmake --build build/core --parallel 3
 ctest --test-dir build/core --output-on-failure
 ```
 
-当前通过 11 组 C++ 测试与 138 项 Flutter 测试。
+当前通过 17 组 C++ 测试与 188 项 Flutter 测试。
 测试范围、真实资源下载记录及尚未验收的项目见[测试说明](docs/testing.md)。
 
 ## 数据、来源与账号

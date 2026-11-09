@@ -94,6 +94,7 @@ class _ResourceUpdatesState extends State<ResourceUpdates>
 
   String statusLabel(Data row) => tr({
         'update': '可更新',
+        'locked': '版本已锁定',
         'current': '暂无更新',
         'unknown': '无法确认',
         'failed': '查询失败',

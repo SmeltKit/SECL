@@ -65,7 +65,7 @@ HttpResponse https_request(const std::string &url, const std::string &body,
     curl_easy_setopt(c, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(c, CURLOPT_SSL_VERIFYHOST, 2L);
     curl_easy_setopt(c, CURLOPT_ERRORBUFFER, details);
-    curl_easy_setopt(c, CURLOPT_USERAGENT, "SECL/0.1.0");
+    curl_easy_setopt(c, CURLOPT_USERAGENT, "SECL/0.5.0");
     curl_slist *headers = nullptr;
     headers = curl_slist_append(headers, "Accept: application/json");
     headers = curl_slist_append(headers, "x-xbl-contract-version: 1");

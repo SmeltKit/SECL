@@ -2,6 +2,7 @@
 // Derived from M2CL; see LICENSE and ADDITIONAL_TERMS.md in the repository
 // root.
 #include "install_internal.hpp"
+#include "download_resume.hpp"
 #include "secl_build_config.hpp"
 #include <curl/curl.h>
 #include <cstdlib>
@@ -81,7 +82,7 @@ struct Curl {
         curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
         curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 1024L);
         curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 30L);
-        curl_easy_setopt(c, CURLOPT_USERAGENT, "SECL/0.1.0");
+        curl_easy_setopt(c, CURLOPT_USERAGENT, "SECL/0.5.0");
     }
     ~Curl() { curl_easy_cleanup(c); }
 };
@@ -102,6 +103,7 @@ static const char *curseforge_key() {
 }
 
 bool detail::curseforge_configured() { return *curseforge_key() != '\0'; }
+bool detail::curseforge_key_embedded() { return *secl_embedded_curseforge_key != '\0'; }
 
 static void authenticate_curseforge(Curl &curl, Headers &headers) {
     const std::string key = curseforge_key();
@@ -313,104 +315,33 @@ static void restrict_download_url(const std::string &url, const Json &hosts, boo
 }
 
 void download(const Json &d, const fs::path &target, const Task &task) {
-    auto url = d.value("url", "");
+    const auto url = d.value("url", "");
     const bool curseforge = d.value("source", "") == "curseforge";
     const auto hosts = curseforge ? curseforge_cdn_hosts() : d.value("allowed_hosts", Json());
-    restrict_download_url(url, hosts, curseforge);
-    std::string algorithm, expected;
-    if (d.contains("sha512")) {algorithm="sha512";expected=d.at("sha512").get<std::string>();}
-    else if (d.contains("sha256")) {algorithm="sha256";expected=d.at("sha256").get<std::string>();}
-    else {algorithm="sha1";expected=d.value("sha1","");}
-    if (!std::regex_match(expected, std::regex(algorithm == "sha512" ? "[a-fA-F0-9]{128}" : algorithm == "sha256" ? "[a-fA-F0-9]{64}" : "[a-fA-F0-9]{40}")))
-        throw Error("download","hash_required","文件必须提供有效的 SHA 校验值。");
-    std::transform(expected.begin(),expected.end(),expected.begin(),::tolower);
-    auto secondary=d.value("sha1","");
-    std::transform(secondary.begin(),secondary.end(),secondary.begin(),::tolower);
-    if(!secondary.empty() && !std::regex_match(secondary,std::regex("[a-f0-9]{40}")))
-        throw Error("download","hash_required","文件必须提供有效的 SHA 校验值。");
-    auto size=d.value("size",-1LL);
-    if(size < -1 || size > 4LL*1024*1024*1024)throw Error("download","invalid_size","下载文件大小无效。");
-    if(fs::is_regular_file(target) && (size<0 || fs::file_size(target)==std::uint64_t(size)) && hash_file(target,algorithm,task.cancel)==expected && (secondary.empty() || hash_file(target,"sha1",task.cancel)==secondary))return;
-    std::optional<Error> last;
-    for(auto candidate:download_candidates(url,task)) {
-        auto temporary=target;temporary+=".part-"+random_url_token();
-        try {
-            for(int redirects=0;;++redirects) {
-                task.check();
-                restrict_download_url(candidate, hosts, curseforge);
-                fs::create_directories(target.parent_path());
-                std::ofstream out(temporary,std::ios::binary|std::ios::trunc);
-                if(!out)throw Error("download","write_failed","无法创建下载暂存文件。");
-                std::string location;
-                std::int64_t received=0;
-                if(task.transport) {
-                    auto response=task.transport(candidate,"","","");task.check();
-                    if(response.status>=300 && response.status<400 && !hosts.is_null()) {
-                        location=response.location;
-                        if(location.empty())throw Error("download","invalid_redirect","下载重定向缺少有效地址。",response.status,candidate);
-                    }
-                    else if(response.status<200 || response.status>=300)
-                        throw Error("download","http_"+std::to_string(response.status),"下载服务返回 HTTP "+std::to_string(response.status),response.status,candidate);
-                    if(location.empty()) {
-                        if(response.body.size()>4ULL*1024*1024*1024 || (size>=0 && response.body.size()!=std::uint64_t(size)))
-                            throw Error("download","verification_failed","下载文件大小或哈希校验失败。",0,candidate);
-                        out.write(response.body.data(),std::streamsize(response.body.size()));received=std::int64_t(response.body.size());
-                    }
-                } else {
-                    struct Output {std::ofstream *stream;std::int64_t size,received=0;bool discard=false;};
-                    Output output{&out,size};
-                    Headers headers;
-                    Curl c;
-                    if (curseforge) authenticate_curseforge(c, headers);
-                    if(!hosts.is_null())curl_easy_setopt(c.c,CURLOPT_FOLLOWLOCATION,0L);
-                    curl_easy_setopt(c.c,CURLOPT_TIMEOUT_MS,300000L);
-                    curl_easy_setopt(c.c,CURLOPT_WRITEDATA,&output);
-                    curl_easy_setopt(c.c,CURLOPT_HEADERDATA,&output);
-                    curl_easy_setopt(c.c,CURLOPT_HEADERFUNCTION,+[](char *p,size_t a,size_t b,void *ctx)->size_t {
-                        auto &v=*static_cast<Output*>(ctx);const auto count=a*b;std::string line(p,count);
-                        if(line.rfind("HTTP/",0)==0) {
-                            const auto space=line.find(' ');const auto code=space==line.npos?0:std::atoi(line.c_str()+space+1);
-                            v.discard=code>=300 && code<400;
-                        }
-                        return count;
-                    });
-                    curl_easy_setopt(c.c,CURLOPT_WRITEFUNCTION,+[](char *p,size_t a,size_t b,void *ctx)->size_t {
-                        auto &v=*static_cast<Output*>(ctx);auto n=a*b;
-                        if(v.discard)return n;
-                        if(n>4ULL*1024*1024*1024 || v.received>4LL*1024*1024*1024-std::int64_t(n) || (v.size>=0 && v.received+std::int64_t(n)>v.size))return 0;
-                        v.stream->write(p,std::streamsize(n));if(!*v.stream)return 0;v.received+=std::int64_t(n);return n;
-                    });
-                    perform(c,candidate,task,!hosts.is_null());
-                    long status=0;curl_easy_getinfo(c.c,CURLINFO_RESPONSE_CODE,&status);
-                    if(status>=300 && status<400 && !hosts.is_null()) {
-                        char *next=nullptr;curl_easy_getinfo(c.c,CURLINFO_REDIRECT_URL,&next);
-                        if(next)location=next;
-                        if(location.empty())throw Error("download","invalid_redirect","下载重定向缺少有效地址。",int(status),candidate);
-                    }
-                    received=output.received;
-                }
-                out.close();
-                if(!location.empty()) {
-                    if(redirects>=3)throw Error("download","redirect_limit","下载重定向次数超过限制。",0,candidate);
-                    // Validate before the next connection, not after bytes have
-                    // already been requested from an arbitrary destination.
-                    restrict_download_url(location, hosts, curseforge);
-                    candidate=location;continue;
-                }
-                if(!out || (size>=0 && received!=size) || hash_file(temporary,algorithm,task.cancel)!=expected ||
-                    (!secondary.empty() && hash_file(temporary,"sha1",task.cancel)!=secondary))
-                    throw Error("download","verification_failed","下载文件大小或哈希校验失败。",0,candidate);
-                std::error_code ec;fs::rename(temporary,target,ec);
-#ifdef _WIN32
-                if(ec && MoveFileExW(temporary.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))ec.clear();
-#endif
-                if(ec)throw Error("download","commit_failed","无法提交已验证的下载文件。");
-                if(d.value("executable",false))fs::permissions(target,fs::perms::owner_exec|fs::perms::group_exec|fs::perms::others_exec,fs::perm_options::add);
-                return;
-            }
-        } catch(const Error &e) {std::error_code ec;fs::remove(temporary,ec);last=e;task.check();}
-        catch(...) {std::error_code ec;fs::remove(temporary,ec);throw;}
+    const auto policy = [&](const std::string &candidate) {
+        // Validate every redirect before connecting, including unrestricted
+        // third-party HTTPS hosts. API keys never enter file-download handles.
+        download_candidates(candidate, task);
+        restrict_download_url(candidate, hosts, curseforge);
+    };
+    policy(url);
+    auto exchange = resume::curl_exchange(task);
+    if (task.transport) {
+        // Legacy buffered seam used by existing metadata/install fixtures.
+        // It has no range support and therefore deliberately returns a full
+        // 200 body; the streaming seam tests all native resume semantics.
+        exchange = [task](const resume::Request &request, const resume::HeaderSink &headers,
+                          const resume::BodySink &body) {
+            task.check();
+            const auto raw = task.transport(request.url, "", "", "");
+            task.check();
+            resume::Response response{raw.status, {}, raw.location};
+            if (raw.status == 200) response.headers["content-length"] = std::to_string(raw.body.size());
+            headers(response);
+            if (!raw.body.empty()) body(raw.body.data(), raw.body.size());
+            return response;
+        };
     }
-    throw *last;
+    resume::transfer(d, target, task, download_candidates(url, task), policy, exchange);
 }
 } // namespace solar::engine

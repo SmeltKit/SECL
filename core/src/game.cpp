@@ -3,12 +3,191 @@
 // root.
 #include "solar/core.hpp"
 #include "solar/engine.hpp"
+#include "launch_history.hpp"
 #include <fstream>
 #include <map>
 #include <regex>
 #include <set>
 #include <zlib.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 namespace solar {
+namespace launch_history {
+std::int64_t number(const Json &history, const std::string &key) {
+    if (!history.is_object() || !history.contains(key)) return 0;
+    const auto &value = history.at(key);
+    if (!value.is_number_integer() ||
+        (value.is_number_unsigned() &&
+         value.get<std::uint64_t>() > std::uint64_t(std::numeric_limits<std::int64_t>::max())))
+        throw Error("history", "invalid_history", "本地启动统计格式无效，已保留原文件。");
+    const auto result = value.get<std::int64_t>();
+    if (result < 0)
+        throw Error("history", "invalid_history", "本地启动统计格式无效，已保留原文件。");
+    return result;
+}
+static void validate(const Json &history) {
+    if (!history.is_object())
+        throw Error("history", "invalid_history", "本地启动统计格式无效，已保留原文件。");
+    for (const auto &key : {"last_launch", "launch_count", "runtime_seconds"})
+        number(history, key);
+    if (number(history, "last_launch") > 253402300799LL)
+        throw Error("history", "invalid_history", "本地启动统计日期无效，已保留原文件。");
+}
+Snapshot load(const fs::path &directory, const Json &settings) {
+    Snapshot result;
+    try {
+        const auto legacy = settings.value("history", Json::object());
+        validate(legacy);
+        result.history = legacy;
+        const auto path = engine::checked_path(directory, ".solar-history.json");
+        if (fs::exists(path)) {
+            if (!fs::is_regular_file(path) || fs::is_symlink(path))
+                throw Error("history", "invalid_history", "本地启动统计无法读取，已保留原文件。");
+            result.document = Json::parse(read_file(path, 64 * 1024), nullptr, false);
+            if (!result.document.is_object() || result.document.value("schema", 0) != 1 ||
+                !result.document.contains("history"))
+                throw Error("history", "invalid_history", "本地启动统计格式无效，已保留原文件。");
+            const auto &stored = result.document.at("history");
+            validate(stored);
+            for (const auto &entry : stored.items()) result.history[entry.key()] = entry.value();
+            // A migrated legacy record may be newer than this file. Never lower
+            // known monotonic statistics while preserving other history fields.
+            for (const auto &key : {"last_launch", "launch_count", "runtime_seconds"})
+                result.history[key] = std::max(number(legacy, key), number(stored, key));
+        }
+        for (const auto &key : {"last_launch", "launch_count", "runtime_seconds"})
+            result.history[key] = number(result.history, key);
+    } catch (const std::exception &) {
+        result.writable = false;
+        result.warning = Error("history", "invalid_history",
+            "本地启动统计无法读取，已保留原文件；游戏仍可正常启动。").json();
+        // Unknown totals must not be displayed as a fresh zero or overwritten.
+        result.history = Json::object();
+    }
+    return result;
+}
+static void write_locked(const fs::path &directory, const Snapshot &snapshot, const Json &history) {
+    if (!snapshot.writable)
+        throw Error("history", "invalid_history", "本地启动统计无法读取，已保留原文件。");
+    validate(history);
+    auto document = snapshot.document.is_object() ? snapshot.document : Json::object();
+    document["schema"] = 1;
+    document["history"] = history;
+    engine::atomic_write(engine::checked_path(directory, ".solar-history.json"), document.dump(2));
+}
+static std::int64_t add(std::int64_t value, std::int64_t delta) {
+    const auto maximum = std::numeric_limits<std::int64_t>::max();
+    return delta > maximum - value ? maximum : value + delta;
+}
+Json started(const Json &history, std::int64_t timestamp) {
+    validate(history);
+    auto result = history;
+    result["last_launch"] = std::max(number(history, "last_launch"), std::max(std::int64_t(0), timestamp));
+    result["launch_count"] = add(number(history, "launch_count"), 1);
+    return result;
+}
+Json elapsed(const Json &history, std::int64_t seconds) {
+    validate(history);
+    auto result = history;
+    result["runtime_seconds"] = add(number(history, "runtime_seconds"), std::max(std::int64_t(0), seconds));
+    return result;
+}
+namespace {
+class HistoryLock {
+#ifdef _WIN32
+    HANDLE file_ = INVALID_HANDLE_VALUE;
+    OVERLAPPED range_{};
+#else
+    int file_ = -1;
+#endif
+public:
+    explicit HistoryLock(const fs::path &directory) {
+        if (!fs::is_directory(directory) || fs::is_symlink(directory))
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        const auto path = engine::checked_path(directory, ".solar-history.lock");
+#ifdef _WIN32
+        file_ = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (file_ == INVALID_HANDLE_VALUE)
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        BY_HANDLE_FILE_INFORMATION info{};
+        if (!GetFileInformationByHandle(file_, &info) ||
+            (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY))) {
+            CloseHandle(file_); file_ = INVALID_HANDLE_VALUE;
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        }
+        if (!LockFileEx(file_, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+                        0, 1, 0, &range_)) {
+            const auto error = GetLastError();
+            CloseHandle(file_); file_ = INVALID_HANDLE_VALUE;
+            if (error == ERROR_LOCK_VIOLATION)
+                throw Error("history", "history_locked", "另一个启动器正在保存此实例的统计，稍后再试。");
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        }
+#else
+        file_ = ::open(path.c_str(), O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
+        if (file_ < 0)
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        struct stat info{};
+        if (::fstat(file_, &info) != 0 || !S_ISREG(info.st_mode)) {
+            ::close(file_); file_ = -1;
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        }
+        if (::flock(file_, LOCK_EX | LOCK_NB) != 0) {
+            const auto error = errno;
+            ::close(file_); file_ = -1;
+            if (error == EWOULDBLOCK || error == EAGAIN)
+                throw Error("history", "history_locked", "另一个启动器正在保存此实例的统计，稍后再试。");
+            throw Error("history", "history_write_failed", "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。");
+        }
+#endif
+    }
+    ~HistoryLock() {
+#ifdef _WIN32
+        if (file_ != INVALID_HANDLE_VALUE) {
+            UnlockFileEx(file_, 0, 1, 0, &range_);
+            CloseHandle(file_);
+        }
+#else
+        if (file_ >= 0) { ::flock(file_, LOCK_UN); ::close(file_); }
+#endif
+        // Keep the lock inode: deleting it permits two different files to be
+        // locked simultaneously. Ownership lives only in the OS handle.
+    }
+    HistoryLock(const HistoryLock &) = delete;
+    HistoryLock &operator=(const HistoryLock &) = delete;
+};
+} // namespace
+Json accumulate(const fs::path &directory, bool count_launch,
+                std::int64_t timestamp, std::int64_t seconds) {
+    const HistoryLock transaction(directory);
+    const auto snapshot = load(directory, engine::load_instance_settings(directory));
+    if (!snapshot.writable)
+        throw Error("history", "invalid_history",
+            "本地启动统计无法读取，已保留原文件；游戏仍可正常启动。");
+    auto history = count_launch ? started(snapshot.history, timestamp) : snapshot.history;
+    history = elapsed(history, seconds);
+    write_locked(directory, snapshot, history);
+    return history;
+}
+Json flush(const fs::path &directory, bool &launch_pending,
+           std::int64_t timestamp, ObservedRuntime &runtime) {
+    const auto seconds = runtime.pending_seconds();
+    auto history = accumulate(directory, launch_pending, timestamp, seconds);
+    // Nothing is acknowledged on a busy lock, invalid file, or failed write.
+    launch_pending = false;
+    runtime.saved(seconds);
+    return history;
+}
+} // namespace launch_history
 static bool safe_id(const std::string &s) {
     return !s.empty() && s.size() < 200 && s != "." && s != ".." &&
            s.find_first_of("/\\:\0", 0, 4) == std::string::npos;
@@ -131,19 +310,17 @@ Json scan_versions(const fs::path &input) {
             auto settings = engine::load_instance_settings(entry.path());
             const auto display = settings.value("display", Json::object());
             const auto loaders = engine::loader_components(m);
-            std::int64_t last_launch = 0;
-            if (settings.contains("history") && settings["history"].is_object()) {
-                const auto &history = settings["history"];
-                if (history.contains("last_launch") && history["last_launch"].is_number_integer())
-                    last_launch = std::max(std::int64_t(0), history["last_launch"].get<std::int64_t>());
-            }
+            const auto history = launch_history::load(entry.path(), settings);
             result.push_back(
                 {{"java", settings.value("java", Json::object()).value("path", "")},
                  {"id", id},
                  {"version", m.value("_baseId", m.value("id", id))},
                  {"name", display.value("name", "").empty() ? id : display.value("name", id)},
                  {"cover", display.value("cover", "")},
-                 {"last_launch", last_launch},
+                 {"last_launch", history.writable ? launch_history::number(history.history, "last_launch") : 0},
+                 {"launch_count", history.writable ? launch_history::number(history.history, "launch_count") : 0},
+                 {"runtime_seconds", history.writable ? launch_history::number(history.history, "runtime_seconds") : 0},
+                 {"history_warning", history.warning},
                  {"loader", loaders.empty() ? "vanilla" : loaders.begin().key()},
                  {"loader_version", loaders.empty() ? "" : loaders.begin().value().get<std::string>()},
                  {"type", m.value("type", "unknown")},
@@ -384,7 +561,7 @@ Command launch_command(const fs::path &root, const std::string &id, const fs::pa
         {"classpath_separator", p.os == "windows" ? ";" : ":"},
         {"classpath", classpath},
         {"launcher_name", "SECL"},
-        {"launcher_version", "0.1.0"}};
+        {"launcher_version", "0.5.0"}};
     auto expand = [&](std::string text) {
         std::regex variable(R"(\$\{([^}]+)\})");
         std::smatch match;

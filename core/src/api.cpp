@@ -4,7 +4,9 @@
 #include "solar/api.h"
 #include "solar/core.hpp"
 #include "solar/engine.hpp"
+#include <set>
 #include "solar/accounts.hpp"
+#include "launch_history.hpp"
 #include <map>
 #include <cstring>
 #include <fstream>
@@ -40,6 +42,90 @@ class Core {
                    {"account", nullptr},   {"versions", Json::array()}, {"javas", Json::array()},
                    {"game_running", false}};
     std::int64_t game_ = 0;
+    fs::path game_history_directory_;
+    std::string game_history_root_, game_history_id_;
+    std::int64_t game_history_started_ = 0, game_history_attempt_ms_ = 0;
+    bool history_launch_pending_ = false;
+    launch_history::ObservedRuntime game_runtime_;
+    struct DeferredHistory {
+        fs::path directory;
+        std::string root, id;
+        std::int64_t started = 0, attempted_ms = 0;
+        bool launch_pending = false;
+        launch_history::ObservedRuntime runtime;
+    };
+    std::vector<DeferredHistory> deferred_history_;
+    static std::int64_t monotonic_ms() {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+    void publish_history_for(const std::string &root, const std::string &id,
+                             const Json &history, const Json &warning = Json()) {
+        std::lock_guard<std::mutex> g(state_mutex_);
+        state_["history_warning"] = warning;
+        if (root_ != root) return;
+        for (auto &version : state_["versions"])
+            if (version.value("id", "") == id) {
+                version["history_warning"] = warning;
+                if (warning.is_null())
+                    for (const auto &key : {"last_launch", "launch_count", "runtime_seconds"})
+                        version[key] = launch_history::number(history, key);
+            }
+    }
+    void publish_history(const Json &history, const Json &warning = Json()) {
+        publish_history_for(game_history_root_, game_history_id_, history, warning);
+    }
+    void defer_game_history() {
+        if (game_history_directory_.empty() ||
+            (!history_launch_pending_ && game_runtime_.pending_seconds() == 0)) return;
+        deferred_history_.push_back({game_history_directory_, game_history_root_,
+            game_history_id_, game_history_started_, game_history_attempt_ms_,
+            history_launch_pending_, game_runtime_});
+    }
+    void flush_deferred_history(bool force = false) {
+        const auto attempt = monotonic_ms();
+        for (auto it = deferred_history_.begin(); it != deferred_history_.end();) {
+            if (!force && attempt - it->attempted_ms < 30000) { ++it; continue; }
+            it->attempted_ms = attempt;
+            try {
+                const auto history = launch_history::flush(it->directory,
+                    it->launch_pending, it->started, it->runtime);
+                publish_history_for(it->root, it->id, history);
+                it = deferred_history_.erase(it);
+            } catch (const Error &e) {
+                const auto warning = e.stage == "history" ? e.json()
+                    : Error("history", "history_write_failed",
+                        "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。").json();
+                publish_history_for(it->root, it->id, Json::object(), warning);
+                ++it;
+            } catch (const std::exception &) {
+                publish_history_for(it->root, it->id, Json::object(),
+                    Error("history", "history_write_failed",
+                        "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。").json());
+                ++it;
+            }
+        }
+    }
+    void flush_game_history(bool force = false) {
+        if (game_history_directory_.empty()) return;
+        const auto seconds = game_runtime_.pending_seconds();
+        const auto attempt = monotonic_ms();
+        if (!force && (attempt - game_history_attempt_ms_ < 30000 ||
+                       (!history_launch_pending_ && seconds < 30))) return;
+        game_history_attempt_ms_ = attempt;
+        try {
+            const auto history = launch_history::flush(game_history_directory_,
+                history_launch_pending_, game_history_started_, game_runtime_);
+            publish_history(history);
+        } catch (const Error &e) {
+            if (e.stage == "history") publish_history(Json::object(), e.json());
+            else publish_history(Json::object(), Error("history", "history_write_failed",
+                "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。").json());
+        } catch (const std::exception &) {
+            publish_history(Json::object(), Error("history", "history_write_failed",
+                "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。").json());
+        }
+    }
     std::string root_ = default_game_root(), client_ = "7ed24288-81a6-4814-8271-25a1529d2e9d", java_, language_ = "system", source_ = "auto", appearance_="system", tone_="blue", home_background_="auto";
     void stage(const std::string &s) {
         std::lock_guard<std::mutex> g(state_mutex_);
@@ -379,15 +465,31 @@ class Core {
         state_["download_source"] = source_;state_["appearance"]=appearance_;state_["tone"]=tone_;state_["home_background"]=home_background_;
         state_["java_directory"] = (fs::u8path(user_data_root()) / "java-managed").u8string();
     }
-    ~Core() { cancel(); }
+    ~Core() {
+        cancel();
+        if (game_) {
+            // Closing the launcher observes at most this session's final live
+            // sample. A subsequent launch never invents time for an orphan game.
+            game_runtime_.observe(monotonic_ms(), game_exit(game_) == -1);
+            flush_game_history(true);
+        }
+        flush_deferred_history(true);
+    }
     Json command(const Json &r) {
         std::lock_guard<std::mutex> guard(commands_);
         auto action = r.value("action", "poll");
         if (action == "poll") {
+            flush_deferred_history();
             if (game_) {
                 auto exit = game_exit(game_);
+                game_runtime_.observe(monotonic_ms(), exit == -1);
+                flush_game_history(exit != -1);
                 if (exit != -1) {
                     game_ = 0;
+                    // A busy file lock must not lose the final count/seconds or
+                    // prevent another game launch. Retry this closed session later.
+                    defer_game_history();
+                    game_history_directory_.clear();
                     std::lock_guard<std::mutex> g(state_mutex_);
                     state_["game_running"] = false;
                     state_["running_game_directory"] = "";
@@ -477,6 +579,7 @@ class Core {
                 state_["stage"] = "engine";
                 state_["error"] = nullptr;
                 state_["result"] = nullptr;
+                state_["operation_committed"] = false;
                 state_["progress"] = Json::object();
             }
             login_thread_ = std::thread([this, request] {
@@ -496,6 +599,17 @@ class Core {
                     auto result = engine::dispatch(request, task);
                     std::lock_guard<std::mutex> g(state_mutex_);
                     state_["result"] = result;
+                    const auto operation = request.value("op", "");
+                    // Published only after a mutating operation returns. A path
+                    // or a provisional result alone is not proof of commit.
+                    static const std::set<std::string> commits = {
+                        "java.install", "game.install", "mods.apply", "updates.apply",
+                        "packs.apply", "optifine.install", "modpacks.apply",
+                        "instance.backups.create", "instance.backups.restore",
+                        "screenshots.export", "screenshots.remove",
+                        "worlds.import", "worlds.export", "worlds.copy", "worlds.backup",
+                        "worlds.restore", "worlds.remove"};
+                    state_["operation_committed"] = commits.count(operation) != 0;
                     state_["busy"] = false;
                     state_["stage"] = "idle";
                 } catch (const Error &e) {
@@ -540,24 +654,19 @@ class Core {
             auto chosen = r.value("java", java_);
             auto c = launch_command(fs::u8path(root_), r.value("version", ""), fs::u8path(chosen),
                                     session, platform());
+            const auto history_directory = engine::checked_path(
+                fs::u8path(root_), "versions/" + r.value("version", ""));
             game_ = spawn_game(c);
-            const auto launched_at = now();
-            const auto launched_id = r.value("version", "");
-            // Record only a successfully created game process. A history write
-            // failure must not turn a running game into a failed launch.
-            try {
-                auto directory = engine::checked_path(fs::u8path(root_), "versions/" + launched_id);
-                auto settings = engine::load_instance_settings(directory);
-                if (!settings.contains("history") || !settings["history"].is_object())
-                    settings["history"] = Json::object();
-                settings["history"]["last_launch"] = launched_at;
-                engine::save_instance_settings(directory, settings);
-            } catch (const std::exception &) {
-                // History is optional; the game process already owns its state.
-            }
+            game_history_started_ = now();
+            game_history_id_ = r.value("version", "");
+            game_history_root_ = root_;
+            game_history_directory_ = history_directory;
+            game_runtime_.start(monotonic_ms());
+            history_launch_pending_ = true;
+            // Only a successfully created process reaches this point. History
+            // writes are optional and must never turn a live game into failure.
+            flush_game_history(true);
             std::lock_guard<std::mutex> g(state_mutex_);
-            for (auto &version : state_["versions"])
-                if (version.value("id", "") == launched_id) version["last_launch"] = launched_at;
             state_["game_running"] = true;
             state_["running_game_directory"] = c.directory.u8string();
             state_["error"] = nullptr;

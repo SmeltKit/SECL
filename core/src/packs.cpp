@@ -131,6 +131,8 @@ Json plan_pack_install(const Json &instance, const Json &file, const std::string
         old_hash = hash_file(target);
         reuse = (source == "curseforge" ? hash_file(target, "sha1") : old_hash) == expected;
     }
+    if (!old_hash.empty())
+        assert_resource_replacement_unlocked(instance, kind, {{"filename", name}, {"sha512", old_hash}}, file);
     Json plan{{"target", instance}, {"file", file}, {"kind", kind},
               {"expected_hash", old_hash}, {"reuse", reuse},
               {"replace", false}};

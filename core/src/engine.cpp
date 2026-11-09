@@ -1,7 +1,7 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Derived from M2CL; see LICENSE and ADDITIONAL_TERMS.md in the repository
 // root.
-#include "solar/engine.hpp"
+#include "install_internal.hpp"
 #include "solar/accounts.hpp"
 namespace solar::engine {
 Json dispatch(const Json &r, const Task &t) {
@@ -17,7 +17,7 @@ Json dispatch(const Json &r, const Task &t) {
     if (op == "capabilities")
         return {"accounts.list",
                 "accounts.save",
-                "platform",
+                "platform", "build.info",
                 "java.scan",
                 "java.probe",
                 "java.legal",
@@ -31,6 +31,8 @@ Json dispatch(const Json &r, const Task &t) {
                 "instances.scan",
                 "worlds.list", "worlds.open", "worlds.import", "worlds.export", "worlds.copy",
                 "worlds.backup", "worlds.backups", "worlds.restore", "worlds.remove",
+                "instance.backups.list", "instance.backups.create", "instance.backups.restore",
+                "screenshots.list", "screenshots.inspect", "screenshots.open", "screenshots.export", "screenshots.remove",
                 "instance.inventory", "instance.logs", "mods.enrich", "shaders.plan", "path.open",
                 "settings.load",
                 "settings.save",
@@ -43,7 +45,7 @@ Json dispatch(const Json &r, const Task &t) {
                 "resource.projects",
                 "resource.versions",
                 "resource.version_families",
-                "updates.check", "updates.plan", "updates.apply",
+                "updates.check", "updates.plan", "updates.apply", "updates.lock",
                 "mods.list",
                 "mods.inspect",
                 "mods.check",
@@ -76,6 +78,8 @@ Json dispatch(const Json &r, const Task &t) {
         save_accounts(path("directory"), r.at("accounts"), r.value("selected", ""));
         return {{"saved", true}};
     }
+    if (op == "build.info")
+        return {{"curseforge_key_embedded", detail::curseforge_key_embedded()}};
     if (op == "platform") {
         auto p = platform();
         return {{"os", p.os}, {"arch", p.arch}, {"version", p.version}};
@@ -104,6 +108,8 @@ Json dispatch(const Json &r, const Task &t) {
     if (op == "instances.scan")
         return scan_instances(paths("roots"), r.value("overrides", Json::object()));
     if (op.rfind("worlds.", 0) == 0) return worlds_command(r,t);
+    if (op.rfind("instance.backups.", 0) == 0) return instance_backups_command(r,t);
+    if (op.rfind("screenshots.", 0) == 0) return screenshots_command(r,t);
     if (op == "instance.inventory")
         return instance_inventory(r.at("instance"), r.at("kind"), r.value("fresh", false));
     if (op == "instance.logs")
@@ -173,6 +179,8 @@ Json dispatch(const Json &r, const Task &t) {
         return version_families(r.at("versions"));
     if (op == "mods.list")
         return local_mods(path("directory"), r.value("loader", ""));
+    if (op == "updates.lock")
+        return set_resource_locks(r.at("instance"), r.at("kind"), r.at("files"), r.at("locked").get<bool>());
     if (op == "updates.check")
         return check_resource_updates(r.at("instance"), r.at("kind"), r.value("channel", "release"), t);
     if (op == "updates.plan")

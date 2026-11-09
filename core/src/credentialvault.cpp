@@ -5,8 +5,8 @@
 #ifdef __APPLE__
 #include <Security/Security.h>
 #elif defined(_WIN32)
-#include <wincred.h>
 #include <windows.h>
+#include <wincred.h>
 #else
 #include <libsecret/secret.h>
 #include <thread>

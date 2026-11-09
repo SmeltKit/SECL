@@ -17,7 +17,7 @@ import zipfile
 def fetch(url):
     return subprocess.check_output(['curl', '--fail', '--silent', '--show-error',
         '--location', '--connect-timeout', '10', '--max-time', '30',
-        '--user-agent', 'SECL/0.1.0 (inventory acceptance)', url])
+        '--user-agent', 'SECL/0.5.0 (inventory acceptance)', url])
 
 
 def run(library, root):

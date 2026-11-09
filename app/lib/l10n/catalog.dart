@@ -1,6 +1,372 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 // Simplified Chinese source keys; values are Traditional Chinese and English.
 const catalog = <String, List<String>>{
+  "备份内容与限制": ["備份內容與限制", "Backup contents and limits"],
+  "不含账号、共享资源库或 Java；恢复仍需已有游戏依赖。": [
+    "不含帳號、共用資源庫或 Java；還原仍需既有遊戲相依檔案。",
+    "Accounts, shared assets/libraries and Java are excluded. Existing game dependencies are still required for restore."
+  ],
+  "无法导出截图，原图和已有目标文件均未更改。": [
+    "無法匯出截圖，原圖及既有目標檔案均未更改。",
+    "The screenshot could not be exported. The original and any existing destination were left unchanged."
+  ],
+  "正在导出截图": ["正在匯出截圖", "Exporting screenshot"],
+  "无法创建网络请求。": ["無法建立網路請求。", "Could not create the network request."],
+  "下载文件信息无效。": ["下載檔案資訊無效。", "Download file information is invalid."],
+  "下载服务器的断点响应无效，请重试或更换下载源。": [
+    "下載伺服器的續傳回應無效，請重試或更換下載來源。",
+    "The server returned an invalid resume response. Retry or choose another download source."
+  ],
+  "无法使用下载缓存。": ["無法使用下載快取。", "The download cache is unavailable."],
+  "另一个下载任务正在处理同一文件，请稍后重试。": [
+    "另一個下載工作正在處理同一檔案，請稍後重試。",
+    "Another download task is processing this file. Please retry later."
+  ],
+  "下载目标必须是普通文件。": [
+    "下載目標必須是一般檔案。",
+    "The download target must be a regular file."
+  ],
+  "下载服务器的响应头无效。": [
+    "下載伺服器的回應標頭無效。",
+    "The download server returned invalid response headers."
+  ],
+  "下载地址无效。": ["下載位址無效。", "The download address is invalid."],
+  "无法写入下载暂存文件。": [
+    "無法寫入下載暫存檔案。",
+    "The temporary download file could not be written."
+  ],
+  "下载尚未完成，已保留断点，请重试。": [
+    "下載尚未完成，已保留續傳資料，請重試。",
+    "The download is incomplete. Partial data was kept for retrying."
+  ],
+  "截图": ["截圖", "Screenshots"],
+  "{0} 个文件": ["{0} 個檔案", "{0} files"],
+  "不包含启动器账号、共享 assets / libraries 或 Java。恢复仍需当前游戏根目录中的依赖；请保留这些文件。": [
+    "不包含啟動器帳號、共用 assets / libraries 或 Java。還原仍需要目前遊戲根目錄中的相依檔案，請保留這些檔案。",
+    "Launcher accounts, shared assets/libraries and Java are excluded. Restoring still requires dependencies in the current game root; keep those files."
+  ],
+  "不支持的实例备份操作。": ["不支援的實例備份操作。", "Unsupported instance backup operation."],
+  "共享游戏依赖不会从备份补齐。固定 Java 和外部封面会重置；自定义参数中的绝对路径请恢复后检查。": [
+    "共用遊戲相依檔案不會由備份補齊。固定 Java 與外部封面將重設；請在還原後檢查自訂參數中的絕對路徑。",
+    "Shared game dependencies will not be supplied by this backup. Fixed Java and external covers are reset; check absolute paths in custom arguments after restoring."
+  ],
+  "创建备份，或选择包含 .secl-backup 文件夹的目录。": [
+    "建立備份，或選擇包含 .secl-backup 資料夾的目錄。",
+    "Create a backup, or select a directory containing .secl-backup folders."
+  ],
+  "创建实例备份": ["建立實例備份", "Create instance backup"],
+  "包含独立游戏目录、版本配置与客户端 JAR、实例设置、启动统计和资源版本锁。": [
+    "包含獨立遊戲目錄、版本設定與用戶端 JAR、實例設定、啟動統計及資源版本鎖定。",
+    "Includes the isolated game directory, version configuration and client JAR, instance settings, launch statistics and resource version locks."
+  ],
+  "备份位置包含过多条目，请选择更具体的目录。": [
+    "備份位置包含過多項目，請選擇更明確的目錄。",
+    "The backup location contains too many entries. Select a more specific directory."
+  ],
+  "备份包含大小写冲突的路径。": [
+    "備份包含大小寫衝突的路徑。",
+    "The backup contains conflicting path capitalization."
+  ],
+  "备份或新实例名称无效。": ["備份或新實例名稱無效。", "The backup or new instance name is invalid."],
+  "备份文件与清单不一致，未恢复任何实例。": [
+    "備份檔案與清單不符，未還原任何實例。",
+    "Backup files do not match the manifest. No instance was restored."
+  ],
+  "备份文件校验失败，未恢复任何实例。": [
+    "備份檔案驗證失敗，未還原任何實例。",
+    "Backup integrity verification failed. No instance was restored."
+  ],
+  "备份文件读取或写入失败。": ["備份檔案讀取或寫入失敗。", "Failed to read or write backup files."],
+  "源文件在操作期间发生变化，未发布结果，请关闭游戏后重试。": [
+    "來源檔案在操作期間發生變更，未發布結果，請關閉遊戲後重試。",
+    "Source files changed during the operation. Nothing was published. Close the game and try again."
+  ],
+  "备份清单路径无效。": ["備份清單路徑無效。", "A path in the backup manifest is invalid."],
+  "完整实例快照": ["完整實例快照", "Instance data snapshot"],
+  "实例备份": ["實例備份", "Instance backups"],
+  "实例备份已完成": ["實例備份已完成", "Instance backup complete"],
+  "实例备份最多支持 100000 个条目和 64 GiB 文件。": [
+    "實例備份最多支援 100000 個項目及 64 GiB 檔案。",
+    "Instance backups support up to 100,000 entries and 64 GiB of files."
+  ],
+  "实例备份格式或清单无效。": [
+    "實例備份格式或清單無效。",
+    "The instance backup format or manifest is invalid."
+  ],
+  "实例存在安装或更新操作，请结束后重试。": [
+    "實例有安裝或更新操作，請結束後重試。",
+    "An instance installation or update is in progress. Finish it before retrying."
+  ],
+  "实例或备份包含符号链接或特殊文件，操作已停止。": [
+    "實例或備份包含符號連結或特殊檔案，已停止操作。",
+    "The instance or backup contains symbolic links or special files. The operation was stopped."
+  ],
+  "实例正在运行，请退出游戏后备份或恢复。": [
+    "實例正在執行，請退出遊戲後備份或還原。",
+    "The instance is running. Exit the game before backing up or restoring."
+  ],
+  "已恢复为新的独立实例": ["已還原為新的獨立實例", "Restored as a new isolated instance"],
+  "必须使用新标识，不会覆盖原实例。": [
+    "必須使用新識別碼，不會覆寫原實例。",
+    "Use a new ID. The original instance will not be overwritten."
+  ],
+  "恢复为新实例": ["還原為新實例", "Restore as a new instance"],
+  "恢复位置": ["還原位置", "Restore location"],
+  "恢复必须使用不同的新实例标识。": [
+    "還原必須使用不同的新實例識別碼。",
+    "Restoring requires a different, new instance ID."
+  ],
+  "新实例标识": ["新實例識別碼", "New instance ID"],
+  "无法创建备份暂存目录。": [
+    "無法建立備份暫存目錄。",
+    "Unable to create a temporary backup directory."
+  ],
+  "正在准备文件": ["正在準備檔案", "Preparing files"],
+  "正在复制并校验实例文件": ["正在複製並驗證實例檔案", "Copying and verifying instance files"],
+  "正在完成实例恢复": ["正在完成實例還原", "Finishing instance restore"],
+  "正在读取备份位置": ["正在讀取備份位置", "Reading backup location"],
+  "此实例使用共享游戏目录，请先改为独立目录再备份。": [
+    "此實例使用共用遊戲目錄，請先改為獨立目錄再備份。",
+    "This instance uses a shared game directory. Configure an isolated directory before backing it up."
+  ],
+  "版本配置或客户端 JAR 缺失或无效。": [
+    "版本設定或用戶端 JAR 遺失或無效。",
+    "The version configuration or client JAR is missing or invalid."
+  ],
+  "目标已存在，请使用新的备份或实例名称。": [
+    "目標已存在，請使用新的備份或實例名稱。",
+    "The destination already exists. Use a new backup or instance name."
+  ],
+  "磁盘空间不足，无法完成实例备份或恢复。": [
+    "磁碟空間不足，無法完成實例備份或還原。",
+    "There is not enough disk space to finish the instance backup or restore."
+  ],
+  "请先退出游戏。备份是带 SHA-256 清单的文件夹，不是 ZIP；模组配置和日志可能包含个人信息。": [
+    "請先退出遊戲。備份是附有 SHA-256 清單的資料夾，並非 ZIP；模組設定及日誌可能包含個人資訊。",
+    "Exit the game first. Backups are folders with SHA-256 manifests, not ZIP files. Mod configuration and logs may contain personal information."
+  ],
+  "请选择实例游戏目录和版本目录以外的备份位置。": [
+    "請選擇實例遊戲目錄及版本目錄以外的備份位置。",
+    "Select a backup location outside the instance game and version directories."
+  ],
+  "请选择有效的普通目录。": [
+    "請選擇有效的一般目錄。",
+    "Select a valid directory that is not a symbolic link."
+  ],
+  "还没有实例备份": ["尚無實例備份", "No instance backups yet"],
+  "选择备份位置": ["選擇備份位置", "Choose backup location"],
+  "截图管理": ["截圖管理", "Screenshots"],
+  "移除截图": ["移除截圖", "Remove screenshot"],
+  "截图已导出": ["截圖已匯出", "Screenshot exported"],
+  "{0} 张截图": ["{0} 張截圖", "{0} screenshots"],
+  "尚无可显示的截图": ["尚無可顯示的截圖", "No screenshots to display"],
+  "仅显示此实例 screenshots 目录中的 PNG、JPEG 和 WebP 图片。": [
+    "僅顯示此實例 screenshots 目錄中的 PNG、JPEG 與 WebP 圖片。",
+    "Only PNG, JPEG and WebP images in this instance's screenshots folder are shown."
+  ],
+  "预览截图": ["預覽截圖", "Preview screenshot"],
+  "打开原图": ["開啟原圖", "Open original"],
+  "另存为": ["另存新檔", "Save as"],
+  "移到废纸篓": ["移到垃圾桶", "Move to trash"],
+  "截图较多，本次最多扫描 4096 个目录项。": [
+    "截圖較多，本次最多掃描 4096 個目錄項目。",
+    "This folder is large. Up to 4096 entries were scanned."
+  ],
+  "已跳过 {0} 项不支持、损坏或无法安全读取的文件。": [
+    "已略過 {0} 個不支援、損毀或無法安全讀取的檔案。",
+    "Skipped {0} unsupported, damaged or unsafe files."
+  ],
+  "图片无法显示，请刷新列表。": [
+    "圖片無法顯示，請重新整理清單。",
+    "The image cannot be displayed. Refresh the list."
+  ],
+  "上一张": ["上一張", "Previous image"],
+  "下一张": ["下一張", "Next image"],
+  "截图文件名无效。": ["截圖檔案名稱無效。", "Invalid screenshot filename."],
+  "截图已不存在或不是普通文件，请刷新列表。": [
+    "截圖已不存在或不是一般檔案，請重新整理清單。",
+    "The screenshot is missing or is not a regular file. Refresh the list."
+  ],
+  "截图不能跳出截图目录。": [
+    "截圖不能位於截圖目錄之外。",
+    "Screenshots must stay within the screenshot folder."
+  ],
+  "无法读取截图，请刷新列表。": [
+    "無法讀取截圖，請重新整理清單。",
+    "The screenshot could not be read. Refresh the list."
+  ],
+  "截图格式无效、文件过大或图片尺寸超过支持范围。": [
+    "截圖格式無效、檔案過大或圖片尺寸超出支援範圍。",
+    "The screenshot has an invalid format, is too large, or exceeds the supported dimensions."
+  ],
+  "截图已被外部修改，请刷新列表后重试。": [
+    "截圖已被外部修改，請重新整理清單後再試。",
+    "The screenshot was changed outside the launcher. Refresh the list and try again."
+  ],
+  "截图分页参数无效。": ["截圖分頁參數無效。", "Invalid screenshot pagination."],
+  "截图目录不是文件夹。": ["截圖目錄不是資料夾。", "The screenshot path is not a folder."],
+  "截图目录尚不存在，拍摄截图后可在这里查看。": [
+    "截圖目錄尚不存在，擷取截圖後可在這裡查看。",
+    "The screenshots folder does not exist yet. Take a screenshot in the game to create it."
+  ],
+  "请先确认将截图移到系统废纸篓。": [
+    "請先確認將截圖移到系統垃圾桶。",
+    "Confirm moving the screenshot to the system trash first."
+  ],
+  "请选择有效的导出位置。": ["請選擇有效的匯出位置。", "Choose a valid export location."],
+  "不支持的截图操作。": ["不支援的截圖操作。", "Unsupported screenshot operation."],
+  "下载已暂停，可从下载任务中继续。": [
+    "下載已暫停，可從下載工作中繼續。",
+    "Download paused. Continue it from Downloads."
+  ],
+  "已暂停": ["已暫停", "Paused"],
+  "下载控制失败，请重试。": ["下載控制失敗，請重試。", "Download control failed. Please try again."],
+  "再次下载时会尝试续传；服务器不支持时重新下载。": [
+    "再次下載時會嘗試續傳；伺服器不支援時重新下載。",
+    "The next attempt will resume when supported, or restart the download."
+  ],
+  "下载已完成，请刷新对应列表查看。": [
+    "下載已完成，請重新整理對應清單查看。",
+    "Download complete. Refresh the relevant list to see the result."
+  ],
+  "暂停下载": ["暫停下載", "Pause download"],
+  "重试下载": ["重試下載", "Retry download"],
+  "继续下载": ["繼續下載", "Resume download"],
+  "取消此任务": ["取消此工作", "Cancel this task"],
+  "另一个启动器正在保存此实例的统计，稍后再试。": [
+    "另一個啟動器正在儲存此實例的統計，稍後再試。",
+    "Another launcher is saving statistics for this instance. The pending update will be retried later."
+  ],
+  "最近启动": ["最近啟動", "Last launched"],
+  "统计暂不可用": ["統計暫不可用", "Statistics unavailable"],
+  "尚无启动记录": ["尚無啟動記錄", "No recorded launches"],
+  "{0} 次启动": ["{0} 次啟動", "{0} launches"],
+  "最近启动：{0}": ["最近啟動：{0}", "Last launched: {0}"],
+  "已记录 {0} 次启动": ["已記錄 {0} 次啟動", "{0} recorded launches"],
+  "已观察运行时间：{0}": ["已觀察執行時間：{0}", "Observed runtime: {0}"],
+  "运行时间包括挂起和闲置，仅记录启动器观察到的进程运行时长。": [
+    "執行時間包含掛起與閒置，僅記錄啟動器觀察到的程序執行時長。",
+    "Includes suspended and idle time; only process runtime observed by this launcher is recorded."
+  ],
+  "本地启动统计无法读取，已保留原文件；游戏仍可正常启动。": [
+    "本機啟動統計無法讀取，已保留原檔案；遊戲仍可正常啟動。",
+    "Local launch statistics could not be read. The original file was kept; the game can still launch."
+  ],
+  "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。": [
+    "無法儲存本機啟動統計；既有記錄未清空，遊戲仍可正常執行。",
+    "Local launch statistics could not be saved. Existing records were kept; the game can still run."
+  ],
+  "本地启动统计格式无效，已保留原文件。": [
+    "本機啟動統計格式無效，已保留原檔案。",
+    "Local launch statistics have an invalid format. The original file was kept."
+  ],
+  "本地启动统计无法读取，已保留原文件。": [
+    "本機啟動統計無法讀取，已保留原檔案。",
+    "Local launch statistics could not be read. The original file was kept."
+  ],
+  "本地启动统计日期无效，已保留原文件。": [
+    "本機啟動統計日期無效，已保留原檔案。",
+    "Local launch statistics have an invalid date. The original file was kept."
+  ],
+  "分析日志": ["分析日誌", "Analyze log"],
+  "日志分析": ["日誌分析", "Log analysis"],
+  "未匹配到已知线索": ["未符合已知線索", "No known clues matched"],
+  "发现 {0} 类线索": ["發現 {0} 類線索", "Found {0} types of clues"],
+  "仅分析已脱敏的日志片段。旧日志不一定属于本次启动，线索不代表已确认的崩溃原因。": [
+    "僅分析已遮蔽敏感資訊的日誌片段。舊日誌不一定屬於本次啟動，線索不代表已確認的當機原因。",
+    "Only the redacted log excerpt is analyzed. Older logs may belong to another launch; clues do not establish the cause of a crash."
+  ],
+  "日志较长，仅分析末尾片段；行号相对于当前显示的原始日志。": [
+    "日誌較長，僅分析結尾片段；行號相對於目前顯示的原始日誌。",
+    "Only the end of this long log is analyzed. Line numbers refer to the original excerpt currently displayed."
+  ],
+  "暂时无法判断。请查看完整日志和首个异常，或提供日志寻求帮助。": [
+    "暫時無法判斷。請查看完整日誌及第一個例外狀況，或提供日誌尋求協助。",
+    "No diagnosis is available. Check the full log and first exception, or share the log when seeking help."
+  ],
+  "错误线索": ["錯誤線索", "Error clue"],
+  "第 {0} 行": ["第 {0} 行", "Line {0}"],
+  "日志包含 Java 堆内存不足线索": [
+    "日誌包含 Java 堆積記憶體不足的線索",
+    "Java heap exhaustion appears in the log"
+  ],
+  "检查实例内存设置和可用系统内存；适当调整最大内存，并排查大型资源包或模组占用。不要直接分配全部内存。": [
+    "檢查實例的記憶體設定及系統可用記憶體；適當調整最大記憶體，並檢查大型資源包或模組的用量。請勿直接分配全部記憶體。",
+    "Check the instance memory settings and available system memory. Adjust the maximum appropriately and investigate large resource packs or mods. Do not allocate all system memory."
+  ],
+  "日志包含本机内存或线程不足线索": [
+    "日誌包含本機記憶體或執行緒不足的線索",
+    "Native memory or thread exhaustion appears in the log"
+  ],
+  "检查系统可用内存、进程和线程数量；过大的 Java 堆也会挤占本机内存，不要仅增大最大内存。": [
+    "檢查系統可用記憶體、處理程序及執行緒數量；過大的 Java 堆積也會擠占本機記憶體，請勿只增加最大記憶體。",
+    "Check available system memory and process/thread counts. An oversized Java heap can also exhaust native memory; increasing the maximum alone may make this worse."
+  ],
+  "日志包含 Java 字节码版本不匹配线索": [
+    "日誌包含 Java 位元碼版本不符的線索",
+    "A Java bytecode version mismatch appears in the log"
+  ],
+  "核对所选 Java 与游戏、加载器和模组的版本要求，使用兼容的 Java。不要仅按日志中的类名删除模组。": [
+    "核對所選 Java 與遊戲、載入器及模組的版本需求，使用相容的 Java。請勿僅依日誌中的類別名稱刪除模組。",
+    "Check the Java requirements of the game, loader and mods, and select a compatible Java. Do not remove mods based only on a class name in the log."
+  ],
+  "日志包含启动主类或文件缺失线索": [
+    "日誌包含啟動主類別或檔案遺失的線索",
+    "A missing launch class or file appears in the log"
+  ],
+  "检查实例版本配置、主类及依赖文件是否完整；可重新安装对应版本组件，先保留存档和配置。": [
+    "檢查實例版本設定、主類別及相依檔案是否完整；可重新安裝對應版本元件，請先保留存檔及設定。",
+    "Check that the instance version configuration, main class and dependency files are complete. Reinstall the relevant version components if needed, preserving worlds and configuration first."
+  ],
+  "日志包含类或本机库加载失败线索": [
+    "日誌包含類別或本機程式庫載入失敗的線索",
+    "A class or native library failed to load"
+  ],
+  "核对加载器、模组前置和本机库是否适配；查看相邻日志。部分可选功能也会记录此异常，不能据此确认崩溃原因。": [
+    "核對載入器、模組相依項目及本機程式庫是否相容，並查看相鄰日誌。部分選用功能也會記錄此例外狀況，無法據此確認當機原因。",
+    "Check loader, mod dependency and native library compatibility, and read nearby log lines. Optional features can also log this exception, so it does not establish the cause of a crash."
+  ],
+  "日志明确报告缺少模组依赖": [
+    "日誌明確回報缺少模組相依項目",
+    "The log explicitly reports missing mod dependencies"
+  ],
+  "按日志要求安装匹配游戏版本和加载器的前置模组，并核对版本范围；可先运行本地模组检查。": [
+    "依日誌要求安裝符合遊戲版本及載入器的前置模組，並核對版本範圍；可先執行本機模組檢查。",
+    "Install the dependencies requested by the log for the correct game version and loader, checking the required version ranges. Run the local mod check first if helpful."
+  ],
+  "日志包含 Mixin 应用失败线索": [
+    "日誌包含 Mixin 套用失敗的線索",
+    "A Mixin application failure appears in the log"
+  ],
+  "检查游戏、加载器及相关模组版本，并查看首个异常和相邻日志。可在副本中逐步排查；Mixin 类名不等于责任模组。": [
+    "檢查遊戲、載入器及相關模組版本，並查看第一個例外狀況及相鄰日誌。可在副本中逐步排查；Mixin 類別名稱不等於造成問題的模組。",
+    "Check the game, loader and related mod versions, then read the first exception and nearby lines. Investigate gradually in a copy; a Mixin class name does not identify a responsible mod."
+  ],
+  "版本已锁定": ["版本已鎖定", "Version locked"],
+  "锁定当前版本": ["鎖定目前版本", "Lock current version"],
+  "锁定版本": ["鎖定版本", "Lock version"],
+  "解锁版本": ["解除版本鎖定", "Unlock version"],
+  "自动更新将跳过此文件；替换前需先解锁。": [
+    "自動更新將跳過此檔案；替換前需先解除鎖定。",
+    "Updates skip this file. Unlock it before replacing its version."
+  ],
+  "此文件已锁定版本，检查更新时已跳过。": [
+    "此檔案已鎖定版本，檢查更新時已跳過。",
+    "This version is locked and was skipped during update checks."
+  ],
+  "资源版本已锁定，请先在资源列表中解锁：": [
+    "資源版本已鎖定，請先在資源清單中解除鎖定：",
+    "The resource version is locked. Unlock it in the resource list first: "
+  ],
+  "资源版本锁记录损坏，请检查实例目录中的记录文件。": [
+    "資源版本鎖定記錄損壞，請檢查實例目錄中的記錄檔。",
+    "The version lock record is invalid. Check the record file in the game directory."
+  ],
+  "只能锁定可校验的本地资源文件。": [
+    "只能鎖定可驗證的本機資源檔案。",
+    "Only verifiable local resource files can be locked."
+  ],
+  "请选择 1 至 128 项资源。": ["請選擇 1 至 128 項資源。", "Select 1 to 128 resources."],
   "清除已结束": ["清除已結束", "Clear finished"],
   "取消全部待完成任务": ["取消所有待完成任務", "Cancel pending tasks"],
   "进行中": ["進行中", "In progress"],
@@ -1197,13 +1563,12 @@ const catalog = <String, List<String>>{
   ],
   "已安装": ["已安裝", "Installed"],
   "配置需要处理": ["配置需要處理", "Configuration needs attention"],
-  "0.1.0 · 开发预览": ["0.1.0 · 開發預覽", "0.1.0 · Development preview"],
+  "0.5.0 · 测试版": ["0.5.0 · 測試版", "0.5.0 · Beta"],
   "Copyright © 2026 ppm203\n基于 M²CL 迁移与重写 · GPL-3.0-only + 第 7 节附加条款\n非官方项目，与 Mojang 或 Microsoft 无隶属或背书关系。":
       [
     "Copyright © 2026 ppm203\n基於 M²CL 遷移與重寫 · GPL-3.0-only + 第 7 節附加條款\n非官方項目，與 Mojang 或 Microsoft 無隸屬或背書關係。",
     "Copyright © 2026 ppm203\nMigrated and rewritten from M²CL · GPL-3.0-only with Section 7 additional terms\nUnofficial project. Not affiliated with or endorsed by Mojang or Microsoft.",
   ],
-  "开发预览 0.1.0": ["開發預覽 0.1.0", "Preview 0.1.0"],
   "{0}未完成{1}": ["{0}未完成{1}", "{0} failed{1}"],
   "操作失败": ["操作失敗", "Operation failed"],
   "关闭提示": ["關閉提示", "Dismiss"],
@@ -2667,6 +3032,132 @@ const catalog = <String, List<String>>{
   ],
 };
 const nativeMessages = <String>{
+  "无法导出截图，原图和已有目标文件均未更改。",
+  "正在导出截图",
+  "无法创建网络请求。",
+  "下载文件信息无效。",
+  "下载服务器的断点响应无效，请重试或更换下载源。",
+  "无法使用下载缓存。",
+  "另一个下载任务正在处理同一文件，请稍后重试。",
+  "下载目标必须是普通文件。",
+  "下载服务器的响应头无效。",
+  "下载地址无效。",
+  "无法写入下载暂存文件。",
+  "下载尚未完成，已保留断点，请重试。",
+  "截图",
+  "{0} 个文件",
+  "不包含启动器账号、共享 assets / libraries 或 Java。恢复仍需当前游戏根目录中的依赖；请保留这些文件。",
+  "不支持的实例备份操作。",
+  "共享游戏依赖不会从备份补齐。固定 Java 和外部封面会重置；自定义参数中的绝对路径请恢复后检查。",
+  "创建备份，或选择包含 .secl-backup 文件夹的目录。",
+  "创建实例备份",
+  "包含独立游戏目录、版本配置与客户端 JAR、实例设置、启动统计和资源版本锁。",
+  "备份位置包含过多条目，请选择更具体的目录。",
+  "备份包含大小写冲突的路径。",
+  "备份或新实例名称无效。",
+  "备份文件与清单不一致，未恢复任何实例。",
+  "备份文件校验失败，未恢复任何实例。",
+  "备份文件读取或写入失败。",
+  "源文件在操作期间发生变化，未发布结果，请关闭游戏后重试。",
+  "备份清单路径无效。",
+  "完整实例快照",
+  "实例备份",
+  "实例备份已完成",
+  "实例备份最多支持 100000 个条目和 64 GiB 文件。",
+  "实例备份格式或清单无效。",
+  "实例存在安装或更新操作，请结束后重试。",
+  "实例或备份包含符号链接或特殊文件，操作已停止。",
+  "实例正在运行，请退出游戏后备份或恢复。",
+  "已恢复为新的独立实例",
+  "必须使用新标识，不会覆盖原实例。",
+  "恢复为新实例",
+  "恢复位置",
+  "恢复必须使用不同的新实例标识。",
+  "新实例标识",
+  "无法创建备份暂存目录。",
+  "正在准备文件",
+  "正在复制并校验实例文件",
+  "正在完成实例恢复",
+  "正在读取备份位置",
+  "此实例使用共享游戏目录，请先改为独立目录再备份。",
+  "版本配置或客户端 JAR 缺失或无效。",
+  "目标已存在，请使用新的备份或实例名称。",
+  "磁盘空间不足，无法完成实例备份或恢复。",
+  "请先退出游戏。备份是带 SHA-256 清单的文件夹，不是 ZIP；模组配置和日志可能包含个人信息。",
+  "请选择实例游戏目录和版本目录以外的备份位置。",
+  "请选择有效的普通目录。",
+  "还没有实例备份",
+  "选择备份位置",
+  "截图管理",
+  "移除截图",
+  "截图已导出",
+  "{0} 张截图",
+  "尚无可显示的截图",
+  "仅显示此实例 screenshots 目录中的 PNG、JPEG 和 WebP 图片。",
+  "预览截图",
+  "打开原图",
+  "另存为",
+  "移到废纸篓",
+  "截图较多，本次最多扫描 4096 个目录项。",
+  "已跳过 {0} 项不支持、损坏或无法安全读取的文件。",
+  "图片无法显示，请刷新列表。",
+  "上一张",
+  "下一张",
+  "截图文件名无效。",
+  "截图已不存在或不是普通文件，请刷新列表。",
+  "截图不能跳出截图目录。",
+  "无法读取截图，请刷新列表。",
+  "截图格式无效、文件过大或图片尺寸超过支持范围。",
+  "截图已被外部修改，请刷新列表后重试。",
+  "截图分页参数无效。",
+  "截图目录不是文件夹。",
+  "截图目录尚不存在，拍摄截图后可在这里查看。",
+  "请先确认将截图移到系统废纸篓。",
+  "请选择有效的导出位置。",
+  "不支持的截图操作。",
+  "下载已暂停，可从下载任务中继续。",
+  "已暂停",
+  "下载控制失败，请重试。",
+  "再次下载时会尝试续传；服务器不支持时重新下载。",
+  "下载已完成，请刷新对应列表查看。",
+  "暂停下载",
+  "重试下载",
+  "继续下载",
+  "取消此任务",
+  "另一个启动器正在保存此实例的统计，稍后再试。",
+  "本地启动统计无法读取，已保留原文件；游戏仍可正常启动。",
+  "无法保存本地启动统计；已有记录未清空，游戏仍可正常运行。",
+  "本地启动统计格式无效，已保留原文件。",
+  "本地启动统计无法读取，已保留原文件。",
+  "本地启动统计日期无效，已保留原文件。",
+  "分析日志",
+  "日志分析",
+  "未匹配到已知线索",
+  "发现 {0} 类线索",
+  "仅分析已脱敏的日志片段。旧日志不一定属于本次启动，线索不代表已确认的崩溃原因。",
+  "日志较长，仅分析末尾片段；行号相对于当前显示的原始日志。",
+  "暂时无法判断。请查看完整日志和首个异常，或提供日志寻求帮助。",
+  "错误线索",
+  "第 {0} 行",
+  "日志包含 Java 堆内存不足线索",
+  "检查实例内存设置和可用系统内存；适当调整最大内存，并排查大型资源包或模组占用。不要直接分配全部内存。",
+  "日志包含本机内存或线程不足线索",
+  "检查系统可用内存、进程和线程数量；过大的 Java 堆也会挤占本机内存，不要仅增大最大内存。",
+  "日志包含 Java 字节码版本不匹配线索",
+  "核对所选 Java 与游戏、加载器和模组的版本要求，使用兼容的 Java。不要仅按日志中的类名删除模组。",
+  "日志包含启动主类或文件缺失线索",
+  "检查实例版本配置、主类及依赖文件是否完整；可重新安装对应版本组件，先保留存档和配置。",
+  "日志包含类或本机库加载失败线索",
+  "核对加载器、模组前置和本机库是否适配；查看相邻日志。部分可选功能也会记录此异常，不能据此确认崩溃原因。",
+  "日志明确报告缺少模组依赖",
+  "按日志要求安装匹配游戏版本和加载器的前置模组，并核对版本范围；可先运行本地模组检查。",
+  "日志包含 Mixin 应用失败线索",
+  "检查游戏、加载器及相关模组版本，并查看首个异常和相邻日志。可在副本中逐步排查；Mixin 类名不等于责任模组。",
+  "此文件已锁定版本，检查更新时已跳过。",
+  "资源版本已锁定，请先在资源列表中解锁：",
+  "资源版本锁记录损坏，请检查实例目录中的记录文件。",
+  "只能锁定可校验的本地资源文件。",
+  "请选择 1 至 128 项资源。",
   "CurseForge 作者声明不兼容：",
   "CurseForge 必需依赖未核实：",
   "请选择 Modrinth .mrpack 或 CurseForge .zip 整合包。",

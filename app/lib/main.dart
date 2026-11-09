@@ -192,6 +192,19 @@ class _LauncherHomeState extends State<LauncherHome> {
   void initState() {
     super.initState();
     resources = ResourceEngine(widget.core)..addListener(resourceChanged);
+    resources.onReplayed = (request, result) async {
+      if (!mounted) return;
+      final op = request['op'];
+      if (result is Map &&
+          (op == 'java.install' ||
+              op == 'game.install' ||
+              op == 'modpacks.apply')) {
+        await installed(op == 'java.install' ? 'java' : 'game',
+            Map<String, dynamic>.from(result));
+      } else {
+        await refreshInstance();
+      }
+    };
     unawaited(initialize());
     timer = Timer.periodic(const Duration(milliseconds: 700), (_) => poll());
   }

@@ -14,6 +14,7 @@ struct Task {
     Progress progress;
     Transport transport; // Native test seam; never populated from FFI requests.
     std::string source = "auto", time_zone, active_game_directory;
+    std::string download_cache_root; // Stable resumable artifact cache; empty uses application data.
     std::string game_cache_root; // Import preparation may reuse verified shared game files.
     std::vector<std::string> secrets;
     void check() const;
@@ -101,6 +102,8 @@ void remove_pack(const fs::path &game, const std::string &kind, const std::strin
 Json shader_support(const Json &instance);
 Json shader_support(const Json &instance, const Json &mods);
 Json worlds_command(const Json &, const Task &task = {});
+Json instance_backups_command(const Json &, const Task &task = {});
+Json screenshots_command(const Json &, const Task &task = {});
 Json instance_inventory(const Json &, const std::string &kind, bool fresh = false);
 Json enrich_mod_inventory(const Json &, const Task &task = {});
 Json instance_logs(const Json &, const Task &task = {});
@@ -117,6 +120,12 @@ Json check_resource_updates(const Json &, const std::string &kind, const std::st
                             const Task &task = {}, const Transport &transport = {});
 Json plan_resource_updates(const Json &report, const Json &selected, const Task &task = {});
 Json apply_resource_updates(const Json &plan, const Task &task = {});
+Json resource_locks(const Json &instance, const std::string &kind);
+void annotate_resource_locks(const Json &instance, const std::string &kind, Json &rows);
+Json set_resource_locks(const Json &instance, const std::string &kind, const Json &files, bool locked);
+void assert_resource_replacement_unlocked(const Json &, const std::string &kind, const Json &previous, const Json &next);
+void assert_mod_version_locks(const Json &instance, const Json &plan, bool include_optional = true);
+Json diagnose_log(const std::string &, bool truncated = false);
 Json select_dependencies(const Json &plan, const Json &selected,
                          const Json &redownload = Json::array(),
                          const Json &enable = Json::array());

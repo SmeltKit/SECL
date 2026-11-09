@@ -34,6 +34,7 @@ Operation groups are defined in `core/src/engine.cpp`:
 - `accounts.list`, `accounts.save` (metadata only), `platform`, `java.*`, `memory.*`, `instances.scan`, `settings.*`
 - `resource.*`, `mods.*`, `packs.*`, `shaders.support`, `quilt.*`
 - `game.*`, `loader.versions`, `optifine.*`
+- `instance.backups.*`, `screenshots.*`
 
 Install operations mutate the explicitly supplied target paths. The resource
 market frontend serializes engine requests and shows an instance picker and
@@ -60,8 +61,8 @@ the approved CDN hosts, with the host validated again after each redirect.
 
 Source modes: `auto`, `official`, `bmclapi`, `auto-mirror-first`,
 `auto-official-first`. Automatic mode prefers mirrors for Asia/Shanghai, official
-URLs elsewhere. Only supported endpoints have mirror mappings. Each candidate
-is attempted once; metadata and payload limits are bounded.
+URLs elsewhere. Only supported endpoints have mirror mappings. Candidate fallback, redirects and range-restart attempts are bounded; metadata and payload
+limits are bounded. Exhausted candidates return an error for explicit user retry.
 
 For smoke testing without credentials:
 
@@ -286,8 +287,9 @@ Override data is CRC-checked before publication.
 Verified pack downloads and unfinished game preparation are retained under hidden
 `.solar-mrpack/<archive-hash>/`. Successful imports remove the duplicate prepared
 game tree; subsequent imports reuse matching shared game caches. Retrying
-revalidates and reuses complete files;
-this is file-level reuse, not byte-range resumption of an incomplete download.
+revalidates and reuses complete files. Originally this was file-level reuse only; the
+2026-11-07 download layer also retains hash-bound partial bytes and supports validated HTTP
+Range resumption, as described below.
 OS-held locks release on process exit. An owned game-directory orphan left before
 metadata publication can be moved into retained recovery storage and reinstalled;
 unrelated existing directories are never adopted or deleted. Existing shared
@@ -325,3 +327,111 @@ Format references
 
 - [Modrinth .mrpack specification](https://support.modrinth.com/en/articles/8802351-modrinth-modpack-format-mrpack)
 - [CurseForge modpack ZIP format](https://support.curseforge.com/support/solutions/articles/9000198500-exporting-a-modpack-for-curseforge-project-submission)
+
+### Resource version locks and log hints
+
+`updates.lock`: `{instance, kind, files: [{filename, sha512, name?, version?}], locked}`
+stores or clears content-bound locks for `mod`, `shader`, or `resourcepack`. Files are rehashed
+before saving; stale snapshots fail. Locks apply to the shared game directory and identical content
+in that kind. `instance.inventory.items[].update_locked` exposes current state. `updates.check`
+returns `status: locked` without querying those hashes; planning and applying replacements
+re-read the policy. Same-build repairs and explicit enable/disable/removal remain available.
+
+`instance.logs[].diagnosis` contains `{status, scope: log_excerpt, truncated, line_count, findings}`.
+Each finding includes `code`, `severity`, `title`, `suggestion`, and `evidence: [{line, text}]`.
+Input is redacted before analysis. Findings are heuristic hints, not causal conclusions.
+
+Local version and instance scans now include `last_launch` (Unix seconds),
+`launch_count`, `runtime_seconds`, and optional `history_warning`. Statistics
+are stored separately from editable instance settings in `.solar-history.json`.
+A non-blocking OS file lock serializes incremental writes across launcher
+processes; busy checkpoints retain their unacknowledged increments for a later
+attempt. Runtime covers observed process-alive intervals, not active gameplay.
+
+
+### Local instance directory backups
+
+`instance.backups.list`: `{instance, directory?}` lists backup summaries in the selected
+storage directory, newest first. The default is `<instance.root>/.secl-instance-backups`.
+Only `.secl-backup` directories with a recognized manifest are treated as backups;
+invalid entries are returned with a problem rather than adopted as instances.
+
+`instance.backups.create`: `{instance, directory?}` creates a new `.secl-backup` **directory**.
+It is not a ZIP archive or a modpack export. The source game directory must be isolated from the
+shared game root. The operation checks active-game state and Java world locks, rejects links,
+special files and unsafe paths, stages the copy and validates source snapshots and SHA-256
+before publishing. Bounds are 100,000 entries and 64 GiB. `manifest.json` has
+`format: "secl-instance-backup"`, `schema: 1`, source metadata, directory entries and
+`files: [{path, size, sha256}]`. The payload retains instance game data and the resolved version
+profile/client/settings needed for a local copy. Known launcher account files, OS credentials,
+shared `assets`, `libraries`, Java/runtime directories and lock files are excluded.
+
+`instance.backups.restore`: `{backup, root, id, name?, instance?}` validates the complete
+manifest and payload before publishing `root/versions/<id>`. `id` must differ from the backup's
+source ID and must not already exist. Restore creates an isolated `game` directory, rebases the
+version configuration, and resets Java to automatic selection. It never overwrites the original
+instance or an existing target. Changed inputs, cancellation or failed validation stop publication.
+The result includes `id`, `name`, `path`, `root`, `game_directory`, `restored: true`, and
+`requires_shared_dependencies: true`. The current root must supply matching shared dependencies;
+this backup format is not a self-contained portable installation.
+
+### Instance screenshots
+
+`screenshots.list`: `{instance, offset?: 0, limit?: 36}` inspects only immediate entries in
+`instance.game_directory/screenshots`. PNG, JPEG and WebP require matching extensions, image
+signatures and bounded dimensions. Links, directories and unsupported/damaged files are skipped.
+A request scans at most 4096 directory entries, sorts recognized images by modification time
+(newest first), and returns at most 96 items per page. Each file is limited to 64 MiB, 16,384
+pixels per dimension and 40 megapixels. The response is
+`{items, total, offset, limit, has_more, scan_limited, skipped}`. An item is
+`{filename, path, width, height, format, size, modified, snapshot}`; `modified` is Unix seconds.
+No full image or Base64 payload crosses FFI. Flutter decodes the selected local file with bounded
+image-cache dimensions and a snapshot-bound key.
+
+`screenshots.inspect`: `{instance, file: {filename, snapshot}}` revalidates the selected file
+and returns its current item. `snapshot` binds canonical path, file identity, size, write time and
+change time. Open/export/removal verify this snapshot again, so an external deletion or same-name
+replacement invalidates the action even when size and mtime were restored. `screenshots.open`
+uses the same request to open the original with the OS; without `file`, it opens only the checked
+screenshots directory. It does not scan another folder, upload an image or invoke a shell command.
+
+`screenshots.export`: `{instance, file, path}` copies the selected image bytes to the user's
+absolute save-dialog destination; an existing destination is refused. `screenshots.remove`:
+`{instance, file, confirmed: true}` requires explicit confirmation and moves only that checked
+file to the system Trash. There is no permanent-delete fallback. The UI provides a gallery,
+large preview, previous/next controls, Left/Right keys and Escape to close; preview navigation is
+within the current bounded page.
+
+### Hash-bound download resumption
+
+`download()` keeps incomplete bytes under the application data directory's `download-cache-v1`.
+The cache identity binds the expected hash algorithm/value, optional secondary SHA-1 and declared
+size, rather than the target filename. Supported descriptors require a valid expected hash.
+The HTTP implementation streams bytes into the cache, requests `Range` for a retained prefix,
+and uses eligible `If-Range` validators for the same URL. Metadata stores a URL hash rather than
+the raw signed download URL. Each redirect is checked against the original source's allowlist.
+
+A `206` response must match the requested offset, representation length and declared file size.
+A `200` response replaces, rather than appends to, a retained prefix. A `416` can finish an already
+complete, hash-verified file; otherwise at most one clean restart is allowed for that candidate.
+Unexpected encodings, inconsistent ranges or invalid validators cannot publish a mixed file.
+The complete size and expected hash are checked before copying to target-side staging and again
+before commit. Existing targets remain intact on cancellation or verification failure. This
+behavior also underlies retrying interrupted modpack/game/resource downloads; higher-level
+archive and per-file bounds still apply.
+
+Cache entries are protected by OS locks. Maintenance skips in-use entries, removes entries idle
+for seven days and applies a soft 2 GiB total budget. A single payload is limited to 4 GiB; active
+entries can temporarily exceed the soft total. There is no infinite request loop: source
+candidates, redirects and restart attempts are bounded. The Dart download center records only
+current-session tasks. Restarting the application does not restore that task list or automatically
+resume installation; initiating the same hash-bound download again can reuse its retained bytes.
+
+
+The C ABI engine snapshot exposes `operation_committed` for successful mutating
+install, backup/restore and screenshot/world file operations. It is reset when an
+engine operation starts and set only after the operation returns successfully.
+A late cancel does not relabel that committed result as cancelled. A provisional
+path is not evidence of completion. Download-task retries replay a frozen reviewed
+request; native plan and target validations still run again. A concurrent game exit
+remains a launch error and does not turn a completed download into a failed task.

@@ -93,6 +93,19 @@ class InstanceResources extends StatefulWidget {
 
 class _InstanceResourcesState extends State<InstanceResources>
     with ManagedState<InstanceResources> {
+  int _replayRevision = 0;
+  void _downloadReplayed() {
+    if (_replayRevision == engine.replayRevision) return;
+    _replayRevision = engine.replayRevision;
+    if (mounted && !loading) load();
+  }
+
+  @override
+  void dispose() {
+    engine.removeListener(_downloadReplayed);
+    super.dispose();
+  }
+
   @override
   ResourceEngine get engine => widget.engine;
   List<Data> rows = [];
@@ -115,6 +128,8 @@ class _InstanceResourcesState extends State<InstanceResources>
   @override
   void initState() {
     super.initState();
+    _replayRevision = engine.replayRevision;
+    engine.addListener(_downloadReplayed);
     load();
   }
 
@@ -268,8 +283,27 @@ class _InstanceResourcesState extends State<InstanceResources>
                           child: Text(tr('完成')))
                     ]));
       });
+  Future<void> lockVersions(List<Data> choices, bool value) =>
+      perform(() async {
+        await rpc({
+          'op': 'updates.lock',
+          'instance': widget.instance,
+          'kind': widget.kind,
+          'files': choices
+              .map((row) => {
+                    'filename': row['filename'],
+                    'sha512': row['sha512'],
+                    'name': row['name'] ?? row['filename'],
+                    'version': row['version'] ?? ''
+                  })
+              .toList(),
+          'locked': value
+        });
+        await read();
+      });
   void menu(String action, Data row) {
     final name = row['filename'] as String;
+    if (action == 'lock') lockVersions([row], row['update_locked'] != true);
     if (action == 'enable') enable(row['enabled'] != true, [name]);
     if (action == 'remove') remove([name]);
     if (action == 'find') {
@@ -500,6 +534,27 @@ class _InstanceResourcesState extends State<InstanceResources>
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600)),
+                                        if (row['update_locked'] == true) ...[
+                                          const SizedBox(height: 5),
+                                          Tooltip(
+                                              message:
+                                                  tr('自动更新将跳过此文件；替换前需先解锁。'),
+                                              child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                        Icons
+                                                            .lock_outline_rounded,
+                                                        size: 13,
+                                                        color: muted),
+                                                    const SizedBox(width: 4),
+                                                    Text(tr('版本已锁定'),
+                                                        style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: muted))
+                                                  ])),
+                                        ],
                                         const SizedBox(height: 5),
                                         Text(
                                             mods
@@ -554,11 +609,30 @@ class _InstanceResourcesState extends State<InstanceResources>
                                   : (v) =>
                                       enable(v, [row['filename'] as String])),
                         PopupMenuButton<String>(
+                            key: ValueKey('resource-menu-${row['filename']}'),
+                            enabled: !locked,
                             tooltip: tr('更多操作'),
                             padding: EdgeInsets.zero,
                             icon: const Icon(Icons.more_horiz_rounded),
                             onSelected: (v) => menu(v, row),
                             itemBuilder: (_) => [
+                                  if ((row['sha512'] as String? ?? '')
+                                      .isNotEmpty)
+                                    PopupMenuItem(
+                                        value: 'lock',
+                                        child: Row(children: [
+                                          Icon(
+                                              row['update_locked'] == true
+                                                  ? Icons.lock_open_rounded
+                                                  : Icons.lock_outline_rounded,
+                                              size: 17),
+                                          const SizedBox(width: 10),
+                                          Flexible(
+                                              child: Text(tr(
+                                                  row['update_locked'] == true
+                                                      ? '解锁版本'
+                                                      : '锁定当前版本')))
+                                        ])),
                                   if (mods) ...[
                                     PopupMenuItem(
                                         value: 'find',
@@ -622,6 +696,29 @@ class _InstanceResourcesState extends State<InstanceResources>
                           icon:
                               const Icon(Icons.check_circle_outline, size: 17),
                           label: Text(tr('启用'))),
+                      OutlinedButton.icon(
+                          onPressed: locked
+                              ? null
+                              : () => lockVersions(
+                                  rows
+                                      .where((r) =>
+                                          selected.contains(r['filename']))
+                                      .toList(),
+                                  true),
+                          icon:
+                              const Icon(Icons.lock_outline_rounded, size: 17),
+                          label: Text(tr('锁定版本'))),
+                      OutlinedButton.icon(
+                          onPressed: locked
+                              ? null
+                              : () => lockVersions(
+                                  rows
+                                      .where((r) =>
+                                          selected.contains(r['filename']))
+                                      .toList(),
+                                  false),
+                          icon: const Icon(Icons.lock_open_rounded, size: 17),
+                          label: Text(tr('解锁版本'))),
                       TextButton.icon(
                           onPressed:
                               locked ? null : () => remove(selected.toList()),

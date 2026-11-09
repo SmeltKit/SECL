@@ -191,7 +191,7 @@ class SettingsPage extends StatelessWidget {
                               spacing: 16,
                               runSpacing: 8,
                               children: [
-                                Text(tr('0.1.0 · 开发预览'),
+                                Text(tr('0.5.0 · 测试版'),
                                     style:
                                         TextStyle(fontSize: 12, color: muted)),
                                 TextButton.icon(

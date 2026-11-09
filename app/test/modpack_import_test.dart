@@ -570,7 +570,8 @@ void main() {
     await t.tap(find.text('重试'));
     await t.pumpAndSettle();
     expect(core.operations('modpacks.apply'), hasLength(2));
-    expect(core.operations('modpacks.apply').last['plan'], same(first));
+    // The queued request is frozen; the reviewed plan remains identical in value.
+    expect(core.operations('modpacks.apply').last['plan'], equals(first));
     expect(core.operations('modpacks.plan'), hasLength(1));
     expect(completed, 1);
     expect(t.takeException(), isNull);
@@ -597,7 +598,8 @@ void main() {
     await t.tap(find.byKey(const Key('confirmModpackImport')));
     await t.pumpAndSettle();
     expect(core.operations('modpacks.apply'), hasLength(2));
-    expect(core.operations('modpacks.apply').last['plan'], same(first));
+    // The queued request is frozen; the reviewed plan remains identical in value.
+    expect(core.operations('modpacks.apply').last['plan'], equals(first));
     expect(completed, isTrue);
     expect(find.byType(ModpackImportDialog), findsNothing);
     expect(t.takeException(), isNull);

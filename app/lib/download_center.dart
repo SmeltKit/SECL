@@ -115,8 +115,11 @@ class _DownloadCenterState extends State<DownloadCenter> {
     } on EngineFailure catch (e) {
       if (mounted) {
         setState(() {
-          if (e.details['code'] == 'cancelled') {
-            notice = tr('操作已取消');
+          if (e.details['code'] == 'cancelled' ||
+              e.details['code'] == 'paused') {
+            notice = e.details['code'] == 'paused'
+                ? tr('下载已暂停，可从下载任务中继续。')
+                : tr('操作已取消');
           } else {
             problem = e.details;
           }

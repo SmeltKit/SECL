@@ -667,6 +667,7 @@ Json plan_mod_installs(const Json &instance, const Json &roots, const Task &task
                 throw Error("mods", "managed_optifine", "请先在版本组件中移除 OptiFine，再安装 Iris / Sodium。");
             throw Error("dependencies", "version_conflict", "所选更新之间存在作者声明的不兼容关系。");
         }
+    assert_mod_version_locks(instance, plan, false);
     return plan;
 }
 Json select_dependencies(const Json &original, const Json &selected, const Json &redownload,
@@ -726,6 +727,7 @@ Json apply_mod_plan(const Json &plan, const Task &task, const Transport &transpo
             !contains(plan.value("disable_files", Json::array()), conflict.value("filename", "")))
             throw Error("mods", "unresolved_conflict", "请先确认停用作者声明不兼容的组件。");
     auto i = plan.at("target");
+    assert_mod_version_locks(i, plan);
     auto managed=i.value("optifine",Json::object()).value("modFile","");
     for(auto &name:plan.value("disable_files",Json::array()))
         if(!managed.empty() && (name==managed || name==managed+".disabled"))
@@ -799,6 +801,7 @@ Json apply_mod_plan(const Json &plan, const Task &task, const Transport &transpo
         if (!check["errors"].empty())
             throw Error("mods", "conflict", check["errors"].dump());
         task.check(); verify_inventory();
+        assert_mod_version_locks(i, reviewed_graph);
         if (mod_inventory(game) != plan.value("original_manifest", Json::object()))
             throw Error("mods", "manifest_changed", "模组索引发生变化，请重新确认。");
         auto manifest = plan.value("original_manifest", Json::object());

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'app_widgets.dart';
 import 'appearance.dart';
 import 'localization.dart';
+import 'launcher_icons.dart';
 
 /// The home screen is one continuous scene. Controls sit over its quiet lower
 /// edge instead of putting the artwork inside another bordered panel.
@@ -184,8 +185,8 @@ class HomeScene extends StatelessWidget {
                                 SizedBox(
                                     width: summaryWidth,
                                     child: Wrap(
-                                        spacing: 6,
-                                        runSpacing: 4,
+                                        spacing: 8,
+                                        runSpacing: 8,
                                         children: [
                                           if (onManage != null)
                                             _sceneAction(tr('管理实例'),
@@ -201,7 +202,7 @@ class HomeScene extends StatelessWidget {
                                         ])),
                                 const SizedBox(height: 18),
                                 Row(children: [
-                                  Icon(Icons.coffee_outlined,
+                                  LauncherIcon(LauncherIconKind.java,
                                       size: 20, color: muted),
                                   const SizedBox(width: 10),
                                   Expanded(child: javaSelector),
@@ -282,17 +283,53 @@ class HomeScene extends StatelessWidget {
   }
 
   Widget _sceneAction(String label, IconData icon, VoidCallback? onPressed,
-          {Key? key}) =>
-      TextButton.icon(
-          key: key,
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-              foregroundColor: ink,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              textStyle:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-          icon: Icon(icon, size: 18),
-          label: Text(label));
+      {Key? key}) {
+    final dark = AppAppearance.instance.dark;
+    final surface = dark
+        ? const Color(0xff263242).withOpacity(.78)
+        : Colors.white.withOpacity(.76);
+    return OutlinedButton.icon(
+        key: key,
+        onPressed: onPressed,
+        style: ButtonStyle(
+            minimumSize: MaterialStateProperty.all(const Size(0, 42)),
+            padding: MaterialStateProperty.all(
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 11)),
+            shape: MaterialStateProperty.all(RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10))),
+            textStyle: MaterialStateProperty.all(const TextStyle(
+                fontSize: 13, height: 1.4, fontWeight: FontWeight.w500)),
+            foregroundColor: MaterialStateProperty.resolveWith((states) =>
+                states.contains(MaterialState.disabled)
+                    ? muted.withOpacity(.65)
+                    : ink),
+            backgroundColor: MaterialStateProperty.resolveWith((states) {
+              if (states.contains(MaterialState.disabled)) {
+                return surface.withOpacity(dark ? .35 : .45);
+              }
+              if (states.contains(MaterialState.pressed)) {
+                return Color.alphaBlend(accent.withOpacity(.22), surface);
+              }
+              if (states.contains(MaterialState.hovered) ||
+                  states.contains(MaterialState.focused)) {
+                return Color.alphaBlend(accent.withOpacity(.12), surface);
+              }
+              return surface;
+            }),
+            side: MaterialStateProperty.resolveWith((states) => BorderSide(
+                color: states.contains(MaterialState.disabled)
+                    ? line.withOpacity(.45)
+                    : states.contains(MaterialState.hovered) ||
+                            states.contains(MaterialState.focused)
+                        ? accent.withOpacity(.65)
+                        : dark
+                            ? Colors.white.withOpacity(.22)
+                            : ink.withOpacity(.18))),
+            overlayColor: MaterialStateProperty.all(Colors.transparent),
+            animationDuration: const Duration(milliseconds: 120)),
+        icon: Icon(icon, size: 18),
+        label: Text(label));
+  }
 
   Widget _utilityButton(
           {Key? key,

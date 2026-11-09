@@ -1,5 +1,6 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 import 'dart:async';
+import 'dart:convert';
 import 'localization.dart';
 import 'package:flutter/foundation.dart';
 import 'core_bridge.dart';
@@ -17,37 +18,104 @@ class ResourceEngine extends ChangeNotifier {
   Future<void> _tail = Future.value();
   Future<void>? _cancellation;
   bool active = false, _disposed = false, _cancelled = false;
-  int _epoch = 0;
+  int _epoch = 0, _nextId = 0, replayRevision = 0;
   String label = '';
   final List<Map<String, dynamic>> history = [];
+  final _requests = <int, Map<String, dynamic>>{};
+  final _pending = <int>{};
+  Map<String, dynamic>? _current;
+  Future<void> Function(Map<String, dynamic>, dynamic)? onReplayed;
+
   void clearFinished() {
-    history.removeWhere(
-        (t) => t["status"] != "running" && t["status"] != "queued");
+    history.removeWhere((t) {
+      final remove =
+          ['complete', 'failed', 'cancelled'].contains(t['status']) &&
+              !_pending.contains(t['id']);
+      if (remove) _requests.remove(t['id']);
+      return remove;
+    });
     update();
   }
 
-  /// Only actual installation work belongs in the downloads UI. Queries and
-  /// scans still use the same serialized worker, without becoming downloads.
+  /// History is session-local. Partial artifact bytes live in the native cache,
+  /// so a user can reissue the same download after restarting the application.
   List<Map<String, dynamic>> get downloadHistory => history;
   int get activeDownloadCount => history
-      .where(
-          (task) => task['status'] == 'running' || task['status'] == 'queued')
+      .where((t) => t['status'] == 'running' || t['status'] == 'queued')
       .length;
-  Map<String, dynamic>? get currentDownload {
-    for (final task in history) {
-      if (task['status'] == 'running') return task;
-    }
-    return null;
-  }
-
+  Map<String, dynamic>? get currentDownload =>
+      _current ?? history.where((t) => t['status'] == 'running').firstOrNull;
   String get activeDownloadTitle => currentDownload?['title'] as String? ?? '';
-
   Map<String, dynamic> progress = {};
   void update() {
     if (!_disposed) notifyListeners();
   }
 
-  // Authentication and engine operations use the same native worker.
+  bool canResume(Map<String, dynamic> task) =>
+      !_disposed &&
+      _requests.containsKey(task['id']) &&
+      !_pending.contains(task['id']) &&
+      ['paused', 'cancelled', 'failed'].contains(task['status']);
+  bool canPause(Map<String, dynamic> task) =>
+      !_disposed &&
+      identical(task, _current) &&
+      task['status'] == 'running' &&
+      task['stop_requested'] == null;
+  bool canCancel(Map<String, dynamic> task) =>
+      !_disposed &&
+      _requests.containsKey(task['id']) &&
+      ['queued', 'running', 'paused'].contains(task['status']) &&
+      task['stop_requested'] == null;
+
+  Future<void> _stop(Map<String, dynamic> task, String mode) async {
+    if (mode == 'pause' ? !canPause(task) : !canCancel(task)) return;
+    task['stop_requested'] = mode;
+    if (task['status'] == 'queued' || task['status'] == 'paused') {
+      task['status'] = 'cancelled';
+    }
+    update();
+    if (identical(task, _current)) {
+      Future<void>? pending;
+      try {
+        pending = _cancellation ??=
+            core.call({'action': 'cancel'}).then<void>((_) {});
+        await pending;
+      } catch (_) {
+        if (identical(_cancellation, pending)) _cancellation = null;
+        task.remove('stop_requested');
+        update();
+        rethrow;
+      }
+    }
+  }
+
+  Future<void> pauseDownload(Map<String, dynamic> task) => _stop(task, 'pause');
+  Future<void> cancelDownload(Map<String, dynamic> task) =>
+      _stop(task, 'cancel');
+
+  Future<dynamic> resumeDownload(Map<String, dynamic> task) async {
+    if (!canResume(task)) return null;
+    final request = _requests[task['id']]!;
+    task['status'] = 'queued';
+    task.remove('stop_requested');
+    task.remove('error');
+    task.remove('refresh_warning');
+    update();
+    final result =
+        await _enqueue(request, task['label'] as String? ?? '下载', task, _epoch);
+    replayRevision++;
+    update();
+    try {
+      await onReplayed?.call(request, result);
+    } catch (_) {
+      // A refresh failing after a committed install must never invite another
+      // replacement of files which have already been installed successfully.
+      task['refresh_warning'] = true;
+      update();
+    }
+    return result;
+  }
+
   Future<T> queueCoreCommand<T>(Future<T> Function() command) {
     final result = _tail.then((_) => command());
     _tail = result.then<void>((_) {}, onError: (Object _, StackTrace __) {});
@@ -55,30 +123,52 @@ class ResourceEngine extends ChangeNotifier {
   }
 
   Future<dynamic> run(Map<String, dynamic> request, {String title = '正在加载'}) {
-    final epoch = _epoch;
     final record = _downloadRecord(request, title);
     if (record != null) {
+      final id = ++_nextId;
+      // Freeze the reviewed request. UI selections may change while it waits.
+      request =
+          Map<String, dynamic>.from(jsonDecode(jsonEncode(request)) as Map);
+      _requests[id] = request;
+      record['id'] = id;
+      record['label'] = title;
       history.insert(0, record);
       if (history.length > 50) {
-        final finished = history.lastIndexWhere((task) =>
-            task['status'] != 'running' && task['status'] != 'queued');
-        if (finished >= 0) history.removeAt(finished);
+        final old = history.lastIndexWhere((t) =>
+            ['complete', 'failed', 'cancelled'].contains(t['status']) &&
+            !_pending.contains(t['id']));
+        if (old >= 0) _requests.remove(history.removeAt(old)['id']);
       }
       scheduleMicrotask(update);
     }
+    return _enqueue(request, title, record, _epoch);
+  }
+
+  bool _committed(Map<String, dynamic> request, dynamic result) =>
+      request['op'] == 'modpacks.apply' &&
+      result is Map &&
+      result['committed'] == true;
+
+  Future<dynamic> _enqueue(Map<String, dynamic> request, String title,
+      Map<String, dynamic>? record, int epoch) {
+    final id = record?['id'];
+    if (id is int) _pending.add(id);
     return queueCoreCommand(() async {
-      if (_disposed || epoch != _epoch) {
-        record?["status"] = "cancelled";
-        update();
-        throw const EngineFailure({'code': 'cancelled', 'message': "操作已取消"});
-      }
-      record?["status"] = "running";
-      active = true;
-      _cancelled = false;
-      label = title;
-      progress = {};
-      update();
+      var started = false;
       try {
+        if (_disposed ||
+            epoch != _epoch ||
+            record?['stop_requested'] == 'cancel') {
+          throw const EngineFailure({'code': 'cancelled', 'message': '操作已取消'});
+        }
+        record?['status'] = 'running';
+        active = true;
+        started = true;
+        _current = record;
+        _cancelled = false;
+        label = title;
+        progress = {};
+        update();
         var snapshot =
             await core.call({'action': 'engine', 'request': request});
         while (snapshot['busy'] == true) {
@@ -95,27 +185,40 @@ class ResourceEngine extends ChangeNotifier {
               Map<String, dynamic>.from(snapshot['progress'] as Map);
         }
         final result = snapshot['result'];
-        final committedImport = request['op'] == 'modpacks.apply' &&
-            snapshot['error'] == null &&
-            result is Map &&
-            result['committed'] == true &&
-            result['id'] is String &&
-            result['root'] is String &&
-            result['modpack'] is Map;
-        if (_cancelled && !committedImport) {
-          throw const EngineFailure({'code': 'cancelled', 'message': "操作已取消"});
+        final error = snapshot['error'] is Map
+            ? Map<String, dynamic>.from(snapshot['error'] as Map)
+            : null;
+        // Native polling also observes the game. Its exit error belongs to the
+        // launch UI and must not mislabel a concurrent successful download.
+        final gameExit = error?['stage'] == 'launch' &&
+            (error?['code'] as String? ?? '').startsWith('game_exit_');
+        final committed = (error == null || gameExit) &&
+            (snapshot['operation_committed'] == true ||
+                _committed(request, result));
+        final stop = record?['stop_requested'];
+        if (!committed && (_cancelled || stop == 'pause' || stop == 'cancel')) {
+          throw EngineFailure(stop == 'pause'
+              ? {'code': 'paused', 'message': '下载已暂停，可从下载任务中继续。'}
+              : {'code': 'cancelled', 'message': '操作已取消'});
         }
-        if (snapshot['error'] is Map) {
-          final error = Map<String, dynamic>.from(snapshot['error'] as Map);
+        if (error != null && !gameExit) {
           await core.call({'action': 'clear_error'});
           throw EngineFailure(error);
         }
         record?['status'] = 'complete';
+        record?.remove('stop_requested');
         return result;
       } catch (e) {
-        record?['status'] = _cancelled ? 'cancelled' : 'failed';
+        final code = e is EngineFailure ? e.details['code'] : '';
+        record?['status'] = code == 'paused'
+            ? 'paused'
+            : code == 'cancelled' || _cancelled
+                ? 'cancelled'
+                : 'failed';
         if (e is EngineFailure) {
-          record?['error'] = e.details;
+          if (code != 'paused' && code != 'cancelled') {
+            record?['error'] = e.details;
+          }
           rethrow;
         }
         record?['error'] = {
@@ -123,18 +226,21 @@ class ResourceEngine extends ChangeNotifier {
           'message': '无法读取 C++ 核心返回的结果。'
         };
         throw const EngineFailure(
-            {'code': 'core_unavailable', 'message': "无法读取 C++ 核心返回的结果。"});
+            {'code': 'core_unavailable', 'message': '无法读取 C++ 核心返回的结果。'});
       } finally {
-        if (_cancellation != null) {
+        if (started && _cancellation != null) {
           try {
             await _cancellation;
-          } catch (_) {
-            // The cancel caller handles bridge errors.
-          }
+          } catch (_) {/* reported by the stop caller */}
           _cancellation = null;
         }
-        active = false;
-        progress = {};
+        if (id is int) _pending.remove(id);
+        record?.remove('stop_requested');
+        if (started) {
+          active = false;
+          _current = null;
+          progress = {};
+        }
         update();
       }
     });
