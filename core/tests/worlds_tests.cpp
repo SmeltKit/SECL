@@ -24,7 +24,16 @@ int main(){auto root=fs::temp_directory_path()/("secl-worlds-test-"+random_url_t
  fs::create_directories(root/"game/saves/fixture");fs::create_directories(root/"other");auto game=root/"game",folder=game/"saves/fixture";
  Json instance={{"game_directory",game.u8string()},{"version","1.20.1"}},other={{"game_directory",(root/"other").u8string()},{"version","1.21"}};
  auto call=[&](const std::string&op,Json extra=Json::object(),const Task&t=Task{}){extra["op"]="worlds."+op;extra["instance"]=instance;return dispatch(extra,t);};
- auto data=metadata();auto gz=gzopen((folder/"level.dat").c_str(),"wb");gzwrite(gz,data.data(),data.size());gzclose(gz);
+ const auto data = metadata();
+ const auto level = folder / "level.dat";
+#ifdef _WIN32
+ auto gz = gzopen_w(level.c_str(), "wb");
+#else
+ auto gz = gzopen(level.c_str(), "wb");
+#endif
+ check(gz != nullptr, "open gzip world metadata fixture");
+ gzwrite(gz, data.data(), static_cast<unsigned>(data.size()));
+ gzclose(gz);
  atomic_write(folder/"region/r.0.0.mca",std::string(3*1024*1024,'x'));atomic_write(folder/"session.lock","lock");
  auto rows=call("list");check(rows.size()==1,"list one world");auto row=rows[0];check(row["name"]=="测试世界 · Test world","gzip NBT world name");check(row["version"]=="1.20.1" && row["mode"]==1 && row["last_played"]==1793700000000ULL,"NBT metadata");check(row["size"].get<uint64_t>()>3*1024*1024,"folder size");
  atomic_write(game/"saves/emoji/level.dat",compound("",compound("Data",str("LevelName",std::string("Emoji ")+"\xED\xA0\xBD\xED\xB8\x80"))));

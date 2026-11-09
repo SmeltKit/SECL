@@ -341,7 +341,7 @@ int main() {
             service.versions["b1"] = version("b1", "b");
             auto plan = plan_mod_install(instance(folder), service.file("b1"), {}, service.transport());
             check(plan["graph_conflicts"].empty(), "reviewed graph initially has no declaration conflict");
-            service.versions["a1"]["dependencies"] = {edge("b", "incompatible")};
+            service.versions["a1"]["dependencies"] = Json::array({edge("b", "incompatible")});
             rejects([&] { apply_mod_plan(plan, {}, service.transport()); }, "unresolved_conflict");
             check(!fs::exists(folder / "mods/b1.jar"), "fresh changed website declarations are checked before download or mutation");
         }
