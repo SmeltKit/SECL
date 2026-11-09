@@ -323,14 +323,17 @@ int main(int argc, char **argv) {
         check(fixture.network.count(optional_url) == 0 && fixture.network.count(server_url) == 0, "excluded files never downloaded");
         check(read_file(fixture.version() / (fixture.id + ".jar")) == "tiny Minecraft client fixture", "real game installation publishes client");
         auto metadata = read_json(fixture.version() / (fixture.id + ".json"));
-        check(metadata["id"] == fixture.id && metadata["_solarGameDirectory"] == fixture.game().u8string(), "published metadata uses final paths");
+        const auto installed_game = fs::u8path(metadata.at("_solarGameDirectory").get<std::string>());
+        check(metadata["id"] == fixture.id && installed_game.is_absolute() && fs::equivalent(installed_game, fixture.game()),
+            "published metadata uses final paths");
         check(metadata.dump().find(".solar-mrpack") == std::string::npos && result["java"].dump().find(".solar-mrpack") == std::string::npos,
             "published metadata and Java contain no hidden staging paths");
         check(result["checks"]["errors"].empty() && result["modpack"]["archive_sha512"] == plan["archive_sha512"], "compatibility check and receipt returned");
         auto scan = scan_instances({fixture.root});
         check(scan["instances"].size() == 1 && scan["warnings"].empty(), "only completed instance is discoverable");
+        const auto scanned_game = fs::u8path(scan["instances"][0]["game_directory"].get<std::string>());
         check(scan["instances"][0]["name"] == "Displayed fixture name" && scan["instances"][0]["isolated"] == true &&
-            scan["instances"][0]["game_directory"] == fixture.game().u8string(), "display name and isolation survive scanning");
+            scanned_game.is_absolute() && fs::equivalent(scanned_game, fixture.game()), "display name and isolation survive scanning");
         check(read_json(fixture.game() / ".solar-modpack.json")["selected_optional_files"].empty(), "receipt records optional choice");
     });
     run("selected optional file and Fabric loader integration", [] {

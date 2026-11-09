@@ -436,7 +436,8 @@ int main(int argc, char **argv) {
         account["type"] = "offline";
         rejects([&] { save_accounts(temp / "accounts", Json::array({account}), ""); });
         SecretRedactor redactor({"SECRET_TOKEN"});
-        auto text = redactor.append("prefix SECRET_") + redactor.append("TOKEN suffix", true);
+        auto text = redactor.append("prefix SECRET_");
+        text += redactor.append("TOKEN suffix", true);
         check(text == "prefix [REDACTED] suffix", "streaming split-token redaction");
         GameLogDecoder decoder;
         auto log = decoder.append("<log4j:Event thread=\"main\" "
@@ -485,7 +486,9 @@ int main(int argc, char **argv) {
               "verified launch argument expansion fixture");
         check(normalize_java_version("1.8.0_482-b08") == "8.0.482+8", "legacy Java 8 build normalization");
         check(normalize_java_version("17.0.17+10-LTS") == "17.0.17+10", "modern Java build normalization");
-        check(command.log_file==fs::weakly_canonical(game/".solar-launch.log"),"launch captures output in per-instance log");
+        check(command.log_file.filename() == ".solar-launch.log" &&
+                  fs::equivalent(command.log_file.parent_path(), game),
+              "launch captures output in per-instance log");
         atomic_write(game/"logs/latest.log","hello TEST_ONLY_NOT_A_REAL_TOKEN world");
         Task log_task;log_task.secrets={identity.token};
         auto logs=instance_logs({{"game_directory",game.u8string()}},log_task);
@@ -504,7 +507,10 @@ int main(int argc, char **argv) {
         auto custom=vm;custom["_solarGameDirectory"]=(game/"instances/test").u8string();
         atomic_write(record,custom.dump());
         auto custom_scan=scan_instances({game});
-        check(custom_scan["instances"][0]["isolated"]==true && fs::path(custom_scan["instances"][0]["game_directory"].get<std::string>())==game/"instances/test","saving isolation keeps installer-created game directory");
+        const auto &custom_instance = custom_scan["instances"][0];
+        check(custom_instance["isolated"] == true &&
+                  fs::u8path(custom_instance["game_directory"].get<std::string>()) == game / "instances/test",
+              "saving isolation keeps installer-created game directory");
         atomic_write(record,vm.dump());
         auto before_install = read_file(record);
         rejects([&] { install_game({{"root", game.u8string()}, {"id", "test"},
