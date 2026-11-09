@@ -105,18 +105,18 @@ int main() {
         fs::create_directories(temp);
         {
             Service service;
-            service.versions["a1"] = version("a1", "a", {edge("b", "required"), edge("", "incompatible", "c1")});
-            service.versions["b1"] = version("b1", "b", {edge("c", "required")});
+            service.versions["a1"] = version("a1", "a", Json::array({edge("b", "required"), edge("", "incompatible", "c1")}));
+            service.versions["b1"] = version("b1", "b", Json::array({edge("c", "required")}));
             service.versions["c1"] = version("c1", "c");
             rejects([&] { plan_mod_install(instance(temp / "transitive"), service.file("a1"), {}, service.transport()); }, "version_conflict");
             check(service.calls == 2, "transitive version-only conflict checks newly chosen dependencies without retries");
         }
         {
             Service service;
-            service.versions["a1"] = version("a1", "a", {edge("shared", "optional")});
-            service.versions["b1"] = version("b1", "b", {edge("shared", "required")});
-            service.versions["shared1"] = version("shared1", "shared", {edge("child", "required")});
-            service.versions["child1"] = version("child1", "child", {edge("leaf", "optional")});
+            service.versions["a1"] = version("a1", "a", Json::array({edge("shared", "optional")}));
+            service.versions["b1"] = version("b1", "b", Json::array({edge("shared", "required")}));
+            service.versions["shared1"] = version("shared1", "shared", Json::array({edge("child", "required")}));
+            service.versions["child1"] = version("child1", "child", Json::array({edge("leaf", "optional")}));
             service.versions["leaf1"] = version("leaf1", "leaf");
             auto candidate = [](const Json &graph, const std::string &project) {
                 for (const auto &file : graph.at("files"))
@@ -144,7 +144,7 @@ int main() {
             }
             service.versions["child1"]["dependencies"] = Json::array({edge("leaf", "optional")});
             const auto folder = temp / "promotion-reuse";
-            install_fixture(folder, service, "shared1", "shared", {edge("child", "required")});
+            install_fixture(folder, service, "shared1", "shared", Json::array({edge("child", "required")}));
             auto graph = plan_mod_installs(instance(folder), Json::array({service.file("a1"), service.file("b1")}), {}, "", service.transport());
             check(!candidate(graph, "shared").value("optional", true) &&
                   !candidate(graph, "child").value("optional", true),
@@ -152,9 +152,9 @@ int main() {
         }
         {
             Service service;
-            service.versions["a1"] = version("a1", "a", {edge("b", "optional")});
-            service.versions["b1"] = version("b1", "b", {edge("c", "required")});
-            service.versions["c1"] = version("c1", "c", {edge("a", "incompatible")});
+            service.versions["a1"] = version("a1", "a", Json::array({edge("b", "optional")}));
+            service.versions["b1"] = version("b1", "b", Json::array({edge("c", "required")}));
+            service.versions["c1"] = version("c1", "c", Json::array({edge("a", "incompatible")}));
             auto plan = plan_mod_install(instance(temp / "optional"), service.file("a1"), {}, service.transport());
             check(plan["graph_conflicts"].size() == 1, "optional conflicting branch remains reviewable");
             check(plan["graph_conflicts"][0].value("optional", false), "optional transitive conflict is marked optional");
@@ -173,7 +173,7 @@ int main() {
         {
             Service service;
             const auto folder = temp / "reverse";
-            install_fixture(folder, service, "a1", "a", {edge("", "incompatible", "b1")});
+            install_fixture(folder, service, "a1", "a", Json::array({edge("", "incompatible", "b1")}));
             service.versions["b1"] = version("b1", "b");
             auto plan = plan_mod_install(instance(folder), service.file("b1"), {}, service.transport());
             check(plan["graph_conflicts"].size() == 1, "installed outgoing website-only version conflict is checked");
@@ -198,7 +198,7 @@ int main() {
             Service service;
             const auto folder = temp / "replacement-target";
             install_fixture(folder, service, "b1", "b");
-            service.versions["a1"] = version("a1", "a", {edge("b", "incompatible", "b1")});
+            service.versions["a1"] = version("a1", "a", Json::array({edge("b", "incompatible", "b1")}));
             service.versions["b2"] = version("b2", "b");
             auto plan = plan_mod_installs(instance(folder), Json::array({service.file("a1"), service.file("b2")}), {}, "", service.transport());
             check(plan["graph_conflicts"].empty(), "version-specific declaration does not match replaced target version");
@@ -206,7 +206,7 @@ int main() {
         {
             Service service;
             const auto folder = temp / "disabled";
-            install_fixture(folder, service, "a1", "a", {edge("b", "incompatible")}, false);
+            install_fixture(folder, service, "a1", "a", Json::array({edge("b", "incompatible")}), false);
             service.versions["b1"] = version("b1", "b");
             auto plan = plan_mod_install(instance(folder), service.file("b1"), {}, service.transport());
             check(plan["graph_conflicts"].empty(), "disabled existing outgoing declaration is inactive");
@@ -218,7 +218,7 @@ int main() {
             check(enable["graph_conflicts"].size() == 1, "explicitly enabling a reused disabled file activates its outgoing declaration");
             enable["conflicts"] = Json::array(); enable["graph_conflicts"] = Json::array();
             rejects([&] { apply_mod_plan(enable, {}, service.transport()); }, "unresolved_conflict");
-            service.versions["a2"] = version("a2", "a", {edge("b", "incompatible")});
+            service.versions["a2"] = version("a2", "a", Json::array({edge("b", "incompatible")}));
             auto update = plan_mod_install(instance(folder), service.file("a2"), {}, service.transport());
             check(update["files"][0].value("install_disabled", false) && update["graph_conflicts"].empty(),
                   "updating a disabled mod preserves disabled state and excludes its declaration");
@@ -229,7 +229,7 @@ int main() {
         }
         {
             Service service;
-            service.versions["a1"] = version("a1", "a", {edge("iris", "optional")});
+            service.versions["a1"] = version("a1", "a", Json::array({edge("iris", "optional")}));
             service.versions["iris1"] = version("iris1", "iris");
             auto managed = instance(temp / "optional-managed");
             managed["optifine"] = {{"build", "fixture"}};
@@ -293,7 +293,7 @@ int main() {
             };
             add("first1","first",first); add("second1","second",second); add("consumer1","consumer",consumer);
             atomic_write(folder/"mods/.solar-mods.json",manifest.dump());
-            service.versions["lib-web-1"] = version("lib-web-1","library",{edge("consumer","incompatible")},hash_bytes(lib1));
+            service.versions["lib-web-1"] = version("lib-web-1","library",Json::array({edge("consumer","incompatible")}),hash_bytes(lib1));
             service.versions["lib-web-1"]["version_number"] = "website-1.0";
             service.versions["lib-web-2"] = version("lib-web-2","library",Json::array(),hash_bytes(lib2));
             service.versions["lib-web-3"] = version("lib-web-3","library",Json::array(),hash_bytes(lib3));
