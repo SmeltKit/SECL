@@ -62,9 +62,12 @@ int main(){auto work=fs::temp_directory_path()/("secl-instance-backup-test-"+ran
     check(read_file(target/"restored.jar")=="client fixture","inherited client JAR copied to new id");
     auto next=Json::parse(read_file(target/"restored.json"));
     check(next.at("id")=="restored"&&next.at("jar")=="restored"&&!next.contains("inheritsFrom"),"flattened profile cannot refer to old inheritance id");
-    check(next.at("_baseId")=="1.20.1"&&next.at("_solarGameDirectory")==fs::canonical(newgame).u8string(),"game version retained and game path rewritten");
-    check(next.at("_solarOptifine").at("base").at("id")=="restored"&&next.at("_solarOptifine").at("base").at("_solarGameDirectory")==fs::canonical(newgame).u8string(),"OptiFine removal base uses new instance");
-    check(next.at("_solarOptifine").at("base").at("_baseId")=="1.20.1","removing OptiFine later retains the original Minecraft version");
+    check(next.at("_baseId")=="1.20.1"&&fs::equivalent(fs::u8path(next.at("_solarGameDirectory").get<std::string>()),newgame),
+          "game version retained and game path rewritten");
+    const auto &optifine_base=next.at("_solarOptifine").at("base");
+    check(optifine_base.at("id")=="restored"&&fs::equivalent(fs::u8path(optifine_base.at("_solarGameDirectory").get<std::string>()),newgame),
+          "OptiFine removal base uses new instance");
+    check(optifine_base.at("_baseId")=="1.20.1","removing OptiFine later retains the original Minecraft version");
     auto settings=load_instance_settings(target);
     check(settings.at("java").at("mode")=="auto"&&settings.at("isolated")==true,"machine-local Java reset and isolation forced");
     check(settings.at("display").at("name")=="Recovered"&&settings.at("display").at("cover")==""&&settings.at("display").at("favorite")==true,"name rewritten and nonportable external cover reset");

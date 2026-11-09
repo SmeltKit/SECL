@@ -26,6 +26,31 @@ bool present(const fs::path &path) {
     std::error_code ec;auto status=fs::symlink_status(path,ec);
     return !ec && status.type()!=fs::file_type::not_found;
 }
+// Cache names use 128 bits of the digest to leave room for nested game paths on
+// Windows. Receipts and payload verification still use the complete SHA-512.
+std::string cache_key(const std::string &hash) { return hash.substr(0,32); }
+
+fs::path legacy_cache_file(fs::path root,const std::string &relative) {
+#ifdef _WIN32
+    const auto native=root.make_preferred().native();
+    if(native.rfind(L"\\\\?\\",0)!=0)
+        root=native.rfind(L"\\\\",0)==0 ? L"\\\\?\\UNC\\"+native.substr(2) : L"\\\\?\\"+native;
+#endif
+    // Only look up locally constructed legacy names, without following links
+    // into locations outside the cache. Legacy data is never written here.
+    for(const auto &part:fs::u8path(relative)) {
+        root/=part;
+#ifdef _WIN32
+        const auto attributes=GetFileAttributesW(root.c_str());
+        if(attributes==INVALID_FILE_ATTRIBUTES || (attributes&FILE_ATTRIBUTE_REPARSE_POINT))return {};
+#else
+        std::error_code error;
+        const auto status=fs::symlink_status(root,error);
+        if(error || !fs::exists(status) || fs::is_symlink(status))return {};
+#endif
+    }
+    return root;
+}
 std::string lower(std::string value) {
     std::transform(value.begin(),value.end(),value.begin(),[](unsigned char c){return char(std::tolower(c));});return value;
 }
@@ -80,12 +105,17 @@ Json orphan_owner(const fs::path &root,const std::string &id,const std::string &
         if(present(checked_path(root,"versions/"+id)))return Json();
         auto game=checked_path(root,"instances/"+id);
         if(!fs::is_directory(game) || fs::is_symlink(game))return Json();
-        auto owner=read_json(checked_path(root,".solar-mrpack/"+hash+"/attempts/"+id+"/owner.json"));
         auto receipt=read_json(checked_path(game,".solar-modpack.json"));
-        auto token=owner.value("token","");
-        if(owner.value("archive_sha512","")==hash && owner.value("id","")==id &&
-           std::regex_match(token,std::regex("[A-Za-z0-9_-]{16,128}")) && receipt.value("transaction","")==token &&
-           receipt.value("archive_sha512","")==hash && receipt.value("id","")==id)return owner;
+        if(receipt.value("archive_sha512","")!=hash || receipt.value("id","")!=id)return Json();
+        const auto suffix="/attempts/"+id+"/owner.json";
+        for(const auto &path:{checked_path(root,".solar-mrpack/"+cache_key(hash)+suffix),
+                             legacy_cache_file(root,".solar-mrpack/"+hash+suffix)}) {
+            if(path.empty() || !present(path))continue;
+            auto owner=read_json(path);
+            auto token=owner.value("token","");
+            if(owner.value("archive_sha512","")==hash && owner.value("id","")==id &&
+               std::regex_match(token,std::regex("[A-Za-z0-9_-]{16,128}")) && receipt.value("transaction","")==token)return owner;
+        }
     } catch(const std::exception&) {}
     return Json();
 }
@@ -100,17 +130,23 @@ void verify_payload(const fs::path &path,const Json &file,const Task &t) {
         hash_file(path,"sha1",t.cancel)==file.at("sha1"),
         "verification_failed","整合包文件大小或哈希校验失败。");
 }
+bool valid_payload(const fs::path &path,const Json &file,const Task &t) {
+    if(path.empty())return false;
+    try { verify_payload(path,file,t);return true; }
+    catch(const Error&) { t.check();return false; }
+}
 // Cache publication is atomic and never replaces a differing shared game file.
 // That prevents an imported pack from changing another instance's libraries.
-void copy_verified(const fs::path &from,const fs::path &to,const Task &t) {
+void copy_verified(const fs::path &from,const fs::path &to,const Task &t,const std::string &expected_hash={}) {
     t.check();require_pack(fs::is_regular_file(from) && !fs::is_symlink(from),"unsafe_cache","整合包缓存包含无效文件。");
     const auto hash=hash_file(from,"sha512",t.cancel);const auto size=fs::file_size(from);
+    require_pack(expected_hash.empty() || hash==expected_hash,"verification_failed","整合包文件哈希校验失败。");
     if(present(to)) {
         require_pack(fs::is_regular_file(to) && !fs::is_symlink(to) && fs::file_size(to)==size && hash_file(to,"sha512",t.cancel)==hash,
             "shared_file_conflict","共享游戏文件与整合包要求不同，未覆盖已有文件。");return;
     }
     fs::create_directories(to.parent_path());
-    auto temp=to;temp+=".tmp-"+random_url_token();
+    auto temp=to.parent_path()/(".tmp-"+random_url_token().substr(0,24));
     try {
         std::ifstream input(from,std::ios::binary);std::ofstream output(temp,std::ios::binary|std::ios::trunc);
         char bytes[65536];
@@ -329,7 +365,7 @@ Json apply_modpack(const Json &reviewed,const Task &t) {
     // archive. Cached or edited descriptor fields never authorize filesystem IO.
     auto root=fs::u8path(plan.at("root").get<std::string>());
     auto id=plan.at("id").get<std::string>(),hash=plan.at("archive_sha512").get<std::string>();
-    auto base=checked_path(root,".solar-mrpack/"+hash);
+    auto base=checked_path(root,".solar-mrpack/"+cache_key(hash));
     ImportLock lock(checked_path(base,".lock"));
     ImportLock reservation(checked_path(root,".solar-mrpack-locks/"+id+".lock"));
     auto orphan=orphan_owner(root,id,hash);
@@ -376,9 +412,14 @@ Json apply_modpack(const Json &reviewed,const Task &t) {
             t.report("下载并校验整合包文件",done,plan.at("files").size());
             continue;
         }
-        auto cache=checked_path(base,"downloads/"+file.at("sha512").get<std::string>());
-        bool valid=false;
-        try{verify_payload(cache,file,t);valid=true;}catch(const Error&){t.check();}
+        const auto payload_hash=file.at("sha512").get<std::string>();
+        auto cache=checked_path(base,"downloads/"+cache_key(payload_hash));
+        auto source=cache;
+        bool valid=valid_payload(cache,file,t);
+        if(!valid) {
+            auto legacy=legacy_cache_file(root,".solar-mrpack/"+hash+"/downloads/"+payload_hash);
+            if(valid_payload(legacy,file,t)) { source=std::move(legacy);valid=true; }
+        }
         if(!valid) {
             std::optional<Error> last;
             size_t attempts=0;
@@ -391,7 +432,7 @@ Json apply_modpack(const Json &reviewed,const Task &t) {
             }
             if(!valid)throw *last;
         }
-        auto to=destination(file.at("path"));copy_verified(cache,to,t);
+        auto to=destination(file.at("path"));copy_verified(source,to,t,payload_hash);
         ++done;t.report("下载并校验整合包文件",done,plan.at("files").size());
     }
     t.report("应用整合包配置");

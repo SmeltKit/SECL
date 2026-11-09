@@ -47,13 +47,16 @@ fs::path checked_path(const fs::path &root, const std::string &relative) {
 }
 void atomic_write(const fs::path &target, const std::string &bytes) {
     fs::create_directories(target.parent_path());
-    auto stage = target;
-    stage += ".tmp-" + random_url_token();
+    // Use a short sibling rather than extending the destination name. Appending
+    // a full token can exceed Windows' path limit even when the destination fits.
+    const auto stage = target.parent_path() / (".tmp-" + random_url_token().substr(0, 24));
     try {
         std::ofstream f(stage, std::ios::binary | std::ios::trunc);
         if (!f.write(bytes.data(), std::streamsize(bytes.size())))
             throw Error("files", "write_failed", "无法写入文件。");
         f.close();
+        if (!f)
+            throw Error("files", "write_failed", "无法写入文件。");
         std::error_code ec;
         fs::rename(stage, target, ec);
 #ifdef _WIN32

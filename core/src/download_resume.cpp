@@ -204,7 +204,7 @@ void safe_target(const fs::path &target) {
 }
 void commit(const fs::path &part, const fs::path &target, bool executable, const Spec &spec, const Task &task) {
     safe_target(target);
-    const auto temporary = target.parent_path() / (".solar-download-" + random_url_token());
+    const auto temporary = target.parent_path() / (".tmp-" + random_url_token().substr(0, 24));
     try {
         fs::create_directories(target.parent_path());
         checked_path(target.parent_path(), temporary.filename().u8string());

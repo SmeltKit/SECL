@@ -21,7 +21,8 @@ constexpr size_t budget = 32 * 1024 * 1024;
 // Size+mtime alone is not enough: replacing a jar while restoring its mtime
 // must invalidate browsing data. Use file identity and change time as well.
 // When a platform cannot provide a reliable stamp, fall back to reading bytes.
-std::string stamp(const fs::path &path) {
+struct Stamp { std::string identity; bool settled = false; };
+Stamp stamp(const fs::path &path) {
     if (fs::is_symlink(path) || !fs::is_regular_file(path))
         throw Error("mods", "invalid_file", "模组文件不存在或不是普通文件。");
 #ifdef _WIN32
@@ -35,10 +36,20 @@ std::string stamp(const fs::path &path) {
         !GetFileInformationByHandleEx(h, FileBasicInfo, &basic, sizeof(basic)) ||
         (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) ||
         basic.ChangeTime.QuadPart == 0) return {};
-    return std::to_string(info.dwVolumeSerialNumber) + ":" + std::to_string(info.nFileIndexHigh) + ":" +
+    // A truncate and mtime restore in the same NTFS clock tick can leave
+    // both timestamps identical. Cache metadata only once that tick has passed.
+    FILETIME clock{};
+    GetSystemTimeAsFileTime(&clock);
+    ULARGE_INTEGER now{};
+    now.LowPart = clock.dwLowDateTime;
+    now.HighPart = clock.dwHighDateTime;
+    constexpr std::uint64_t settle_ticks = 1'000'000; // 100 ms in FILETIME units
+    const auto changed = static_cast<std::uint64_t>(basic.ChangeTime.QuadPart);
+    return {std::to_string(info.dwVolumeSerialNumber) + ":" + std::to_string(info.nFileIndexHigh) + ":" +
         std::to_string(info.nFileIndexLow) + ":" + std::to_string(info.nFileSizeHigh) + ":" +
         std::to_string(info.nFileSizeLow) + ":" + std::to_string(basic.LastWriteTime.QuadPart) + ":" +
-        std::to_string(basic.ChangeTime.QuadPart);
+        std::to_string(basic.ChangeTime.QuadPart),
+        now.QuadPart > changed && now.QuadPart - changed > settle_ticks};
 #else
     struct stat s{};
     if (lstat(path.c_str(), &s) != 0 || !S_ISREG(s.st_mode)) return {};
@@ -47,9 +58,9 @@ std::string stamp(const fs::path &path) {
 #else
     auto m = s.st_mtim, c = s.st_ctim;
 #endif
-    return std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" + std::to_string(s.st_size) + ":" +
+    return {std::to_string(s.st_dev) + ":" + std::to_string(s.st_ino) + ":" + std::to_string(s.st_size) + ":" +
         std::to_string(m.tv_sec) + ":" + std::to_string(m.tv_nsec) + ":" +
-        std::to_string(c.tv_sec) + ":" + std::to_string(c.tv_nsec);
+        std::to_string(c.tv_sec) + ":" + std::to_string(c.tv_nsec), true};
 #endif
 }
 Json bind(Json value, const fs::path &path) {
@@ -63,10 +74,10 @@ Json bind(Json value, const fs::path &path) {
 Json scan_mod_file(const fs::path &path, const std::string &loader, bool use_cache) {
     auto before = stamp(path);
     auto key = fs::absolute(path).lexically_normal().u8string() + "\n" + loader;
-    if (use_cache && !before.empty()) {
+    if (use_cache && before.settled) {
         std::lock_guard<std::mutex> lock(mutex);
         auto found = files.find(key);
-        if (found != files.end() && found->second.stamp == before) {
+        if (found != files.end() && found->second.stamp == before.identity) {
             auto content = parsed.find(found->second.content);
             if (content != parsed.end()) {
                 ++fast_hits; return bind(content->second.value, path);
@@ -86,7 +97,7 @@ Json scan_mod_file(const fs::path &path, const std::string &loader, bool use_cac
         std::lock_guard<std::mutex> lock(mutex); ++parses;
     }
     auto after = stamp(path);
-    if (before != after)
+    if (before.identity != after.identity)
         throw Error("mods", "file_changed", "模组文件已变化，请刷新列表。");
     {
         std::lock_guard<std::mutex> lock(mutex);
@@ -97,9 +108,9 @@ Json scan_mod_file(const fs::path &path, const std::string &loader, bool use_cac
             }
             parsed.emplace(content_key, Parsed{value, size}); cached_bytes += size;
         }
-        if (!after.empty()) {
+        if (before.settled && after.settled) {
             if (files.size() >= 1024) files.erase(files.begin());
-            files[key] = {after, content_key};
+            files[key] = {after.identity, content_key};
         }
     }
     return bind(std::move(value), path);

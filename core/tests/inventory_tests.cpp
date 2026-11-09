@@ -1,8 +1,10 @@
 // Copyright (C) 2026 ppm203. SPDX-License-Identifier: GPL-3.0-only
 #include "solar/engine.hpp"
 #include "../src/mod_scan_cache.hpp"
+#include <chrono>
 #include <fstream>
 #include <iostream>
+#include <thread>
 #include <zlib.h>
 
 using namespace solar;
@@ -81,6 +83,12 @@ static Json source_record(const std::string &hash, const std::string &title) {
             {"title", title}, {"sourceStatus", "matched"}};
 }
 
+static void settle_file_stamp() {
+#ifdef _WIN32
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+#endif
+}
+
 int main() {
     const auto temp = fs::temp_directory_path() / ("solar-inventory-tests-" + random_url_token());
     try {
@@ -89,6 +97,7 @@ int main() {
         run("browsing and fresh cache scans", [&] {
             auto i = instance(temp / "cache");
             atomic_write(temp / "cache/mods/demo.jar", jar(mod("demo")));
+            settle_file_stamp();
             clear_mod_scan_cache();
             auto first = instance_inventory(i, "mod");
             auto initial = mod_scan_cache_stats();
@@ -113,6 +122,7 @@ int main() {
             auto before_bytes = jar(mod("oldx")), after_bytes = jar(mod("newx"));
             check(before_bytes.size() == after_bytes.size(), "replacement fixture has identical size");
             atomic_write(file, before_bytes);
+            settle_file_stamp();
             clear_mod_scan_cache();
             auto before = instance_inventory(i, "mod");
             const auto mtime = fs::last_write_time(file);
@@ -177,6 +187,7 @@ int main() {
             auto game = temp / "manifest-hit";
             const auto bytes = jar(mod("local_name")), hash = hash_bytes(bytes);
             atomic_write(game / "mods/demo.jar", bytes);
+            settle_file_stamp();
             clear_mod_scan_cache();
             auto initial = instance_inventory(i, "mod");
             check(row(initial, "demo.jar").at("detection").at("source") == "not_checked", "unqueried source is explicit");

@@ -161,18 +161,25 @@ std::string run_capture(const fs::path &exe, const std::vector<std::string> &arg
         CloseHandle(reader);
         return {};
     }
+    constexpr size_t max_output = 65536;
     std::string out;
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout);
     while (true) {
+        // Read after waiting so a child that just exited cannot leave unread output.
+        const auto status = WaitForSingleObject(child.hProcess, 10);
         DWORD available = 0;
-        if (PeekNamedPipe(reader, nullptr, 0, nullptr, &available, nullptr) && available) {
+        if (PeekNamedPipe(reader, nullptr, 0, nullptr, &available, nullptr)) {
             char b[4096];
-            DWORD got = 0;
-            if (ReadFile(reader, b, DWORD(std::min<size_t>(available, sizeof(b))), &got, nullptr) &&
-                out.size() < 65536)
-                out.append(b, got);
+            while (available) {
+                DWORD got = 0;
+                if (!ReadFile(reader, b, DWORD(std::min<size_t>(available, sizeof(b))), &got, nullptr) ||
+                    !got)
+                    break;
+                out.append(b, std::min<size_t>(got, max_output - out.size()));
+                available -= got;
+            }
         }
-        if (WaitForSingleObject(child.hProcess, 10) == WAIT_OBJECT_0)
+        if (status == WAIT_OBJECT_0)
             break;
         if (std::chrono::steady_clock::now() > deadline) {
             TerminateProcess(child.hProcess, 1);

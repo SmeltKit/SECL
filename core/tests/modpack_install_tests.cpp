@@ -135,7 +135,15 @@ struct Fixture {
             {"server-overrides/server.properties", "dedicated server only"}};
         rewrite_archive();
     }
-    ~Fixture() { std::error_code error; fs::remove_all(temp, error); }
+    ~Fixture() {
+        std::error_code error;
+#ifdef _WIN32
+        const auto native = temp.make_preferred().native();
+        if (native.rfind(L"\\\\?\\", 0) != 0)
+            temp = native.rfind(L"\\\\", 0) == 0 ? L"\\\\?\\UNC\\" + native.substr(2) : L"\\\\?\\" + native;
+#endif
+        fs::remove_all(temp, error);
+    }
     void rewrite_archive() {
         const auto *index = archive.extension() == ".zip" ? "manifest.json" : "modrinth.index.json";
         std::vector<std::pair<std::string, std::string>> entries{{index, document.dump()}};
@@ -155,9 +163,20 @@ struct Fixture {
     Json plan() { return plan_modpack(request(), task()); }
     fs::path game() const { return root / "instances" / id; }
     fs::path version() const { return root / "versions" / id; }
+    fs::path cache_base(const Json &plan) const {
+        return root / ".solar-mrpack" / plan.at("archive_sha512").get<std::string>().substr(0, 32);
+    }
+    fs::path legacy_cache_base(const Json &plan) const {
+        auto base = root / ".solar-mrpack" / plan.at("archive_sha512").get<std::string>();
+#ifdef _WIN32
+        const auto native = base.make_preferred().native();
+        if (native.rfind(L"\\\\?\\", 0) != 0)
+            base = native.rfind(L"\\\\", 0) == 0 ? L"\\\\?\\UNC\\" + native.substr(2) : L"\\\\?\\" + native;
+#endif
+        return base;
+    }
     fs::path cached(const Json &plan, std::size_t index = 0) const {
-        return root / ".solar-mrpack" / plan.at("archive_sha512").get<std::string>() /
-            "downloads" / plan.at("files").at(index).at("sha512").get<std::string>();
+        return cache_base(plan) / "downloads" / plan.at("files").at(index).at("sha512").get<std::string>().substr(0, 32);
     }
     void unpublished() const {
         check(!fs::exists(game()) && !fs::exists(version()), "failed install publishes no instance or game directory");
@@ -349,6 +368,23 @@ int main(int argc, char **argv) {
         check(fixture.network.count(first_url) == 1 && fixture.network.count(second_url) == 2, "retry fetches only missing payload");
         check(fs::is_regular_file(fixture.version() / (fixture.id + ".json")), "retry publishes completed instance");
     });
+    run("legacy downloads are reused only after full verification", [] {
+        Fixture fixture; auto plan = fixture.plan();
+        const auto downloads = fixture.legacy_cache_base(plan) / "downloads";
+        const auto first = downloads / plan["files"][0]["sha512"].get<std::string>();
+        const auto second = downloads / plan["files"][1]["sha512"].get<std::string>();
+        const auto first_bytes = fixture.network.bytes(first_url);
+        const std::string corrupt(fixture.network.bytes(second_url).size(), 'x');
+        atomic_write(first, first_bytes);
+        atomic_write(second, corrupt);
+        apply_modpack(plan, fixture.task());
+        check(fixture.network.count(first_url) == 0 && fixture.network.count(second_url) == 1,
+            "valid legacy bytes are reused and corrupt legacy bytes are refetched");
+        check(read_file(first) == first_bytes && read_file(second) == corrupt,
+            "legacy payloads are left untouched");
+        check(read_file(fixture.game() / "config/second.txt") == fixture.network.bytes(second_url),
+            "downloaded replacement was installed");
+    });
     run("cancellation preserves verified cache for resume", [] {
         Fixture fixture; auto plan = fixture.plan(); auto task = fixture.task();
         task.progress = [&](const std::string &stage, std::int64_t done, std::int64_t) {
@@ -362,9 +398,9 @@ int main(int argc, char **argv) {
     run("matching orphan transaction is recovered without losing its files", [] {
         Fixture fixture; auto original_plan = fixture.plan();
         const auto hash = original_plan.at("archive_sha512").get<std::string>();
-        const auto base = fixture.root / ".solar-mrpack" / hash;
+        const auto base = fixture.cache_base(original_plan);
         const std::string token = "interrupted_transaction_01234567";
-        atomic_write(base / "attempts" / fixture.id / "owner.json",
+        atomic_write(fixture.legacy_cache_base(original_plan) / "attempts" / fixture.id / "owner.json",
             Json{{"archive_sha512", hash}, {"id", fixture.id}, {"token", token}}.dump());
         atomic_write(fixture.game() / ".solar-modpack.json",
             Json{{"archive_sha512", hash}, {"id", fixture.id}, {"transaction", token}}.dump());
@@ -388,7 +424,7 @@ int main(int argc, char **argv) {
     run("mismatched orphan ownership cannot recover an existing game directory", [] {
         for (int defect = 0; defect != 3; ++defect) {
             Fixture fixture; auto plan = fixture.plan(); const auto hash = plan.at("archive_sha512").get<std::string>();
-            const auto base = fixture.root / ".solar-mrpack" / hash;
+            const auto base = fixture.cache_base(plan);
             const std::string token = "interrupted_transaction_01234567";
             Json owner{{"archive_sha512", hash}, {"id", fixture.id}, {"token", token}};
             Json receipt{{"archive_sha512", hash}, {"id", fixture.id}, {"transaction", token}};
@@ -407,8 +443,8 @@ int main(int argc, char **argv) {
         }
     });
     run("persistent empty lock files permit a new installation", [] {
-        Fixture fixture; auto plan = fixture.plan(); const auto hash = plan.at("archive_sha512").get<std::string>();
-        auto archive_lock = fixture.root / ".solar-mrpack" / hash / ".lock";
+        Fixture fixture; auto plan = fixture.plan();
+        auto archive_lock = fixture.cache_base(plan) / ".lock";
         auto instance_lock = fixture.root / ".solar-mrpack-locks" / (fixture.id + ".lock");
         atomic_write(archive_lock, ""); atomic_write(instance_lock, "");
         auto result = apply_modpack(plan, fixture.task());
@@ -441,7 +477,7 @@ int main(int argc, char **argv) {
         fixture.network.okay(assets_url, assets); fixture.network.okay(asset_url, asset);
         fixture.network.okay(library_url, library); fixture.network.okay(executable_url, executable);
         auto first_plan = fixture.plan(); auto first = apply_modpack(first_plan, fixture.task());
-        const auto base = fixture.root / ".solar-mrpack" / first_plan.at("archive_sha512").get<std::string>();
+        const auto base = fixture.cache_base(first_plan);
         check(first["committed"] == true && !fs::exists(base / "game-root"), "successful import removes its duplicate prepared game tree");
         check(fs::is_regular_file(fixture.cached(first_plan)) && fs::is_regular_file(fixture.cached(first_plan, 1)),
             "successful import retains verified pack downloads");
@@ -471,7 +507,7 @@ int main(int argc, char **argv) {
     });
     run("an empty legacy private game lock is cleared for resume", [] {
         Fixture fixture; auto plan = fixture.plan(); const auto hash = plan.at("archive_sha512").get<std::string>();
-        const auto prepared = fixture.root / ".solar-mrpack" / hash / "game-root";
+        const auto prepared = fixture.cache_base(plan) / "game-root";
         const auto lock = prepared / "versions" / ("mrpack-" + hash.substr(0, 16)) / ".solar-install-lock";
         fs::create_directories(lock);
         auto result = apply_modpack(plan, fixture.task());
@@ -481,7 +517,7 @@ int main(int argc, char **argv) {
     run("nonempty or foreign legacy game locks are preserved and rejected", [] {
         for (int kind = 0; kind != 2; ++kind) {
             Fixture fixture; auto plan = fixture.plan(); const auto hash = plan.at("archive_sha512").get<std::string>();
-            const auto prepared = fixture.root / ".solar-mrpack" / hash / "game-root";
+            const auto prepared = fixture.cache_base(plan) / "game-root";
             const auto lock = prepared / "versions" / ("mrpack-" + hash.substr(0, 16)) / ".solar-install-lock";
             if (kind == 0) atomic_write(lock / "foreign-owner.txt", "retain foreign lock contents");
             else atomic_write(lock, "foreign lock file");
@@ -502,7 +538,7 @@ int main(int argc, char **argv) {
         check(reached_promotion && fixture.network.count(client_url) == 1 && fixture.network.count(assets_url) == 1,
             "cancellation reaches publication stage after real game preparation");
         check(scan_instances({fixture.root})["instances"].empty(), "hidden prepared version is never discovered");
-        check(fs::is_directory(fixture.root / ".solar-mrpack" / plan.at("archive_sha512").get<std::string>() / "game-root"),
+        check(fs::is_directory(fixture.cache_base(plan) / "game-root"),
             "failed publication retains prepared game files for resume");
         check(!fs::exists(fixture.root / "assets/indexes/fixture-assets.json"), "cancelled promotion publishes no shared index");
         auto result = apply_modpack(plan, fixture.task());
