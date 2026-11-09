@@ -101,8 +101,15 @@ def windows_tools(args):
 
 
 def require_flutter(flutter):
-    version = json.loads(output(flutter, "--version", "--machine"))
-    if version["frameworkVersion"] != FLUTTER_VERSION:
+    # On a fresh SDK, Flutter prints bootstrap progress before its JSON.
+    _, separator, machine_output = output(flutter, "--version", "--machine").rpartition("\n{")
+    if separator:
+        machine_output = "{" + machine_output
+    try:
+        version = json.loads(machine_output)
+    except json.JSONDecodeError:
+        raise SystemExit("Could not read the Flutter SDK version.") from None
+    if not isinstance(version, dict) or version.get("frameworkVersion") != FLUTTER_VERSION:
         raise SystemExit(f"Use Flutter {FLUTTER_VERSION}. Set --flutter to its executable; the project pins this SDK.")
 
 
